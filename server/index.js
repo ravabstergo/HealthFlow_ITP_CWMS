@@ -3,6 +3,9 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const connectDB = require("./config/DB");
 
+const prescriptionRoutes = require('./routes/PrescriptionRoute');
+const aiModelRoute = require('./routes/aiModelRoute');
+
 const authRoutes = require("./routes/authRoutes");
 
 const app = express();
@@ -18,6 +21,12 @@ app.use(express.json());
 // Routes
 console.log("Setting up routes...");
 app.use("/api/auth", authRoutes);
+
+app.use('/api/prescriptions', prescriptionRoutes);
+
+require('./aiModel');
+app.use("/api",aiModelRoute);
+
 
 // DB Connection
 connectDB();
