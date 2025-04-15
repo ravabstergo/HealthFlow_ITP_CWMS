@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require("dotenv");
 const connectDB = require('./config/DB');
+const appointmentRoutes = require("./routes/appointmentRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,6 +22,9 @@ app.get('/', (req, res) => {
 
 // DB Connection
 connectDB();
+
+
+app.use('/api/appointments',appointmentRoutes);
 
 // Start server
 app.listen(PORT, () => {
