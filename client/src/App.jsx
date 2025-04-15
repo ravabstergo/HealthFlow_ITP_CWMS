@@ -9,7 +9,7 @@ import PatientInformationTab from "./components/patient-detail/PatientInformatio
 import AppointmentHistoryTab from "./components/patient-detail/AppointmentHistoryTab";
 import NextTreatmentTab from "./components/patient-detail/NextTreatmentTab";
 import MedicalRecordTab from "./components/patient-detail/MedicalRecordTab";
-import AppointmentsPage from "./pages/appointments-page";
+import DoctorSchedule from './components/DoctorSchedule';
 
 function App() {
   const { isAuthenticated, loading } = useAuthContext();
@@ -52,8 +52,8 @@ function App() {
             <Route path="treatment" element={<NextTreatmentTab />} />
             <Route path="record" element={<MedicalRecordTab />} />
           </Route>
-          <Route path="appointments" element={<AppointmentsPage />} />
-        </Route>
+          <Route path="schedule" element={<DoctorSchedule />} />   
+     </Route>
       </Routes>
     </div>
   );
