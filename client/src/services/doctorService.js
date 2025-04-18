@@ -45,8 +45,22 @@ const createSchedule = async (doctorId, data) => {
     }
 };
 
+const getAppointmentsByDoctor = async (doctorId) => {
+    try {
+        const response = await fetch(`/api/appointments/appointments/doctor/${doctorId}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch doctor appointments');
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Error:', error);
+        throw error;
+    }
+};
+
 export {
     getDoctorSchedules,
     deleteAvailability,
-    createSchedule
+    createSchedule,
+    getAppointmentsByDoctor
 };

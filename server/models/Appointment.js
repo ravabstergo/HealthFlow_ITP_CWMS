@@ -14,7 +14,10 @@ const appointmentSchema = new Schema({
     },
     slotId: {
         type: Schema.Types.ObjectId,
-        ref: 'Slot',
+        required: true
+    },
+    time: {
+        type: Date,
         required: true
     },
     reason: {
@@ -53,12 +56,10 @@ const appointmentSchema = new Schema({
         type: Date,
         default: Date.now
     },
-
     channelName: { 
         type: String, 
         default: ''
     }, 
-
     agoraToken: { 
         type: String,
         default: ''

@@ -15,7 +15,8 @@ const {
     getActiveAppointments,
     getAppointmentsByPatientName,
     searchDoctorByName,
-    deleteAvailability
+    deleteAvailability,
+    updateAppointmentStatus
 } = require('../controllers/appointmentController')
 const { create } = require('../models/Appointment')
 
@@ -64,5 +65,8 @@ router.get('/doctors/search/:name', searchDoctorByName)
 
 //delete availability
 router.delete('/availability/:doctorId/:availabilityId', deleteAvailability)
+
+//update appointment status
+router.patch('/appointments/:id', updateAppointmentStatus)
 
 module.exports = router

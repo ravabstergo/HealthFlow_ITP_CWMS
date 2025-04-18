@@ -114,8 +114,8 @@ const getDoctorSlots = async (req, res) => {
       }
   
       // Generate Agora token
-      const APP_ID = '18713c1eb82746e68c49288b56a780c3'; // Replace with your Agora App ID
-      const APP_CERTIFICATE = '3cc0008156594102a3ff71848a5a65bb'; // Replace with your Agora App Certificate
+      const APP_ID = process.env.APP_ID; // Replace with your Agora App ID
+      const APP_CERTIFICATE = process.env.APP_CERTIFICATE; // Replace with your Agora App Certificate
   
       const channelName = `appointment-${slotId}`; // Unique channel name for the appointment
       const uid = 0; // User ID (0 means any user)
@@ -135,11 +135,12 @@ const getDoctorSlots = async (req, res) => {
         privilegeExpiredTs
       );
   
-      // Create the appointment
+      // Create the appointment with the slot time
       const appointment = new Appointment({
         doctorId,
         patientId,
         slotId,
+        time: new Date(slot.slotTime), // Save the slot time in the time field
         reason,
         title,
         firstName,
@@ -160,7 +161,8 @@ const getDoctorSlots = async (req, res) => {
   
       res.status(201).json(appointment);
     } catch (error) {
-      res.status(500).json({ message: 'Error booking appointment', error });
+      console.error('Error in bookAppointment:', error);
+      res.status(500).json({ message: 'Error booking appointment', error: error.message });
     }
   };
 
@@ -274,7 +276,7 @@ const updateSchedule = async (req, res) => {
 const getAppointmentById = async (req, res) => {
   try {
     const appointmentId = req.params.id;
-    const appointment = await Appointment.findOne(appointmentId);
+    const appointment = await Appointment.findById(appointmentId);
 
     if (!appointment) {
       return res.status(404).json({ message: 'Appointment not found.' });
@@ -288,20 +290,40 @@ const getAppointmentById = async (req, res) => {
 };
 
 //get all appointments of a doctor
-
 const getAppointmentsByDoctor = async (req, res) => {
   try {
     const doctorId = req.params.doctorId;
-    const appointments = await Appointment.find({doctorId});
+    
+    // Get all appointments for the doctor
+    const appointments = await Appointment.find({ doctorId });
 
     if (!appointments.length) {
       return res.status(404).json({ message: 'No appointments found for this doctor.' });
     }
 
-    res.status(200).json(appointments);
+    // Get all schedules for the doctor
+    const schedules = await DoctorSchedule.find({ doctorId });
+    
+    // Map over appointments and add slot time information
+    const appointmentsWithSlotTime = await Promise.all(appointments.map(async (apt) => {
+      const aptObj = apt.toObject();
+      
+      // Find the schedule containing this slot
+      for (const schedule of schedules) {
+        const slot = schedule.slots.id(apt.slotId);
+        if (slot) {
+          aptObj.time = slot.slotTime;
+          break;
+        }
+      }
+      
+      return aptObj;
+    }));
+
+    res.status(200).json(appointmentsWithSlotTime);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error fetching appointments.', error });
+    console.error('Error in getAppointmentsByDoctor:', error);
+    res.status(500).json({ message: 'Error fetching appointments.', error: error.message });
   }
 };
 
@@ -460,6 +482,29 @@ const deleteAvailability = async (req, res) => {
   }
 };
 
+//update appointment status
+const updateAppointmentStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const appointment = await Appointment.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true, runValidators: true }
+    );
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found.' });
+    }
+
+    res.status(200).json(appointment);
+  } catch (error) {
+    console.error('Error in updateAppointmentStatus:', error);
+    res.status(500).json({ message: 'Error updating appointment status.', error: error.message });
+  }
+};
+
 module.exports = {
     getAllDoctors,
     createSchedule,
@@ -475,5 +520,6 @@ module.exports = {
     getActiveAppointments,
     getAppointmentsByPatientName,
     searchDoctorByName,
-    deleteAvailability, // Add the new function to exports
-}
+    deleteAvailability,
+    updateAppointmentStatus
+};
