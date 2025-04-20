@@ -5,7 +5,7 @@ import Card from "../ui/card";
 import Button from "../ui/button";
 import Input from "../ui/input";
 import Modal from "../ui/modal";
-import { Plus, Trash2, FileText, Calendar, User, Clock, Eye, Edit, Save } from "lucide-react";
+import { Plus, Trash2, FileText, Calendar, User, Clock, Eye, Edit, Save, Bot } from "lucide-react";
 
 export default function NextTreatmentTab() {
   const patientId = "67fe16ea33dbb0c55720cbc7"; // Replace with actual patient ID from context or props
@@ -25,7 +25,6 @@ export default function NextTreatmentTab() {
   const [patientName, setPatientName] = useState("");
   const [selectedPrescription, setSelectedPrescription] = useState(null);
   const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [prescriptionToDelete, setPrescriptionToDelete] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedPrescription, setEditedPrescription] = useState(null);
@@ -153,7 +152,19 @@ export default function NextTreatmentTab() {
     setViewModalOpen(true);
   };
 
-  const handleDeletePrescription = async () => {
+  const handleDeletePrescription = async (prescriptionToDelete) => {
+    if (!prescriptionToDelete || !prescriptionToDelete._id) {
+      console.error("Invalid prescription object");
+      setError("Cannot delete prescription: Invalid prescription data");
+      return;
+    }
+
+    const confirmDelete = window.confirm("Are you sure you want to delete this prescription? This action cannot be undone.");
+    
+    if (!confirmDelete) {
+      return;
+    }
+
     try {
       const token = TokenService.getAccessToken();
       const response = await fetch(`/api/prescriptions/${prescriptionToDelete._id}`, {
@@ -169,13 +180,19 @@ export default function NextTreatmentTab() {
 
       // Remove the deleted prescription from the state
       setPrescriptions(prescriptions.filter(p => p._id !== prescriptionToDelete._id));
-      setShowDeleteConfirm(false);
-      setPrescriptionToDelete(null);
       setViewModalOpen(false);
     } catch (err) {
       console.error("Error deleting prescription:", err);
       setError(err.message);
     }
+  };
+
+  const handleDeleteClick = (prescription) => {
+    if (!prescription) {
+      console.error("No prescription provided to delete");
+      return;
+    }
+    handleDeletePrescription(prescription);
   };
 
   const handleEditClick = () => {
@@ -244,6 +261,16 @@ export default function NextTreatmentTab() {
 
   const prescriptionForm = (
     <div className="w-full space-y-6">
+      <div className="flex justify-end mb-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-full w-10 h-10 bg-blue-50 hover:bg-blue-100"
+          title="AI Assistant (Coming Soon)"
+        >
+          <Bot className="w-5 h-5 text-blue-600" />
+        </Button>
+      </div>
       <div className="space-y-6">
         {medicines.map((medicine, index) => (
           <Card key={index} className="shadow-sm">
@@ -360,39 +387,6 @@ export default function NextTreatmentTab() {
   return (
     <>
       <Modal
-        isOpen={showDeleteConfirm}
-        onClose={() => {
-          setShowDeleteConfirm(false);
-          setPrescriptionToDelete(null);
-        }}
-        title="Confirm Delete"
-        size="sm"
-        footer={
-          <div className="flex space-x-2">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setShowDeleteConfirm(false);
-                setPrescriptionToDelete(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              onClick={handleDeletePrescription}
-            >
-              Delete
-            </Button>
-          </div>
-        }
-      >
-        <p className="text-gray-600">
-          Are you sure you want to delete this prescription? This action cannot be undone.
-        </p>
-      </Modal>
-
-      <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Create New Prescription"
@@ -432,10 +426,7 @@ export default function NextTreatmentTab() {
                     variant="danger"
                     size="sm"
                     icon={<Trash2 className="w-4 h-4" />}
-                    onClick={() => {
-                      setPrescriptionToDelete(selectedPrescription);
-                      setShowDeleteConfirm(true);
-                    }}
+                    onClick={() => handleDeleteClick(selectedPrescription)}
                   >
                     Delete
                   </Button>
