@@ -143,36 +143,22 @@ const DeletePrescription= async (req,res)=>{
 const SearchPrescription = async (req, res) => {
     try {
         const { query } = req.params;
+        
+        // First find users matching the name query
+        const matchingPatients = await user.find({
+            name: { $regex: query, $options: 'i' }
+        }).select('_id');
 
-        const prescriptions = await prescription.aggregate([
-            {
-                $lookup: {
-                    from: 'users', 
-                    localField: 'patientId',
-                    foreignField: '_id',
-                    as: 'patient'
-                }
-            },
-            {
-                $unwind: '$patient'
-            },
-            {
-                $match: {
-                    'patient.name': { $regex: query, $options: 'i' }
-                }
-            },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: 'doctorId',
-                    foreignField: '_id',
-                    as: 'doctor'
-                }
-            },
-            {
-                $unwind: '$doctor'
-            }
-        ]);
+        const patientIds = matchingPatients.map(p => p._id);
+
+        // Then find prescriptions for these patients
+        const prescriptions = await prescription
+            .find({
+                patientId: { $in: patientIds }
+            })
+            .populate('patientId', 'name email mobile')
+            .populate('doctorId', 'name email mobile')
+            .sort({ dateIssued: -1 });
 
         res.status(200).json(prescriptions);
     } catch (error) {

@@ -159,7 +159,7 @@ export default function PrescriptionPage() {
               <div className="flex justify-between items-center mb-6">
                 <div className="space-y-1">
                   <h2 className="text-2xl font-bold text-gray-800">
-                    Dr. {doctorDetails?.name}
+                    Dr. {doctorDetails?.name || "Unknown"}
                   </h2>
                   <p className="text-sm text-gray-500">
                     Total Prescriptions: {prescriptions.length}

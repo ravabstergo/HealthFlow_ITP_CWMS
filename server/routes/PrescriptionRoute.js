@@ -14,6 +14,6 @@ router.get('/:id', PrescriptionController.getPrescriptionById);
 router.post('/', PrescriptionController.CreatePrescription);
 router.put('/:id', PrescriptionController.UpdatePrescription);
 router.delete('/:id', PrescriptionController.DeletePrescription);
-router.search('/search', PrescriptionController.SearchPrescription);
+router.get('/search/:query', PrescriptionController.SearchPrescription);
 
 module.exports = router;

@@ -8,7 +8,7 @@ import Modal from "../ui/modal";
 import { Plus, Trash2, FileText, Calendar, User, Clock, Eye, Edit, Save, Bot } from "lucide-react";
 
 export default function NextTreatmentTab() {
-  const patientId = "67fe16ea33dbb0c55720cbc7"; // Replace with actual patient ID from context or props
+  const patientId = "6804c179ef580968b447f2c1"; // Replace with actual patient ID from context or props
   const { currentUser } = useAuthContext();
   const doctorId = currentUser?.id;
 
