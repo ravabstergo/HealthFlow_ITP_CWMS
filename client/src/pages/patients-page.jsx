@@ -113,8 +113,7 @@ export default function PatientsPage() {
                 <tr
                   key={patient.id}
                   className="hover:bg-gray-50 cursor-pointer"
-                  //onClick={() => navigate(`/patients/${patient.id}`)}
-                  onClick={() => navigate(":id")}
+                  onClick={() => navigate(`/account/patients/${patient.id}`)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -147,8 +146,7 @@ export default function PatientsPage() {
                       variant="link"
                       onClick={(e) => {
                         e.stopPropagation();
-                        //navigate(`/patients/${patient.id}`);
-                        navigate(":id");
+                        navigate(`/account/patients/${patient.id}`);
                       }}
                     >
                       View

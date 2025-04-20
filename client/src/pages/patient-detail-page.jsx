@@ -1,17 +1,15 @@
-
 import { Mail, MoreVertical, Edit } from "lucide-react";
-import { NavLink, Outlet, useParams } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 
 const tabs = [
   { label: "Patient Information", path: "information" },
   { label: "Appointment History", path: "appointments" },
   { label: "Next Treatment", path: "treatment" },
   { label: "Medical Record", path: "record" },
+  { label: "Documents", path: "documents" }
 ];
 
 export default function PatientDetail() {
-  const { id } = useParams();
-
   return (
     <div className="bg-white rounded-lg shadow-sm">
       {/* Patient Info Static section */}
@@ -53,7 +51,6 @@ export default function PatientDetail() {
           {tabs.map(({ label, path }) => (
             <NavLink
               key={path}
-              //to={`/account/patients/${id}/${path}`}
               to={`${path}`}
               className={({ isActive }) =>
                 `px-4 py-2 text-sm font-medium ${
