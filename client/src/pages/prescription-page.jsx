@@ -13,9 +13,13 @@ export default function PrescriptionPage() {
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedPrescription, setSelectedPrescription] = useState(null);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [doctorDetails, setDoctorDetails] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedPrescription, setEditedPrescription] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -71,6 +75,117 @@ export default function PrescriptionPage() {
     setViewModalOpen(true);
   };
 
+  const handleEditClick = () => {
+    setIsEditing(true);
+    setEditedPrescription({
+      ...selectedPrescription,
+      validUntil: new Date(selectedPrescription.validUntil).toISOString().split('T')[0],
+    });
+  };
+
+  const handleDeletePrescription = async (prescriptionToDelete) => {
+    if (!prescriptionToDelete || !prescriptionToDelete._id) {
+      console.error("Invalid prescription object");
+      setError("Cannot delete prescription: Invalid prescription data");
+      return;
+    }
+
+    const confirmDelete = window.confirm("Are you sure you want to delete this prescription? This action cannot be undone.");
+    
+    if (!confirmDelete) {
+      return;
+    }
+
+    try {
+      const token = TokenService.getAccessToken();
+      const response = await fetch(`/api/prescriptions/${prescriptionToDelete._id}`, {
+        method: 'DELETE',
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete prescription");
+      }
+
+      // Remove the deleted prescription from the state
+      setPrescriptions(prescriptions.filter(p => p._id !== prescriptionToDelete._id));
+      setViewModalOpen(false);
+    } catch (err) {
+      console.error("Error deleting prescription:", err);
+      setError(err.message);
+    }
+  };
+
+  const handleDeleteClick = (prescription) => {
+    if (!prescription) {
+      console.error("No prescription provided to delete");
+      return;
+    }
+    handleDeletePrescription(prescription);
+  };
+
+  const handleUpdatePrescription = async () => {
+    setIsSubmitting(true);
+    try {
+      const token = TokenService.getAccessToken();
+      const response = await fetch(`/api/prescriptions/${editedPrescription._id}`, {
+        method: 'PUT',
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          patientId: editedPrescription.patientId._id,
+          doctorId: editedPrescription.doctorId._id,
+          medicines: editedPrescription.medicines,
+          validUntil: new Date(editedPrescription.validUntil).toISOString(),
+          notes: editedPrescription.notes,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update prescription");
+      }
+
+      // Refresh prescriptions list
+      const updatedResponse = await fetch(`/api/prescriptions/doctor/${doctorId}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+      
+      if (updatedResponse.ok) {
+        const updatedData = await updatedResponse.json();
+        setPrescriptions(updatedData);
+      }
+
+      setIsEditing(false);
+      setViewModalOpen(false);
+      setSelectedPrescription(null);
+      setEditedPrescription(null);
+    } catch (err) {
+      console.error("Error updating prescription:", err);
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditMedicineChange = (index, field, value) => {
+    const updatedMedicines = [...editedPrescription.medicines];
+    updatedMedicines[index][field] = value;
+    setEditedPrescription({
+      ...editedPrescription,
+      medicines: updatedMedicines,
+    });
+  };
+
+  const filteredPrescriptions = prescriptions.filter((prescription) =>
+    prescription.patientId?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <>
       <Modal
@@ -83,15 +198,50 @@ export default function PrescriptionPage() {
         size="lg"
         footer={
           <div className="flex justify-end w-full">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setViewModalOpen(false);
-                setSelectedPrescription(null);
-              }}
-            >
-              Close
-            </Button>
+            {isEditing ? (
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditedPrescription(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleUpdatePrescription}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Saving..." : "Save Changes"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setViewModalOpen(false);
+                    setSelectedPrescription(null);
+                  }}
+                >
+                  Close
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleEditClick}
+                >
+                  Edit
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={() => handleDeleteClick(selectedPrescription)}
+                >
+                  Delete
+                </Button>
+              </>
+            )}
           </div>
         }
       >
@@ -120,22 +270,62 @@ export default function PrescriptionPage() {
               <h3 className="text-md font-semibold">Prescribed Medicines</h3>
               {selectedPrescription.medicines.map((medicine, index) => (
                 <div key={index} className="p-3 bg-gray-50 rounded-lg text-sm">
-                  <h4 className="font-medium mb-2">{medicine.medicineName}</h4>
-                  <div className="space-y-1">
-                    <p><span className="text-gray-500">Dosage:</span> {medicine.dosage}</p>
-                    <p><span className="text-gray-500">Quantity:</span> {medicine.quantity}</p>
-                    <p><span className="text-gray-500">Frequency:</span> {medicine.frequency}</p>
-                    <p><span className="text-gray-500">Instructions:</span> {medicine.instructions}</p>
-                  </div>
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <Input
+                        label="Medicine Name"
+                        value={medicine.medicineName}
+                        onChange={(e) => handleEditMedicineChange(index, "medicineName", e.target.value)}
+                      />
+                      <Input
+                        label="Dosage"
+                        value={medicine.dosage}
+                        onChange={(e) => handleEditMedicineChange(index, "dosage", e.target.value)}
+                      />
+                      <Input
+                        label="Quantity"
+                        value={medicine.quantity}
+                        onChange={(e) => handleEditMedicineChange(index, "quantity", e.target.value)}
+                      />
+                      <Input
+                        label="Frequency"
+                        value={medicine.frequency}
+                        onChange={(e) => handleEditMedicineChange(index, "frequency", e.target.value)}
+                      />
+                      <Input
+                        label="Instructions"
+                        value={medicine.instructions}
+                        onChange={(e) => handleEditMedicineChange(index, "instructions", e.target.value)}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <h4 className="font-medium mb-2">{medicine.medicineName}</h4>
+                      <div className="space-y-1">
+                        <p><span className="text-gray-500">Dosage:</span> {medicine.dosage}</p>
+                        <p><span className="text-gray-500">Quantity:</span> {medicine.quantity}</p>
+                        <p><span className="text-gray-500">Frequency:</span> {medicine.frequency}</p>
+                        <p><span className="text-gray-500">Instructions:</span> {medicine.instructions}</p>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
 
             <div>
               <h3 className="text-md font-semibold mb-2">Additional Notes</h3>
-              <p className="text-sm bg-gray-50 p-3 rounded-lg">
-                {selectedPrescription.notes}
-              </p>
+              {isEditing ? (
+                <Input
+                  label="Notes"
+                  value={editedPrescription.notes}
+                  onChange={(e) => setEditedPrescription({ ...editedPrescription, notes: e.target.value })}
+                />
+              ) : (
+                <p className="text-sm bg-gray-50 p-3 rounded-lg">
+                  {selectedPrescription.notes}
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -165,11 +355,19 @@ export default function PrescriptionPage() {
                     Total Prescriptions: {prescriptions.length}
                   </p>
                 </div>
+                <div className="w-72">
+                  <Input
+                    type="text"
+                    placeholder="Search by patient name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
               </div>
 
-              {prescriptions.length === 0 ? (
+              {filteredPrescriptions.length === 0 ? (
                 <div className="text-gray-500 text-center py-8">
-                  No prescriptions found
+                  {prescriptions.length === 0 ? "No prescriptions found" : "No prescriptions match your search"}
                 </div>
               ) : (
                 <div className="w-full">
@@ -185,7 +383,7 @@ export default function PrescriptionPage() {
                   </div>
 
                   <div className="divide-y divide-gray-100">
-                    {prescriptions.map((prescription) => (
+                    {filteredPrescriptions.map((prescription) => (
                       <div
                         key={prescription._id}
                         className="grid grid-cols-6 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors"
