@@ -16,7 +16,9 @@ const {
     getAppointmentsByPatientName,
     searchDoctorByName,
     deleteAvailability,
-    updateAppointmentStatus
+    updateAppointmentStatus,
+    checkSlotAvailability,
+    getDoctorSlotsByDate // Add this new controller
 } = require('../controllers/appointmentController')
 const { create } = require('../models/Appointment')
 
@@ -36,11 +38,12 @@ router.get('/doctors/:id/getSchedule', getDoctorSchedule)
 //update doctor schedule
 router.put("/doctors/:doctorId/schedule", updateSchedule);
 
-//get doctor slots
-router.get('/doctors/:id/slots', getDoctorSlots)
+//get doctor slots by date
+router.get('/doctors/:id/slots', getDoctorSlots) // date will be passed as query parameter
 
 //book appointment
-router.post('/doctors/:id/slots/:slotId/appointments', bookAppointment)
+router.post('/doctors/:id/slots/:slotId/appointments', bookAppointment) // simplified route for booking
+
 
 //get appointment by id
 router.get('/appointments/:appointmentId', getAppointmentById)
@@ -61,12 +64,18 @@ router.get('/appointments/doctor/:doctorId/active', getActiveAppointments)
 router.get('/appointments/patient/:firstName/:lastName', getAppointmentsByPatientName)
 
 //search doctor by name
-router.get('/doctors/search/:name', searchDoctorByName)
+router.get('/doctors/search/:searchTerm', searchDoctorByName)
 
 //delete availability
 router.delete('/availability/:doctorId/:availabilityId', deleteAvailability)
 
 //update appointment status
 router.patch('/appointments/:id', updateAppointmentStatus)
+
+//check slot availability
+router.get('/doctors/:id/slots/:slotId/availability', checkSlotAvailability)
+
+//get doctor slots by availability
+router.get('/doctors/:id/slots/:date', getDoctorSlotsByDate)
 
 module.exports = router
