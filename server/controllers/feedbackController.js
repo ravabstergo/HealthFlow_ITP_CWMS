@@ -1,20 +1,16 @@
 const Feedback = require("../models/Feedback");
 const User = require("../models/User");
-const Appointment = require("../models/Appointment");
 
 exports.createFeedback = async (req, res) => {
   const { encounterId, answers, comments } = req.body;
   const patientId = req.user.id;
 
   try {
-    const appointment = await Appointment.findOne({ _id: encounterId.split("PE")[1], patientId });
-    if (!appointment) {
-      return res.status(404).json({ message: "Encounter not found" });
-    }
-
+    // Removed appointment validation
+    // We'll assume encounterId is valid for now
     const feedback = new Feedback({
       patientId,
-      doctorId: appointment.doctorId,
+      doctorId: req.body.doctorId, // We'll need to pass doctorId in the request body
       encounterId,
       answers,
       comments,
@@ -119,10 +115,7 @@ exports.getMetrics = async (req, res) => {
   const doctorId = req.user.id;
 
   try {
-    const appointments = await Appointment.find({ doctorId, status: "completed" });
     const feedbacks = await Feedback.find({ doctorId }).populate("answers.questionId");
-
-    const totalConsultations = appointments.length;
 
     const totalFeedbackReceived = feedbacks.length;
 
@@ -133,26 +126,13 @@ exports.getMetrics = async (req, res) => {
       ? (healthImprovementScores.reduce((sum, score) => sum + parseInt(score), 0) / healthImprovementScores.length / 5 * 100).toFixed(0) + "%"
       : "0%";
 
-    const appointmentDates = appointments.map(a => new Date(a.createdAt).toISOString().split("T")[0]);
-    const peakConsultationDay = appointmentDates.length
-      ? Object.entries(
-          appointmentDates.reduce((acc, date) => {
-            acc[date] = (acc[date] || 0) + 1;
-            return acc;
-          }, {})
-        )
-        .sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A"
-      : "N/A";
-
     const treatmentSuccessRate = healthImprovementScores.length
       ? (healthImprovementScores.filter(score => parseInt(score) >= 3).length / healthImprovementScores.length * 100).toFixed(0) + "%"
       : "0%";
 
     res.status(200).json({
-      totalConsultations,
       totalFeedbackReceived,
       patientSatisfactionRate,
-      peakConsultationDay,
       treatmentSuccessRate,
     });
   } catch (error) {

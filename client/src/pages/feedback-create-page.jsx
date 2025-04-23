@@ -16,8 +16,13 @@ export default function FeedbackCreatePage() {
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
+        console.log("[FeedbackCreatePage] Fetching questions...");
         const response = await fetch(`${process.env.REACT_APP_API_URL}/feedback/questions/all`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch questions: ${response.statusText}`);
+        }
         const data = await response.json();
+        console.log("[FeedbackCreatePage] Questions fetched:", data);
         setQuestions(data);
         const initialAnswers = {};
         data.forEach(q => {
@@ -25,7 +30,8 @@ export default function FeedbackCreatePage() {
         });
         setAnswers(initialAnswers);
       } catch (error) {
-        console.error("Error fetching questions:", error);
+        console.error("[FeedbackCreatePage] Error fetching questions:", error);
+        toast.error("Failed to load feedback questions. Please try again.");
       }
     };
     fetchQuestions();
@@ -82,7 +88,12 @@ export default function FeedbackCreatePage() {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ encounterId, answers: formattedAnswers, comments }),
+        body: JSON.stringify({
+          encounterId,
+          answers: formattedAnswers,
+          comments,
+          doctorId: "671d7f5e9d8e2b4c5f6a7b8c", // Hardcoded doctorId (replace with actual doctorId)
+        }),
       });
       const data = await response.json();
       if (response.ok) {
@@ -170,7 +181,11 @@ export default function FeedbackCreatePage() {
             />
           ))}
         </div>
-        {currentQuestions.map((question, index) => renderQuestion(question, index))}
+        {questions.length === 0 ? (
+          <p className="text-gray-500">Loading questions...</p>
+        ) : (
+          currentQuestions.map((question, index) => renderQuestion(question, index))
+        )}
         {currentPage === totalPages && (
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">
