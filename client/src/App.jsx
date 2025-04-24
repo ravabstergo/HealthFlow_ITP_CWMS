@@ -50,13 +50,11 @@ function App() {
           </Route>
           <Route path="appointments" element={<AppointmentsPage />} />
           <Route path="feedback" element={<FeedbackStartPage />} />
-          <Route path="feedback/create/:encounterId" element={<FeedbackCreatePage />} />
+          <Route path="feedback/create/:id" element={<FeedbackCreatePage />} />
           <Route path="feedback/summary/:id" element={<FeedbackSummaryPage />} />
           <Route path="feedback/edit/:id" element={<FeedbackUpdatePage />} />
           <Route path="feedback/delete/:id" element={<FeedbackDeletePage />} />
-          {activeRole?.name === "sys_doctor" && (
-            <Route path="feedback/doctor" element={<DoctorFeedbackPage />} />
-          )}
+          <Route path="feedback/doctor" element={<DoctorFeedbackPage />} />
         </Route>
       </Routes>
     </div>

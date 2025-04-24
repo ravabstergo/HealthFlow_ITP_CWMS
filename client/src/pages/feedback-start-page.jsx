@@ -6,12 +6,15 @@ import { toast } from "react-toastify";
 
 export default function FeedbackStartPage() {
   const [feedbacks, setFeedbacks] = useState([]);
-  const [error, setError] = useState(null); // Add state to track errors
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchFeedbacks = async () => {
       try {
+        setLoading(true);
+        setError(null);
         console.log("[FeedbackStartPage] Fetching feedbacks...");
         const response = await fetch(`${process.env.REACT_APP_API_URL}/feedback/patient/me`);
         if (!response.ok) {
@@ -19,17 +22,29 @@ export default function FeedbackStartPage() {
         }
         const data = await response.json();
         console.log("[FeedbackStartPage] Fetched feedbacks:", data);
-        // Ensure data is an array; if not, set to empty array
         setFeedbacks(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Error fetching feedbacks:", error);
-        setFeedbacks([]); // Reset to empty array on error
+        setFeedbacks([]);
         setError("Failed to load feedbacks. Please try again.");
         toast.error("Failed to load feedbacks. Please try again.");
+      } finally {
+        setLoading(false);
       }
     };
     fetchFeedbacks();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold mb-6">Feedback</h1>
+        <Card>
+          <p className="text-gray-500">Loading feedbacks...</p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -57,7 +72,7 @@ export default function FeedbackStartPage() {
       ) : (
         feedbacks.map(feedback => (
           <div key={feedback._id}>
-            <Button onClick={() => navigate(`/account/feedback/summary/${feedback._id}`)}>
+            <Button onClick={() => navigate(`/account/feedback/summary/${feedback._id}`, { state: { feedback } })}>
               View Feedback
             </Button>
           </div>

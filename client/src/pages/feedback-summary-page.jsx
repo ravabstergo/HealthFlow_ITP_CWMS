@@ -1,44 +1,47 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
 import Card from "../components/ui/card";
 import Button from "../components/ui/button";
 import { toast } from "react-toastify";
+import { Link } from "react-router-dom";
 
 export default function FeedbackSummaryPage() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [feedback, setFeedback] = useState(null);
-  const [loading, setLoading] = useState(true); // Add loading state
-  const [error, setError] = useState(null); // Add error state
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedFeedback, setSelectedFeedback] = useState(null);
 
   useEffect(() => {
-    const fetchFeedback = async () => {
+    const fetchData = async () => {
       try {
-        console.log("[FeedbackSummaryPage] Fetching feedback with ID:", id);
         setLoading(true);
-        setError(null);
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/feedback/${id}`);
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/feedback/patient/me`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
         if (!response.ok) {
-          throw new Error(`Failed to fetch feedback: ${response.statusText}`);
+          throw new Error("Failed to fetch feedback");
         }
         const data = await response.json();
-        console.log("[FeedbackSummaryPage] Fetched feedback:", data);
-        // Ensure data has the expected structure
-        if (!data || !data.answers || !Array.isArray(data.answers)) {
-          throw new Error("Invalid feedback data received");
-        }
-        setFeedback(data);
+        setFeedbacks(Array.isArray(data) ? data : []);
       } catch (error) {
-        console.error("Error fetching feedback:", error);
-        setError("Failed to load feedback. Please try again.");
-        toast.error("Failed to load feedback. Please try again.");
-        setFeedback(null);
+        console.error("[FeedbackSummaryPage] Error fetching data:", error.message);
+        toast.error("Failed to load feedback.");
+        setFeedbacks([]);
       } finally {
         setLoading(false);
       }
     };
-    fetchFeedback();
-  }, [id]);
+
+    fetchData();
+  }, []);
+
+  const handleViewFeedback = (feedback) => {
+    setSelectedFeedback(feedback);
+  };
+
+  const closeModal = () => {
+    setSelectedFeedback(null);
+  };
 
   if (loading) {
     return (
@@ -51,57 +54,121 @@ export default function FeedbackSummaryPage() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold mb-6">Feedback Summary</h1>
-        <Card>
-          <p className="text-red-500">{error}</p>
-          <Button className="mt-4" onClick={() => navigate("/account/feedback")}>
-            Back to Feedback
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold mb-6">Feedback Summary</h1>
       <Card>
-        <h2 className="text-lg font-semibold mb-4">Feedback Details</h2>
-        <div className="space-y-2">
-          {feedback.answers.map((answer, index) => (
-            <div key={index} className="border-b border-gray-200 py-2">
-              <p className="text-sm font-medium text-gray-700">
-                {answer.questionId.text}
-              </p>
-              <p className="text-sm text-gray-500">
-                {typeof answer.answer === "object"
-                  ? `${answer.answer.value} (${answer.answer.details})`
-                  : answer.answer}
-              </p>
-            </div>
-          ))}
-        </div>
-        {feedback.comments && (
-          <div className="mt-4">
-            <h3 className="text-sm font-medium text-gray-700">Comments</h3>
-            <p className="text-sm text-gray-500">{feedback.comments}</p>
-          </div>
-        )}
-        <div className="mt-4 flex space-x-2">
-          <Button onClick={() => navigate(`/account/feedback/edit/${id}`)}>
-            Edit Feedback
-          </Button>
-          <Button
-            variant="danger"
-            onClick={() => navigate(`/account/feedback/delete/${id}`)}
-          >
-            Delete Feedback
-          </Button>
+        <div className="p-4 bg-gray-50 rounded-lg text-center">
+          <p className="text-3xl font-bold">{feedbacks.length}</p>
+          <p className="text-sm text-gray-500">Total Feedback Submitted</p>
         </div>
       </Card>
+      <Card>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead>
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Encounter ID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Submitted At
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {feedbacks.length === 0 ? (
+                <tr>
+                  <td colSpan="3" className="px-6 py-4 text-center text-gray-500">
+                    No feedback submitted.
+                  </td>
+                </tr>
+              ) : (
+                feedbacks.map(f => {
+                  const now = new Date();
+                  const createdAt = new Date(f.createdAt);
+                  const diffInMinutes = (now - createdAt) / (1000 * 60);
+                  const canEditOrDelete = diffInMinutes <= 10;
+
+                  return (
+                    <tr key={f._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {f.encounterId}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(f.createdAt).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <Button
+                          variant="link"
+                          onClick={() => handleViewFeedback(f)}
+                          className="mr-2"
+                        >
+                          View
+                        </Button>
+                        {canEditOrDelete && (
+                          <>
+                            <Link to={`/account/feedback/update/${f._id}`} className="mr-2">
+                              <Button variant="link">Edit</Button>
+                            </Link>
+                            <Link to={`/account/feedback/delete/${f._id}`}>
+                              <Button variant="link" className="text-red-600">
+                                Delete
+                              </Button>
+                            </Link>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Right-Side Modal for Viewing Feedback */}
+      {selectedFeedback && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Overlay */}
+          <div className="fixed inset-0 bg-black opacity-50" onClick={closeModal}></div>
+          {/* Modal Content */}
+          <div
+            className="relative ml-auto w-full max-w-lg bg-white shadow-xl p-6 overflow-y-auto"
+            style={{ marginTop: '2rem', marginBottom: '2rem', marginRight: '2rem', borderRadius: '1rem' }}
+          >
+            <h2 className="text-xl font-bold mb-4">Feedback Details</h2>
+            <div className="space-y-4">
+              {selectedFeedback.answers.map((a, idx) => (
+                <div key={idx} className="space-y-1">
+                  <p className="text-sm font-medium text-gray-700">
+                    {a.questionId?.text || "Unknown Question"}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {typeof a.answer === "object" ? (a.answer.value || "No") : a.answer}
+                    {a.answer.details && a.answer.value === "Yes" && (
+                      <span className="block text-xs text-gray-400">
+                        Details: {a.answer.details}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              ))}
+              {selectedFeedback.comments && (
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-gray-700">Comments</p>
+                  <p className="text-sm text-gray-500">{selectedFeedback.comments}</p>
+                </div>
+              )}
+            </div>
+            <Button onClick={closeModal} className="mt-6 w-full">Close</Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

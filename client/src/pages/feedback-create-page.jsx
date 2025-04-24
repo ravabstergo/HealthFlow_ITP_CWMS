@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Button from "../components/ui/button";
 import { toast } from "react-toastify";
 
 export default function FeedbackCreatePage() {
-  const { encounterId } = useParams();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
@@ -26,7 +25,7 @@ export default function FeedbackCreatePage() {
         setQuestions(data);
         const initialAnswers = {};
         data.forEach(q => {
-          initialAnswers[q._id] = q.hasDetails ? { value: "", details: "" } : "";
+          initialAnswers[q._id] = q.type === "number" ? "" : (q.type === "yesNoWithDetails" ? { value: "", details: "" } : "");
         });
         setAnswers(initialAnswers);
       } catch (error) {
@@ -37,10 +36,40 @@ export default function FeedbackCreatePage() {
     fetchQuestions();
   }, []);
 
+  const validateNumberInput = (questionText, value) => {
+    if (questionText === "How many days did it take for you to feel noticeable improvement?") {
+      const num = parseInt(value);
+      if (isNaN(num) || num < 0 || num > 30) {
+        return "Please enter a number between 0 and 30.";
+      }
+    }
+    if (questionText === "How would you rate your overall health improvement after the consultation?") {
+      const num = parseInt(value);
+      if (isNaN(num) || num < 0 || num > 5) {
+        return "Please enter a number between 0 and 5.";
+      }
+    }
+    return null;
+  };
+
+  const badWords = ["fuck", "shit", "asshole", "damn", "bitch"];
+  const checkForBadWords = (text) => {
+    const lowerText = text.toLowerCase();
+    return badWords.some(word => lowerText.includes(word));
+  };
+
   const handleAnswerChange = (questionId, value, details = "") => {
+    const question = questions.find(q => q._id === questionId);
+    if (question.type === "number") {
+      const error = validateNumberInput(question.text, value);
+      if (error) {
+        toast.error(error);
+        return;
+      }
+    }
     setAnswers(prev => ({
       ...prev,
-      [questionId]: details ? { value, details } : value,
+      [questionId]: question.type === "yesNoWithDetails" ? { value, details } : value,
     }));
   };
 
@@ -51,8 +80,8 @@ export default function FeedbackCreatePage() {
 
     return pageQuestions.every(q => {
       const answer = answers[q._id];
-      if (!answer) return false;
-      if (q.hasDetails && answer.value === "Yes" && !answer.details) return false;
+      if (!answer && answer !== 0) return false;
+      if (q.type === "yesNoWithDetails" && answer.value === "Yes" && !answer.details) return false;
       return true;
     });
   };
@@ -79,6 +108,11 @@ export default function FeedbackCreatePage() {
       return;
     }
 
+    if (checkForBadWords(comments)) {
+      toast.error("Comments contain inappropriate language. Please remove bad words.");
+      return;
+    }
+
     const formattedAnswers = Object.keys(answers).map(questionId => ({
       questionId,
       answer: answers[questionId],
@@ -89,17 +123,16 @@ export default function FeedbackCreatePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          encounterId,
+          encounterId: "PE123",
           answers: formattedAnswers,
           comments,
-          doctorId: "671d7f5e9d8e2b4c5f6a7b8c", // Hardcoded doctorId (replace with actual doctorId)
+          doctorId: "671d7f5e9d8e2b4c5f6a7b8c",
         }),
       });
       const data = await response.json();
       if (response.ok) {
-        toast.success("Feedback submitted successfully!", {
-          onClose: () => navigate(`/account/feedback/summary/${data._id}`),
-        });
+        toast.success("Feedback submitted successfully!");
+        navigate(`/account/feedback/summary/${data._id}`, { state: { feedback: data } });
       } else {
         toast.error(data.message || "Error submitting feedback");
       }
@@ -109,7 +142,10 @@ export default function FeedbackCreatePage() {
   };
 
   const renderQuestion = (question, index) => {
-    const answer = answers[question._id] || (question.hasDetails ? { value: "", details: "" } : "");
+    const answer = answers[question._id] || (question.type === "yesNoWithDetails" ? { value: "", details: "" } : "");
+
+    // Define options based on question type
+    const options = question.type === "multipleChoice" ? question.options : ["Yes", "No"];
 
     return (
       <div key={question._id} className="mb-4">
@@ -119,8 +155,6 @@ export default function FeedbackCreatePage() {
         {question.type === "number" ? (
           <input
             type="number"
-            min={question.options[0].split("-")[0]}
-            max={question.options[0].split("-")[1]}
             value={answer}
             onChange={e => handleAnswerChange(question._id, e.target.value)}
             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
@@ -128,14 +162,14 @@ export default function FeedbackCreatePage() {
           />
         ) : (
           <div className="mt-1 flex space-x-4">
-            {question.options.map(option => (
+            {options.map(option => (
               <label key={option} className="inline-flex items-center">
                 <input
                   type="radio"
                   name={`question-${question._id}`}
                   value={option}
-                  checked={question.hasDetails ? answer.value === option : answer === option}
-                  onChange={e => handleAnswerChange(question._id, e.target.value)}
+                  checked={question.type === "yesNoWithDetails" ? answer.value === option : answer === option}
+                  onChange={e => handleAnswerChange(question._id, e.target.value, question.type === "yesNoWithDetails" ? answer.details : "")}
                   className="form-radio h-4 w-4 text-blue-600"
                   required
                 />
@@ -144,7 +178,7 @@ export default function FeedbackCreatePage() {
             ))}
           </div>
         )}
-        {question.hasDetails && answer.value === "Yes" && (
+        {question.type === "yesNoWithDetails" && answer.value === "Yes" && (
           <input
             type="text"
             placeholder="Please specify"
@@ -164,9 +198,9 @@ export default function FeedbackCreatePage() {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-end z-50">
-      <div className="bg-white w-full md:w-1/3 h-full p-6 shadow-lg transform transition-transform duration-300 ease-in-out translate-x-0">
+      <div className="bg-white w-full md:w-1/3 h-full p-6 rounded-lg shadow-lg transform transition-transform duration-300 ease-in-out translate-x-0">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Encounter ID #{encounterId}</h2>
+          <h2 className="text-lg font-semibold">Encounter ID #PE123</h2>
           <button onClick={() => navigate("/account/feedback")} className="text-gray-500">
             Cancel
           </button>
@@ -175,10 +209,12 @@ export default function FeedbackCreatePage() {
           {Array.from({ length: totalPages }, (_, i) => (
             <div
               key={i}
-              className={`w-3 h-3 rounded-full mx-1 ${
-                currentPage === i + 1 ? "bg-blue-600" : "bg-gray-300"
+              className={`w-8 h-8 flex items-center justify-center rounded-full mx-1 ${
+                currentPage === i + 1 ? "bg-blue-600 text-white" : "bg-gray-300 text-gray-700"
               }`}
-            />
+            >
+              {i + 1}
+            </div>
           ))}
         </div>
         {questions.length === 0 ? (

@@ -1,33 +1,39 @@
 const Feedback = require("../models/Feedback");
 const User = require("../models/User");
-const Allergy = require("../models/Allergy");
+const Question = require("../models/Question");
 const runAI = require("../alModel");
 
-exports.generateReport = async (req, res) => {
-  const doctorId = req.user.id;
+const generateReport = async (req, res) => {
+  const doctorId = "671d7f5e9d8e2b4c5f6a7b8c"; // Hardcoded for testing
 
   try {
     const feedbacks = await Feedback.find({ doctorId })
       .populate("patientId", "name email")
-      .populate("answers.questionId");
-    const patientIds = feedbacks.map(f => f.patientId._id);
-    const allergies = await Allergy.find({ patientId: { $in: patientIds } });
+      .populate("answers.questionId", "text");
+
+    if (!feedbacks || feedbacks.length === 0) {
+      return res.status(200).json({ reportData: [], aiAnalysis: "No feedback available to analyze." });
+    }
 
     const reportData = feedbacks.map(feedback => {
-      const patientAllergies = allergies.filter(a => a.patientId.toString() === feedback.patientId._id.toString());
+      const formattedFeedback = feedback.answers.map(a => {
+        const questionText = a.questionId && a.questionId.text ? a.questionId.text : "Unknown Question";
+        const answer = typeof a.answer === "object" ? (a.answer.value || "No") : a.answer;
+        return {
+          question: questionText,
+          answer: answer,
+        };
+      });
+
       return {
         patient: feedback.patientId,
-        feedback: feedback.answers.map(a => ({
-          question: a.questionId.text,
-          answer: a.answer,
-        })),
+        feedback: formattedFeedback,
         comments: feedback.comments,
-        allergies: patientAllergies,
       };
     });
 
     const prompt = `
-Analyze the following patient feedback and allergies to provide an overall summary of patient outcomes:
+Analyze the following patient feedback to provide an overall summary of patient outcomes:
 
 ${JSON.stringify(reportData, null, 2)}
 
@@ -37,6 +43,9 @@ Provide a concise summary focusing on trends, common issues, and recommendations
 
     res.status(200).json({ reportData, aiAnalysis });
   } catch (error) {
+    console.error("[generateReport] Error:", error.message);
     res.status(500).json({ message: "Error generating report", error: error.message });
   }
 };
+
+module.exports = { generateReport };

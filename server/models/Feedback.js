@@ -1,7 +1,20 @@
 const mongoose = require("mongoose");
 
+const answerSchema = new mongoose.Schema({
+  questionId: {
+    type: String,
+    ref: "Question",
+    required: true,
+  },
+  answer: mongoose.Mixed,
+});
+
 const feedbackSchema = new mongoose.Schema(
   {
+    encounterId: {
+      type: String,
+      required: true,
+    },
     patientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -12,23 +25,7 @@ const feedbackSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    encounterId: {
-      type: String,
-      required: true, // e.g., "PE" + appointmentId
-    },
-    answers: [
-      {
-        questionId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Question",
-          required: true,
-        },
-        answer: {
-          type: mongoose.Schema.Types.Mixed, // Can be number, string, or object (e.g., { value: "Yes", details: "Rash" })
-          required: true,
-        },
-      },
-    ],
+    answers: [answerSchema],
     comments: {
       type: String,
       default: "",
@@ -37,6 +34,4 @@ const feedbackSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Feedback = mongoose.model("Feedback", feedbackSchema);
-
-module.exports = Feedback;
+module.exports = mongoose.model("Feedback", feedbackSchema);
