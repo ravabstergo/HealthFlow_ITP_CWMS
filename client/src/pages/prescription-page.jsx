@@ -5,6 +5,7 @@ import Button from "../components/ui/button";
 import Input from "../components/ui/input";
 import Modal from "../components/ui/modal";
 import { Plus, Calendar, User, Clock, Eye } from "lucide-react";
+import jsPDF from 'jspdf';
 
 export default function PrescriptionPage() {
   const { currentUser } = useAuthContext();
@@ -182,6 +183,79 @@ export default function PrescriptionPage() {
     });
   };
 
+  const handleDownloadPrescription = (prescription) => {
+    const doc = new jsPDF();
+    
+    // Set initial y position
+    let y = 20;
+    const lineHeight = 7;
+    
+    // Add title
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PRESCRIPTION', 105, y, { align: 'center' });
+    y += lineHeight * 2;
+
+    // Add header info
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.line(20, y, 190, y);
+    y += lineHeight;
+
+    doc.text(`Doctor: Dr. ${prescription.doctorId?.name || "Unknown"}`, 20, y);
+    y += lineHeight;
+    doc.text(`Date Issued: ${formatDate(prescription.dateIssued)}`, 20, y);
+    y += lineHeight;
+    doc.text(`Valid Until: ${formatDate(prescription.validUntil)}`, 20, y);
+    y += lineHeight;
+    doc.text(`Patient: ${prescription.patientId?.name || "Unknown"}`, 20, y);
+    y += lineHeight * 2;
+
+    // Add medicines section
+    doc.setFont('helvetica', 'bold');
+    doc.text('MEDICINES:', 20, y);
+    y += lineHeight;
+    doc.setFont('helvetica', 'normal');
+
+    prescription.medicines.forEach(medicine => {
+      doc.text(`• ${medicine.medicineName}`, 20, y);
+      y += lineHeight;
+      doc.text(`  Dosage: ${medicine.dosage}`, 25, y);
+      y += lineHeight;
+      doc.text(`  Quantity: ${medicine.quantity}`, 25, y);
+      y += lineHeight;
+      doc.text(`  Frequency: ${medicine.frequency}`, 25, y);
+      y += lineHeight;
+      doc.text(`  Instructions: ${medicine.instructions}`, 25, y);
+      y += lineHeight * 1.5;
+
+      // Add a new page if we're running out of space
+      if (y > 250) {
+        doc.addPage();
+        y = 20;
+      }
+    });
+
+    // Add notes section
+    doc.setFont('helvetica', 'bold');
+    doc.text('Additional Notes:', 20, y);
+    y += lineHeight;
+    doc.setFont('helvetica', 'normal');
+    doc.text(prescription.notes || 'None', 20, y);
+    y += lineHeight * 2;
+
+    // Add footer
+    doc.line(20, y, 190, y);
+    y += lineHeight;
+    doc.setFontSize(9);
+    doc.text('HealthFlow Medical Center', 105, y, { align: 'center' });
+    y += lineHeight;
+    doc.text('This is a computer generated prescription.', 105, y, { align: 'center' });
+
+    // Save the PDF
+    doc.save(`prescription-${prescription._id}.pdf`);
+  };
+
   const filteredPrescriptions = prescriptions.filter((prescription) =>
     prescription.patientId?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -197,7 +271,7 @@ export default function PrescriptionPage() {
         title="Prescription Details"
         size="lg"
         footer={
-          <div className="flex justify-end w-full">
+          <div className="flex justify-end w-full gap-4">
             {isEditing ? (
               <>
                 <Button
@@ -230,12 +304,21 @@ export default function PrescriptionPage() {
                 </Button>
                 <Button
                   variant="secondary"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => handleDownloadPrescription(selectedPrescription)}
+                >
+                  Download
+                </Button>
+                <Button
+                  variant="primary"
+                  className="bg-blue-600 hover:bg-blue-700"
                   onClick={handleEditClick}
                 >
                   Edit
                 </Button>
                 <Button
                   variant="danger"
+                  className="bg-red-600 hover:bg-red-700"
                   onClick={() => handleDeleteClick(selectedPrescription)}
                 >
                   Delete
