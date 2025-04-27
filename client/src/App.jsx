@@ -9,6 +9,7 @@ import PatientInformationTab from "./components/patient-detail/PatientInformatio
 import AppointmentHistoryTab from "./components/patient-detail/AppointmentHistoryTab";
 import NextTreatmentTab from "./components/patient-detail/NextTreatmentTab";
 import MedicalRecordTab from "./components/patient-detail/MedicalRecordTab";
+import PrescriptionPage from "./pages/prescription-page";
 import AppointmentsPage from "./pages/appointments-page";
 
 function App() {
@@ -43,16 +44,16 @@ function App() {
 
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="patients" element={<PatientsPage />} />
+          <Route path="prescription" element={<PrescriptionPage />} />
+          <Route path="appointments" element={<AppointmentsPage />} />
           {/* Patient detail and nested tabs */}
           <Route path="patients/:id" element={<PatientDetailPage />}>
             <Route index element={<Navigate to="information" replace />} />
-
             <Route path="information" element={<PatientInformationTab />} />
             <Route path="appointments" element={<AppointmentHistoryTab />} />
             <Route path="treatment" element={<NextTreatmentTab />} />
             <Route path="record" element={<MedicalRecordTab />} />
           </Route>
-          <Route path="appointments" element={<AppointmentsPage />} />
         </Route>
       </Routes>
     </div>
