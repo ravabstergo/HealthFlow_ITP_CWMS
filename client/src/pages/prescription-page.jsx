@@ -21,6 +21,7 @@ export default function PrescriptionPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedPrescription, setEditedPrescription] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editButtonsVisible, setEditButtonsVisible] = useState(false);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -28,6 +29,29 @@ export default function PrescriptionPage() {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const isEditable = (prescription) => {
+    console.log("========= Checking Prescription Editability =========");
+    console.log("Full prescription object:", prescription);
+    
+    if (!prescription?.dateIssued) {
+      console.log("No dateIssued found in prescription!");
+      return false;
+    }
+    
+    const creationTime = new Date(prescription.dateIssued).getTime();
+    const currentTime = new Date().getTime();
+    const oneHourInMilliseconds = 60 * 60 * 1000;
+    const timeLeft = oneHourInMilliseconds - (currentTime - creationTime);
+    
+    console.log("Creation time:", new Date(creationTime).toLocaleString());
+    console.log("Current time:", new Date(currentTime).toLocaleString());
+    console.log("Time left for editing:", Math.floor(timeLeft / 1000 / 60), "minutes");
+    console.log("Is editable:", timeLeft > 0);
+    console.log("=============================================");
+    
+    return timeLeft > 0;
   };
 
   useEffect(() => {
@@ -57,6 +81,7 @@ export default function PrescriptionPage() {
         }
 
         const data = await response.json();
+        console.log("Fetched prescriptions:", data); // Added debug log
         setPrescriptions(data);
       } catch (err) {
         console.error("Error fetching prescriptions:", err);
@@ -72,7 +97,17 @@ export default function PrescriptionPage() {
   }, [doctorId]);
 
   const handleViewPrescription = (prescription) => {
+    console.log("View button clicked for prescription:", prescription);
+    if (!prescription) {
+      console.log("No prescription data received");
+      return;
+    }
+    
+    const canEdit = isEditable(prescription);
+    console.log("Can edit prescription?", canEdit);
+    
     setSelectedPrescription(prescription);
+    setEditButtonsVisible(canEdit);
     setViewModalOpen(true);
   };
 
@@ -304,25 +339,29 @@ export default function PrescriptionPage() {
                 </Button>
                 <Button
                   variant="secondary"
-                  className="bg-green-600 hover:bg-green-700 text-white"
+                  className="bg-green-700 hover:bg-green-700 text-white inline-flex items-center justify-center"
                   onClick={() => handleDownloadPrescription(selectedPrescription)}
                 >
-                  Download
+                  Download PDF
                 </Button>
-                <Button
-                  variant="primary"
-                  className="bg-blue-600 hover:bg-blue-700"
-                  onClick={handleEditClick}
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="danger"
-                  className="bg-red-600 hover:bg-red-700"
-                  onClick={() => handleDeleteClick(selectedPrescription)}
-                >
-                  Delete
-                </Button>
+                {editButtonsVisible && (
+                  <>
+                    <Button
+                      variant="primary"
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={handleEditClick}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="danger"
+                      className="bg-red-600 hover:bg-red-700"
+                      onClick={() => handleDeleteClick(selectedPrescription)}
+                    >
+                      Delete
+                    </Button>
+                  </>
+                )}
               </>
             )}
           </div>
