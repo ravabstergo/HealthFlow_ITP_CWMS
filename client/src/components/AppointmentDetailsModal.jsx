@@ -1,8 +1,14 @@
-import { ChevronRight, Monitor, X } from "lucide-react"
+import { ChevronRight, Monitor, X, Loader2 } from "lucide-react"
 import { format } from "date-fns"
 import { useState } from "react"
+import { useAuthContext } from "../context/AuthContext"
+import api from "../services/api"
+import { toast } from "react-hot-toast"
 
 export default function AppointmentDetailsModal({ isOpen, onClose, appointmentData }) {
+  const { currentUser } = useAuthContext();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     title: "",
     firstName: "",
@@ -21,14 +27,57 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointmentDa
     }));
   };
 
+  const handleBookAppointment = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Validate required fields
+      const requiredFields = ['title', 'firstName', 'lastName', 'phone', 'email', 'reason'];
+      const missingFields = requiredFields.filter(field => !formData[field]);
+
+      console.log(appointmentData.doctorId, appointmentData.selectedSlot._id);
+      
+      if (missingFields.length > 0) {
+        throw new Error(`Please fill in all required fields: ${missingFields.join(', ')}`);
+      }
+
+      // The endpoint expects /api/doctors/:id/slots/:slotId/appointments
+      await api.post(
+        `/api/appointments/doctors/${appointmentData.doctorId}/slots/${appointmentData.selectedSlot._id}/appointments`,
+        {
+          doctorId: appointmentData.doctorId,
+          patientId: currentUser?.id,
+          slotId: appointmentData.selectedSlot._id,
+          reason: formData.reason,
+          title: formData.title,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: formData.phone,
+          nic: formData.nic,
+          email: formData.email,
+          status: 'active'
+        }
+      );
+      
+      toast.success('Appointment booked successfully!');
+      onClose();
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to book appointment';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   const doctorInitials = appointmentData.doctorName
     .split(" ")
     .map(n => n[0])
     .join("")
-    .toUpperCase();  return (
-    <div className="fixed top-[50%] right-[calc(8rem+2px)] -translate-y-1/2 z-50">
+    .toUpperCase();  return (    <div className="fixed top-[50%] right-[calc(4rem+21px)] -translate-y-1/2 z-50">
       <div className="w-[450px] min-h-[600px] bg-white shadow-lg rounded-2xl">
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b">
@@ -180,17 +229,29 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointmentDa
 
         {/* Footer */}
         <div className="p-6 border-t">
+          {error && (
+            <div className="mb-4 p-2 bg-red-50 text-red-600 rounded text-sm">
+              {error}
+            </div>
+          )}
           <button
-            className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors"
-            onClick={() => {
-              // TODO: Handle form submission
-              console.log("Form data:", formData);
-            }}
+            onClick={handleBookAppointment}
+            disabled={loading}
+            className={`w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center ${
+              loading ? 'opacity-75 cursor-not-allowed' : ''
+            }`}
           >
-            Continue to Payment
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Booking Appointment...
+              </>
+            ) : (
+              'Book Appointment'
+            )}
           </button>
         </div>
       </div>
     </div>
-  );
+  )
 }

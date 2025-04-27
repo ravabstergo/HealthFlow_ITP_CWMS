@@ -12,6 +12,7 @@ import MedicalRecordTab from "./components/patient-detail/MedicalRecordTab";
 import DoctorSchedule from './components/DoctorSchedule';
 import TelemedicineMeeting from "./components/TelemedicineMeeting";
 import DoctorSearch from "./pages/doctor-search";
+import PatientAppointmentsPage from "./pages/patient-appointments-page";
 
 function App() {
   const { isAuthenticated, loading } = useAuthContext();
@@ -45,6 +46,7 @@ function App() {
           <Route path="search" element={<DoctorSearch />} />  
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="patients" element={<PatientsPage />} />
+          <Route path="patient-appointments" element={<PatientAppointmentsPage />} />
           {/* Patient detail and nested tabs */}
           <Route path="patients/:id" element={<PatientDetailPage />}>
             <Route index element={<Navigate to="information" replace />} />

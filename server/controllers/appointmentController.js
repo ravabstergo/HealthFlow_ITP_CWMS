@@ -147,6 +147,21 @@ const getDoctorSlots = async (req, res) => {
   const bookAppointment = async (req, res) => {
     try {
       const { doctorId, patientId, slotId, reason, title, firstName, lastName, phone, nic, email, status } = req.body;
+      
+      // Log the received data
+      console.log('Received appointment data:', {
+        doctorId,
+        patientId,
+        slotId,
+        reason,
+        title,
+        firstName,
+        lastName,
+        phone,
+        nic,
+        email,
+        status
+      });
   
       // Fetch the doctor's schedule
       const schedules = await DoctorSchedule.find({ doctorId });
@@ -229,7 +244,20 @@ const getDoctorSlots = async (req, res) => {
 const getDoctorById = async (req, res) => {
   try {
     const doctorId = req.params.id;
-    const doctor = await User.findOne({ _id: doctorId, role: 'doctor' }); // Ensure role is 'doctor'
+    
+    // Get the doctor role ID first
+    const doctorRole = await mongoose.model('Role').findOne({ name: 'sys_doctor' });
+    if (!doctorRole) {
+      return res.status(404).json({ message: 'Doctor role not found in the system' });
+    }
+
+    // Find the doctor with the specified ID and role
+    const doctor = await User.findOne({
+      _id: doctorId,
+      'roles.role': doctorRole._id
+    })
+    .select('name email mobile doctorInfo')  // Select only needed fields
+    .populate('roles.role', 'name'); // Populate role information
 
     if (!doctor) {
       return res.status(404).json({ message: 'Doctor not found.' });
@@ -237,8 +265,8 @@ const getDoctorById = async (req, res) => {
 
     res.status(200).json(doctor);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error fetching doctor.', error });
+    console.error('Error fetching doctor:', error);
+    res.status(500).json({ message: 'Error fetching doctor.', error: error.message });
   }
 };
 

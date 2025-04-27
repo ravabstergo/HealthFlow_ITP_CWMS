@@ -82,13 +82,7 @@ const getDoctorSlotsByDate = async (doctorId, date) => {
         const formattedDate = new Date(date);
         formattedDate.setHours(0, 0, 0, 0);
         const isoDate = formattedDate.toISOString();
-        console.log('Service: Formatted date:', isoDate);
-        
-        const response = await fetch(`/api/appointments/doctors/${doctorId}/slots?date=${isoDate}`, {
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
+        console.log('Service: Formatted date:', isoDate);        const response = await fetch(`/api/appointments/doctors/${doctorId}/slots/slots?date=${isoDate}`);
         console.log('Service: Response status:', response.status);
         
         if (!response.ok) {
@@ -106,7 +100,7 @@ const getDoctorSlotsByDate = async (doctorId, date) => {
     }
 };
 
-export {
+module.exports = {
     getDoctorSchedules,
     deleteAvailability,
     createSchedule,
