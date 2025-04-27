@@ -25,8 +25,7 @@ app.use("/api/auth", authRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 
 require('./aiModel');
-app.use("/api",aiModelRoute);
-
+app.use("/api/ai", aiModelRoute);
 
 // DB Connection
 connectDB();
