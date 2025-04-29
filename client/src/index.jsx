@@ -4,16 +4,16 @@ import "./index.css";
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
 import { BrowserRouter } from "react-router-dom";
-import AuthInterceptor from "./components/AuthInterceptor";
+import { HoverPanelProvider } from "./context/HoverPanelContext";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <AuthInterceptor>
+      <HoverPanelProvider>
           <App />
-        </AuthInterceptor>
+          </HoverPanelProvider>
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>

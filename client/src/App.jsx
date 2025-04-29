@@ -10,9 +10,12 @@ import AppointmentHistoryTab from "./components/patient-detail/AppointmentHistor
 import NextTreatmentTab from "./components/patient-detail/NextTreatmentTab";
 import MedicalRecordTab from "./components/patient-detail/MedicalRecordTab";
 import AppointmentsPage from "./pages/appointments-page";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { RecordContextProvider } from "./context/RecordContext";
+import { HoverPanelProvider } from "./context/HoverPanelContext";
 
 function App() {
-  const { isAuthenticated, loading } = useAuthContext();
+  const { currentUser, loading } = useAuthContext();
 
   if (loading) {
     // Show a loading spinner or placeholder until the authentication is initialized
@@ -28,14 +31,20 @@ function App() {
         {/* Login Route */}
         <Route
           path="/login"
-          element={isAuthenticated ? <Navigate to="/account" /> : <LoginPage />}
+          element={currentUser ? <Navigate to="/account" /> : <LoginPage />}
         />
 
-        {/* Dashboard Route (only accessible after login) */}
+        {/* Protected Routes */}
         <Route
           path="/account"
           element={
-            isAuthenticated ? <DashboardWrapper /> : <Navigate to="/login" />
+            <ProtectedRoute>
+              <RecordContextProvider>
+                <HoverPanelProvider>
+                  <DashboardWrapper />
+                </HoverPanelProvider>
+              </RecordContextProvider>
+            </ProtectedRoute>
           }
         >
           {/* Nested Routes */}
@@ -45,9 +54,7 @@ function App() {
           <Route path="patients" element={<PatientsPage />} />
           {/* Patient detail and nested tabs */}
           <Route path="patients/:id" element={<PatientDetailPage />}>
-            <Route index element={<Navigate to="information" replace />} />
-
-            <Route path="information" element={<PatientInformationTab />} />
+            <Route index element={<PatientInformationTab />} />
             <Route path="appointments" element={<AppointmentHistoryTab />} />
             <Route path="treatment" element={<NextTreatmentTab />} />
             <Route path="record" element={<MedicalRecordTab />} />
