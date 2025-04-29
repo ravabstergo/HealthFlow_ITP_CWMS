@@ -5,12 +5,55 @@ import Card from "../ui/card";
 import Button from "../ui/button";
 import Input from "../ui/input";
 import Modal from "../ui/modal";
+import { useParams } from "react-router-dom";
 import { Plus, Trash2, FileText, Calendar, User, Clock, Eye, Edit, Save, Bot } from "lucide-react";
+import jsPDF from 'jspdf';
+
+// Sample patient history data for testing
+const samplePatientHistory = {
+  medicalHistory: [
+    {
+      condition: "Type 2 Diabetes",
+      diagnosedDate: "2020-03-15",
+      status: "Ongoing",
+      severity: "Moderate",
+      notes: "Regular monitoring required"
+    },
+    {
+      condition: "Hypertension",
+      diagnosedDate: "2019-06-22",
+      status: "Managed",
+      severity: "Mild",
+      notes: "Controlled with medication"
+    }
+  ],
+  allergies: ["Penicillin", "Sulfa drugs"],
+  familyHistory: [
+    {
+      condition: "Diabetes",
+      relationship: "Father"
+    },
+    {
+      condition: "Heart Disease",
+      relationship: "Mother"
+    }
+  ],
+  vitals: {
+    lastRecorded: "2025-04-26",
+    bloodPressure: "130/85",
+    heartRate: "72",
+    temperature: "98.6°F",
+    weight: "75 kg"
+  }
+};
 
 export default function NextTreatmentTab() {
-  const patientId = "6804c179ef580968b447f2c1"; // Replace with actual patient ID from context or props
+  const { id } = useParams();
+  const patientId = id
   const { currentUser } = useAuthContext();
+
   const doctorId = currentUser?.id;
+  
 
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,6 +71,10 @@ export default function NextTreatmentTab() {
   const [prescriptionToDelete, setPrescriptionToDelete] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedPrescription, setEditedPrescription] = useState(null);
+  const [showAiNotification, setShowAiNotification] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [isLoadingAi, setIsLoadingAi] = useState(false);
+  const [editButtonsVisible, setEditButtonsVisible] = useState(false);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -41,17 +88,7 @@ export default function NextTreatmentTab() {
     const fetchData = async () => {
       try {
         const token = TokenService.getAccessToken();
-        
-        const patientResponse = await fetch(`/api/auth/users/${patientId}`, {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-          },
-        });
-
-        if (patientResponse.ok) {
-          const patientData = await patientResponse.json();
-          setPatientName(patientData.name);
-        }
+        console.log("token", token);  
 
         const prescriptionResponse = await fetch(`/api/prescriptions/patient/${patientId}`, {
           headers: {
@@ -101,6 +138,8 @@ export default function NextTreatmentTab() {
 
     try {
       const token = TokenService.getAccessToken();
+        console.log("Current User:", patientId);
+        console.log("Doctor ID:", doctorId);
       const response = await fetch("/api/prescriptions", {
         method: "POST",
         headers: {
@@ -147,8 +186,41 @@ export default function NextTreatmentTab() {
     }
   };
 
+  const isEditable = (prescription) => {
+    console.log("========= Checking Prescription Editability =========");
+    console.log("Full prescription object:", prescription);
+    
+    if (!prescription?.dateIssued) {
+      console.log("No dateIssued found in prescription!");
+      return false;
+    }
+    
+    const creationTime = new Date(prescription.dateIssued).getTime();
+    const currentTime = new Date().getTime();
+    const oneHourInMilliseconds = 60 * 60 * 1000;
+    const timeLeft = oneHourInMilliseconds - (currentTime - creationTime);
+    
+    console.log("Creation time:", new Date(creationTime).toLocaleString());
+    console.log("Current time:", new Date(currentTime).toLocaleString());
+    console.log("Time left for editing:", Math.floor(timeLeft / 1000 / 60), "minutes");
+    console.log("Is editable:", timeLeft > 0);
+    console.log("=============================================");
+    
+    return timeLeft > 0;
+  };
+
   const handleViewPrescription = (prescription) => {
+    console.log("View button clicked for prescription:", prescription);
+    if (!prescription) {
+      console.log("No prescription data received");
+      return;
+    }
+    
+    const canEdit = isEditable(prescription);
+    console.log("Can edit prescription?", canEdit);
+    
     setSelectedPrescription(prescription);
+    setEditButtonsVisible(canEdit);
     setViewModalOpen(true);
   };
 
@@ -259,6 +331,177 @@ export default function NextTreatmentTab() {
     });
   };
 
+  const generateAiAnalysis = async () => {
+    try {
+      setIsLoadingAi(true);
+      setError(null);
+      
+      // Get current medicines from the form
+      const currentMedicines = medicines.map(med => ({
+        name: med.medicineName,
+        dosage: med.dosage,
+        frequency: med.frequency,
+        instructions: med.instructions
+      })).filter(med => med.name && med.name.trim() !== '');
+
+      if (currentMedicines.length === 0) {
+        setError("Please add at least one medicine to get AI analysis");
+        return;
+      }
+
+      // Create the prompt for AI model
+      const prompt = `As a medical AI assistant, please analyze this patient's current prescription and medical history:
+
+Patient Medical History:
+${samplePatientHistory.medicalHistory.map(history => 
+  `- ${history.condition}
+   Status: ${history.status}
+   Severity: ${history.severity}
+   Notes: ${history.notes}`
+).join('\n\n')}
+
+Known Allergies: ${samplePatientHistory.allergies.join(', ')}
+
+Family History:
+${samplePatientHistory.familyHistory.map(history => 
+  `- ${history.condition} (${history.relationship})`
+).join('\n')}
+
+Current Vital Signs:
+- Blood Pressure: ${samplePatientHistory.vitals.bloodPressure}
+- Heart Rate: ${samplePatientHistory.vitals.heartRate}
+- Temperature: ${samplePatientHistory.vitals.temperature}
+- Weight: ${samplePatientHistory.vitals.weight}
+
+Current Prescribed Medicines:
+${currentMedicines.map(med => 
+  `- Medicine: ${med.name}
+   Dosage: ${med.dosage}
+   Frequency: ${med.frequency}
+   Instructions: ${med.instructions || 'None'}`
+).join('\n\n')}
+
+Please analyze and provide:
+1. Potential drug interactions or concerns
+2. Allergy risk assessment
+3. Monitoring recommendations
+4. Treatment effectiveness analysis
+5. Any suggested adjustments`;
+
+      console.log('Sending AI request...'); // Debug log
+
+      // Call the AI endpoint with the full URL
+      const token = TokenService.getAccessToken();
+      const response = await fetch('http://localhost:5000/api/ai/prompt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ prompt })
+      });
+
+      console.log('Response status:', response.status); // Debug log
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText); // Debug log
+        throw new Error(`AI request failed: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('AI Response data:', data); // Debug log
+
+      if (!data.response) {
+        throw new Error('AI response is empty or invalid');
+      }
+
+      setAiAnalysis({
+        response: data.response,
+        medications: currentMedicines
+      });
+      setShowAiNotification(true);
+    } catch (err) {
+      console.error('Error details:', err); // Debug log
+      setError(`AI Analysis Error: ${err.message}. Please try again.`);
+    } finally {
+      setIsLoadingAi(false);
+    }
+  };
+
+  const handleDownloadPrescription = (prescription) => {
+    const doc = new jsPDF();
+    
+    // Set initial y position
+    let y = 20;
+    const lineHeight = 7;
+    
+    // Add title
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PRESCRIPTION', 105, y, { align: 'center' });
+    y += lineHeight * 2;
+
+    // Add header info
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.line(20, y, 190, y);
+    y += lineHeight;
+
+    doc.text(`Doctor: Dr. ${prescription.doctorId?.name || "Unknown"}`, 20, y);
+    y += lineHeight;
+    doc.text(`Date Issued: ${formatDate(prescription.dateIssued)}`, 20, y);
+    y += lineHeight;
+    doc.text(`Valid Until: ${formatDate(prescription.validUntil)}`, 20, y);
+    y += lineHeight;
+    doc.text(`Patient: ${patientName || "Unknown"}`, 20, y);
+    y += lineHeight * 2;
+
+    // Add medicines section
+    doc.setFont('helvetica', 'bold');
+    doc.text('MEDICINES:', 20, y);
+    y += lineHeight;
+    doc.setFont('helvetica', 'normal');
+
+    prescription.medicines.forEach(medicine => {
+      doc.text(`• ${medicine.medicineName}`, 20, y);
+      y += lineHeight;
+      doc.text(`  Dosage: ${medicine.dosage}`, 25, y);
+      y += lineHeight;
+      doc.text(`  Quantity: ${medicine.quantity}`, 25, y);
+      y += lineHeight;
+      doc.text(`  Frequency: ${medicine.frequency}`, 25, y);
+      y += lineHeight;
+      doc.text(`  Instructions: ${medicine.instructions}`, 25, y);
+      y += lineHeight * 1.5;
+
+      // Add a new page if we're running out of space
+      if (y > 250) {
+        doc.addPage();
+        y = 20;
+      }
+    });
+
+    // Add notes section
+    doc.setFont('helvetica', 'bold');
+    doc.text('Additional Notes:', 20, y);
+    y += lineHeight;
+    doc.setFont('helvetica', 'normal');
+    doc.text(prescription.notes || 'None', 20, y);
+    y += lineHeight * 2;
+
+    // Add footer
+    doc.line(20, y, 190, y);
+    y += lineHeight;
+    doc.setFontSize(9);
+    doc.text('HealthFlow Medical Center', 105, y, { align: 'center' });
+    y += lineHeight;
+    doc.text('This is a computer generated prescription.', 105, y, { align: 'center' });
+
+    // Save the PDF
+    doc.save(`prescription-${prescription._id}.pdf`);
+  };
+
   const prescriptionForm = (
     <div className="w-full space-y-6">
       <div className="flex justify-end mb-4">
@@ -266,9 +509,15 @@ export default function NextTreatmentTab() {
           variant="ghost"
           size="icon"
           className="rounded-full w-10 h-10 bg-blue-50 hover:bg-blue-100"
-          title="AI Assistant (Coming Soon)"
+          title="AI Assistant"
+          onClick={generateAiAnalysis}
+          disabled={isLoadingAi}
         >
-          <Bot className="w-5 h-5 text-blue-600" />
+          {isLoadingAi ? (
+            <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full" />
+          ) : (
+            <Bot className="w-5 h-5 text-blue-600" />
+          )}
         </Button>
       </div>
       <div className="space-y-6">
@@ -289,8 +538,7 @@ export default function NextTreatmentTab() {
                   className="text-red-500 hover:text-red-600 hover:bg-red-50"
                   icon={<Trash2 className="w-4 h-4" />}
                   onClick={() => removeMedicine(index)}
-                >
-                  Remove
+                >Remove
                 </Button>
               )}
             </div>
@@ -386,6 +634,63 @@ export default function NextTreatmentTab() {
 
   return (
     <>
+      {/* AI Analysis Notification */}
+      {showAiNotification && aiAnalysis && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-[60]"
+            onClick={() => setShowAiNotification(false)}
+          />
+          <div className="fixed inset-0 z-[70] overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-auto relative transform transition-all">
+                <div className="p-6 space-y-4">
+                  <div className="flex justify-between items-start">
+                    <h3 className="text-lg font-semibold text-blue-600 flex items-center gap-2">
+                      <Bot className="w-5 h-5" />
+                      AI Treatment Analysis
+                    </h3>
+                    <button 
+                      onClick={() => setShowAiNotification(false)}
+                      className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full p-1"
+                    >
+                      <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="prose prose-blue max-w-none">
+                    <div className="whitespace-pre-wrap text-gray-700">
+                      {aiAnalysis.response}
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg mt-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Current Medications</h4>
+                    <ul className="text-sm text-gray-600 space-y-2">
+                      {aiAnalysis.medications.map((med, index) => (
+                        <li key={index} className="flex flex-col gap-1">
+                          <span className="font-medium">{med.name}</span>
+                          <span className="text-gray-500">
+                            Dosage: {med.dosage}, Frequency: {med.frequency}
+                          </span>
+                          {med.instructions && (
+                            <span className="text-gray-500">
+                              Instructions: {med.instructions}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -423,21 +728,34 @@ export default function NextTreatmentTab() {
               {!isEditing ? (
                 <>
                   <Button
-                    variant="danger"
+                    variant="secondary"
                     size="sm"
-                    icon={<Trash2 className="w-4 h-4" />}
-                    onClick={() => handleDeleteClick(selectedPrescription)}
+                    className="bg-green-700 hover:bg-green-700 text-white"
+                    icon={<FileText className="w-4 h-4" />}
+                    onClick={() => handleDownloadPrescription(selectedPrescription)}
                   >
-                    Delete
+                    Download PDF
                   </Button>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={<Edit className="w-4 h-4" />}
-                    onClick={handleEditClick}
-                  >
-                    Edit
-                  </Button>
+                  {editButtonsVisible && (
+                    <>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        icon={<Trash2 className="w-4 h-4" />}
+                        onClick={() => handleDeleteClick(selectedPrescription)}
+                      >
+                        Delete
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        icon={<Edit className="w-4 h-4" />}
+                        onClick={handleEditClick}
+                      >
+                        Edit
+                      </Button>
+                    </>
+                  )}
                 </>
               ) : (
                 <Button

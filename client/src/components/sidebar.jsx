@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuthContext } from "../context/AuthContext";
 import Button from "./ui/button";
 import {
@@ -18,9 +18,15 @@ export default function Sidebar({ selectedItem, onSelectItem }) {
 
   const { logout } = useAuthContext();
   const navigate = useNavigate();
+  const location = useLocation();
+
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  const isActive = (path) => {
+    return location.pathname.includes(path);
   };
 
   const menuItems = [
@@ -35,8 +41,9 @@ export default function Sidebar({ selectedItem, onSelectItem }) {
     {
       category: "TELEMEDICINE",
       items: [
-        { name: "Appointments", icon: <Calendar className="w-4 h-4" />, path: "appointments" },
-        { name: "Chart", icon: <BarChart2 className="w-4 h-4" />, path: "chart" },
+        { name: "Appointments", icon: <Calendar className="w-4 h-4" />, path: "schedule" },
+        { name: "Patient Appointments", icon: <Calendar className="w-4 h-4" />, path: "patient-appointments" },
+        { name: "PatientDash", icon: <BarChart2 className="w-4 h-4" />, path: "search" },
         { name: "Finance", icon: <DollarSign className="w-4 h-4" />, path: "finance" },
       ],
     },
@@ -93,7 +100,7 @@ export default function Sidebar({ selectedItem, onSelectItem }) {
                 key={item.name}
                 to={item.path}
                 className={`flex items-center w-full px-4 py-2 text-xs ${
-                  selectedItem === item.name
+                  isActive(item.path)
                     ? "bg-[#eef6ff] text-[#2563eb] font-medium"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}

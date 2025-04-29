@@ -5,6 +5,7 @@ import Button from "../components/ui/button";
 import Input from "../components/ui/input";
 import Modal from "../components/ui/modal";
 import { Plus, Calendar, User, Clock, Eye } from "lucide-react";
+import jsPDF from 'jspdf';
 
 export default function PrescriptionPage() {
   const { currentUser } = useAuthContext();
@@ -20,6 +21,7 @@ export default function PrescriptionPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedPrescription, setEditedPrescription] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editButtonsVisible, setEditButtonsVisible] = useState(false);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -27,6 +29,29 @@ export default function PrescriptionPage() {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const isEditable = (prescription) => {
+    console.log("========= Checking Prescription Editability =========");
+    console.log("Full prescription object:", prescription);
+    
+    if (!prescription?.dateIssued) {
+      console.log("No dateIssued found in prescription!");
+      return false;
+    }
+    
+    const creationTime = new Date(prescription.dateIssued).getTime();
+    const currentTime = new Date().getTime();
+    const oneHourInMilliseconds = 60 * 60 * 1000;
+    const timeLeft = oneHourInMilliseconds - (currentTime - creationTime);
+    
+    console.log("Creation time:", new Date(creationTime).toLocaleString());
+    console.log("Current time:", new Date(currentTime).toLocaleString());
+    console.log("Time left for editing:", Math.floor(timeLeft / 1000 / 60), "minutes");
+    console.log("Is editable:", timeLeft > 0);
+    console.log("=============================================");
+    
+    return timeLeft > 0;
   };
 
   useEffect(() => {
@@ -56,6 +81,7 @@ export default function PrescriptionPage() {
         }
 
         const data = await response.json();
+        console.log("Fetched prescriptions:", data); // Added debug log
         setPrescriptions(data);
       } catch (err) {
         console.error("Error fetching prescriptions:", err);
@@ -71,7 +97,17 @@ export default function PrescriptionPage() {
   }, [doctorId]);
 
   const handleViewPrescription = (prescription) => {
+    console.log("View button clicked for prescription:", prescription);
+    if (!prescription) {
+      console.log("No prescription data received");
+      return;
+    }
+    
+    const canEdit = isEditable(prescription);
+    console.log("Can edit prescription?", canEdit);
+    
     setSelectedPrescription(prescription);
+    setEditButtonsVisible(canEdit);
     setViewModalOpen(true);
   };
 
@@ -182,6 +218,79 @@ export default function PrescriptionPage() {
     });
   };
 
+  const handleDownloadPrescription = (prescription) => {
+    const doc = new jsPDF();
+    
+    // Set initial y position
+    let y = 20;
+    const lineHeight = 7;
+    
+    // Add title
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PRESCRIPTION', 105, y, { align: 'center' });
+    y += lineHeight * 2;
+
+    // Add header info
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.line(20, y, 190, y);
+    y += lineHeight;
+
+    doc.text(`Doctor: Dr. ${prescription.doctorId?.name || "Unknown"}`, 20, y);
+    y += lineHeight;
+    doc.text(`Date Issued: ${formatDate(prescription.dateIssued)}`, 20, y);
+    y += lineHeight;
+    doc.text(`Valid Until: ${formatDate(prescription.validUntil)}`, 20, y);
+    y += lineHeight;
+    doc.text(`Patient: ${prescription.patientId?.name || "Unknown"}`, 20, y);
+    y += lineHeight * 2;
+
+    // Add medicines section
+    doc.setFont('helvetica', 'bold');
+    doc.text('MEDICINES:', 20, y);
+    y += lineHeight;
+    doc.setFont('helvetica', 'normal');
+
+    prescription.medicines.forEach(medicine => {
+      doc.text(`• ${medicine.medicineName}`, 20, y);
+      y += lineHeight;
+      doc.text(`  Dosage: ${medicine.dosage}`, 25, y);
+      y += lineHeight;
+      doc.text(`  Quantity: ${medicine.quantity}`, 25, y);
+      y += lineHeight;
+      doc.text(`  Frequency: ${medicine.frequency}`, 25, y);
+      y += lineHeight;
+      doc.text(`  Instructions: ${medicine.instructions}`, 25, y);
+      y += lineHeight * 1.5;
+
+      // Add a new page if we're running out of space
+      if (y > 250) {
+        doc.addPage();
+        y = 20;
+      }
+    });
+
+    // Add notes section
+    doc.setFont('helvetica', 'bold');
+    doc.text('Additional Notes:', 20, y);
+    y += lineHeight;
+    doc.setFont('helvetica', 'normal');
+    doc.text(prescription.notes || 'None', 20, y);
+    y += lineHeight * 2;
+
+    // Add footer
+    doc.line(20, y, 190, y);
+    y += lineHeight;
+    doc.setFontSize(9);
+    doc.text('HealthFlow Medical Center', 105, y, { align: 'center' });
+    y += lineHeight;
+    doc.text('This is a computer generated prescription.', 105, y, { align: 'center' });
+
+    // Save the PDF
+    doc.save(`prescription-${prescription._id}.pdf`);
+  };
+
   const filteredPrescriptions = prescriptions.filter((prescription) =>
     prescription.patientId?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -197,7 +306,7 @@ export default function PrescriptionPage() {
         title="Prescription Details"
         size="lg"
         footer={
-          <div className="flex justify-end w-full">
+          <div className="flex justify-end w-full gap-4">
             {isEditing ? (
               <>
                 <Button
@@ -230,16 +339,29 @@ export default function PrescriptionPage() {
                 </Button>
                 <Button
                   variant="secondary"
-                  onClick={handleEditClick}
+                  className="bg-green-700 hover:bg-green-700 text-white inline-flex items-center justify-center"
+                  onClick={() => handleDownloadPrescription(selectedPrescription)}
                 >
-                  Edit
+                  Download PDF
                 </Button>
-                <Button
-                  variant="danger"
-                  onClick={() => handleDeleteClick(selectedPrescription)}
-                >
-                  Delete
-                </Button>
+                {editButtonsVisible && (
+                  <>
+                    <Button
+                      variant="primary"
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={handleEditClick}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="danger"
+                      className="bg-red-600 hover:bg-red-700"
+                      onClick={() => handleDeleteClick(selectedPrescription)}
+                    >
+                      Delete
+                    </Button>
+                  </>
+                )}
               </>
             )}
           </div>

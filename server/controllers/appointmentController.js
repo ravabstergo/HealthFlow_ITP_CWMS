@@ -1,0 +1,679 @@
+const DoctorSchedule = require('../models/DoctorSchedule');
+const Appointment = require('../models/Appointment');
+const mongoose = require('mongoose');
+const User = require('../models/User');
+const querystring = require('querystring');
+const dotenv = require("dotenv");
+const { RtcTokenBuilder, RtcRole } = require('agora-token');
+
+require('dotenv').config();
+
+
+//search doctor by name or specialization
+const searchDoctorByName = async (req, res) => {
+  try {
+    const { searchTerm } = req.params;
+      // Get the doctor role ID first
+    const doctorRole = await mongoose.model('Role').findOne({ name: 'sys_doctor' });
+    if (!doctorRole) {
+      return res.status(404).json({ message: 'Doctor role not found in the system' });
+    }
+
+    // Search for doctors by name or specialization using case-insensitive search
+    const doctors = await User.find({
+      'roles.role': doctorRole._id,
+      $or: [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        { 'doctorInfo.specialization': { $regex: searchTerm, $options: 'i' } }
+      ]
+    })
+    .select('name email mobile doctorInfo')
+    .populate('roles.role', 'name');
+
+    if (!doctors || doctors.length === 0) {
+      return res.status(404).json({ message: 'No doctors found matching your search.' });
+    }
+
+    res.status(200).json(doctors);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error searching for doctors.', error });
+  }
+};
+
+//get all doctors
+const getAllDoctors = async (req, res) => {
+    try {
+        // Get the doctor role ID first
+        const doctorRole = await mongoose.model('Role').findOne({ name: 'sys_doctor' });
+        if (!doctorRole) {
+            return res.status(404).json({ message: 'Doctor role not found in the system' });
+        }
+
+        // Find all users who have the doctor role
+        const doctors = await User.find({
+            'roles.role': doctorRole._id
+        })
+        .select('name email mobile doctorInfo')  // Select only needed fields
+        .populate('roles.role', 'name'); // Populate role information
+
+        if (!doctors || doctors.length === 0) {
+            return res.status(404).json({ message: 'No doctors found in the system' });
+        }
+
+        res.status(200).json(doctors);
+    } catch (error) {
+        console.error('Error fetching doctors:', error);
+        res.status(500).json({ message: 'Error fetching doctors', error: error.message });
+    }
+}
+
+//create schedule
+const createSchedule = async (req, res) => {
+  try {
+    const { availability, consultationFee } = req.body;
+    const doctorId = req.params.id;
+
+    // Create slots from availability
+    const slots = [];
+    availability.forEach((day) => {
+      const startTime = new Date(day.startTime);
+      const endTime = new Date(day.endTime);
+      const duration = day.appointmentDuration;
+
+      let slotTime = new Date(startTime);
+      while (slotTime < endTime) {
+        slots.push({ day: day.day, slotTime: slotTime.toISOString(), isBooked: false });
+        slotTime = new Date(slotTime.getTime() + duration * 60000); // Increment by duration
+      }
+    });
+
+    // Save schedule and slots
+    const schedule = new DoctorSchedule({ doctorId, availability, slots, consultationFee });
+    await schedule.save();
+
+    res.status(201).json(schedule);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error creating schedule', error });
+  }
+};
+
+//get doctor slots
+const getDoctorSlots = async (req, res) => {
+  try {
+    const doctorId = req.params.id;
+    const { date } = req.query;
+    console.log('Controller: Received request for slots:', { doctorId, date });
+
+    const queryDate = new Date(date);
+    queryDate.setHours(0, 0, 0, 0);
+    console.log('Controller: Formatted query date:', queryDate);
+
+    const schedules = await DoctorSchedule.find({ doctorId }).lean();
+    console.log('Controller: Found schedules count:', schedules.length);
+
+    if (!schedules.length) {
+      console.log('Controller: No schedules found for doctor');
+      return res.status(404).json({ message: 'No schedule found for this doctor' });
+    }
+
+    // Combine slots from all schedules and filter by date
+    const allSlots = schedules.reduce((acc, schedule) => {
+      console.log('Controller: Processing schedule with slots count:', schedule.slots.length);
+      const slotsForDay = schedule.slots.filter(slot => {
+        const slotDate = new Date(slot.day);
+        slotDate.setHours(0, 0, 0, 0);
+        return slotDate.getTime() === queryDate.getTime();
+      });
+      console.log('Controller: Found matching slots for date:', slotsForDay.length);
+      return acc.concat(slotsForDay);
+    }, []);
+
+    // Sort slots by time
+    allSlots.sort((a, b) => new Date(a.slotTime) - new Date(b.slotTime));
+    console.log('Controller: Final slots count:', allSlots.length);
+
+    res.json(allSlots);
+  } catch (error) {
+    console.error('Controller: Error in getDoctorSlots:', error);
+    res.status(500).json({ message: 'Error fetching slots', error });
+  }
+};
+
+
+
+  //book appointment
+  const bookAppointment = async (req, res) => {
+    try {
+      const { doctorId, patientId, slotId, reason, title, firstName, lastName, phone, nic, email, status } = req.body;
+      
+      // Log the received data
+      console.log('Received appointment data:', {
+        doctorId,
+        patientId,
+        slotId,
+        reason,
+        title,
+        firstName,
+        lastName,
+        phone,
+        nic,
+        email,
+        status
+      });
+  
+      // Fetch the doctor's schedule
+      const schedules = await DoctorSchedule.find({ doctorId });
+      if (!schedules.length) return res.status(404).json({ message: 'Doctor schedule not found' });
+  
+      let slot;
+      let schedule;
+  
+      // Find the specific slot
+      for (const sched of schedules) {
+        slot = sched.slots.id(slotId);
+        if (slot) {
+          schedule = sched;
+          break;
+        }
+      }
+  
+      // Check if the slot is available
+      if (!slot || slot.isBooked) {
+        return res.status(400).json({ message: 'Slot is not available' });
+      }
+  
+      // Generate Agora token
+      const APP_ID = process.env.APP_ID; // Replace with your Agora App ID
+      const APP_CERTIFICATE = process.env.APP_CERTIFICATE; // Replace with your Agora App Certificate
+  
+      const channelName = `appointment-${slotId}`; // Unique channel name for the appointment
+      const uid = 0; // User ID (0 means any user)
+      const role = RtcRole.PUBLISHER; // Role: PUBLISHER or SUBSCRIBER
+      const expirationTimeInSeconds = 3600 * 24 * 30; // Token validity (e.g., 24 hours)
+  
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+  
+      // Build the token
+      const agoraToken = RtcTokenBuilder.buildTokenWithUid(
+        APP_ID,
+        APP_CERTIFICATE,
+        channelName,
+        uid,
+        role,
+        privilegeExpiredTs
+      );
+  
+      // Create the appointment with the slot time
+      const appointment = new Appointment({
+        doctorId,
+        patientId,
+        slotId,
+        time: new Date(slot.slotTime), // Save the slot time in the time field
+        reason,
+        title,
+        firstName,
+        lastName,
+        phone,
+        nic,
+        email,
+        status,
+        channelName, // Save the channel name
+        agoraToken, // Save the Agora token
+      });
+  
+      await appointment.save();
+  
+      // Mark slot as booked
+      slot.isBooked = true;
+      await schedule.save();
+  
+      res.status(201).json(appointment);
+    } catch (error) {
+      console.error('Error in bookAppointment:', error);
+      res.status(500).json({ message: 'Error booking appointment', error: error.message });
+    }
+  };
+
+
+
+//get doctor by id
+
+const getDoctorById = async (req, res) => {
+  try {
+    const doctorId = req.params.id;
+    
+    // Get the doctor role ID first
+    const doctorRole = await mongoose.model('Role').findOne({ name: 'sys_doctor' });
+    if (!doctorRole) {
+      return res.status(404).json({ message: 'Doctor role not found in the system' });
+    }
+
+    // Find the doctor with the specified ID and role
+    const doctor = await User.findOne({
+      _id: doctorId,
+      'roles.role': doctorRole._id
+    })
+    .select('name email mobile doctorInfo')  // Select only needed fields
+    .populate('roles.role', 'name'); // Populate role information
+
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found.' });
+    }
+
+    res.status(200).json(doctor);
+  } catch (error) {
+    console.error('Error fetching doctor:', error);
+    res.status(500).json({ message: 'Error fetching doctor.', error: error.message });
+  }
+};
+
+//get doctor schedule
+
+const getDoctorSchedule = async (req, res) => {
+  try {
+    const doctorId = req.params.id;
+    const schedule = await DoctorSchedule.find({ doctorId });
+
+    if (!schedule) {
+      return res.status(404).json({ message: 'Schedule not found.' });
+    }
+
+    res.status(200).json(schedule);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching schedule.', error });
+  }
+};
+
+//update doctor schedule
+
+const updateSchedule = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const { day, startTime, endTime, appointmentDuration } = req.body;
+
+    // Find all schedules for the doctor
+    const schedules = await DoctorSchedule.find({ doctorId });
+    if (!schedules.length) {
+      return res.status(404).json({ message: "Doctor schedule not found" });
+    }
+
+    // Convert `day` to a Date object for comparison
+    const dayDate = new Date(day);
+
+    // Find which schedule contains the availability for this day
+    let targetSchedule = null;
+    let availability = null;
+
+    for (const schedule of schedules) {
+      availability = schedule.availability.find(
+        (a) => new Date(a.day).toISOString() === dayDate.toISOString()
+      );
+      if (availability) {
+        targetSchedule = schedule;
+        break;
+      }
+    }
+
+    if (!targetSchedule || !availability) {
+      return res.status(404).json({ message: "Day not found in availability" });
+    }
+
+    // Update the start time and end time
+    availability.startTime = new Date(startTime);
+    availability.endTime = new Date(endTime);
+
+    // Recreate slots for the updated day
+    const newSlots = [];
+    let slotTime = new Date(startTime);
+    const endTimeDate = new Date(endTime);
+
+    while (slotTime < endTimeDate) {
+      newSlots.push({
+        day: dayDate.toISOString(),
+        slotTime: slotTime.toISOString(),
+        isBooked: false,
+      });
+      slotTime = new Date(slotTime.getTime() + appointmentDuration * 60000);
+    }
+
+    // Replace the slots for the updated day
+    targetSchedule.slots = targetSchedule.slots.filter(
+      (slot) => new Date(slot.day).toISOString() !== dayDate.toISOString()
+    ).concat(newSlots);
+
+    // Save the updated schedule
+    await targetSchedule.save();
+
+    res.status(200).json({ message: "Schedule updated successfully", schedule: targetSchedule });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error updating schedule", error });
+  }
+};
+
+//get appointment by id
+
+const getAppointmentById = async (req, res) => {
+  try {
+    const appointmentId = req.params.id;
+    const appointment = await Appointment.findById(appointmentId);
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found.' });
+    }
+
+    res.status(200).json(appointment);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching appointment.', error });
+  }
+};
+
+//get all appointments of a doctor
+const getAppointmentsByDoctor = async (req, res) => {
+  try {
+    const doctorId = req.params.doctorId;
+    
+    // Get all appointments for the doctor
+    const appointments = await Appointment.find({ doctorId });
+
+    if (!appointments.length) {
+      return res.status(404).json({ message: 'No appointments found for this doctor.' });
+    }
+
+    // Get all schedules for the doctor
+    const schedules = await DoctorSchedule.find({ doctorId });
+    
+    // Map over appointments and add slot time information
+    const appointmentsWithSlotTime = await Promise.all(appointments.map(async (apt) => {
+      const aptObj = apt.toObject();
+      
+      // Find the schedule containing this slot
+      for (const schedule of schedules) {
+        const slot = schedule.slots.id(apt.slotId);
+        if (slot) {
+          aptObj.time = slot.slotTime;
+          break;
+        }
+      }
+      
+      return aptObj;
+    }));
+
+    res.status(200).json(appointmentsWithSlotTime);
+  } catch (error) {
+    console.error('Error in getAppointmentsByDoctor:', error);
+    res.status(500).json({ message: 'Error fetching appointments.', error: error.message });
+  }
+};
+
+//get active appointments of a doctor sorted in ascending order of slotTime
+const getActiveAppointments = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+
+    const appointments = await Appointment.find({ doctorId, status: 'active' }).sort({ slotTime: 1 });
+
+    if (!appointments.length) {
+      return res.status(404).json({ message: 'No active appointments found' });
+    }
+
+    res.status(200).json(appointments);
+  } catch (error) {
+    res.status(500).json({ message: 'Error retrieving appointments', error });
+  }
+};
+
+
+//get all appointments of a patient
+
+const getAppointmentsByPatient = async (req, res) => {
+  try {
+    const patientId = req.params.patientId;
+    const appointments = await Appointment.find({patientId});
+
+    if (!appointments.length) {
+      return res.status(404).json({ message: 'No appointments found for this patient.' });
+    }
+
+    res.status(200).json(appointments);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching appointments.', error });
+  }
+};
+
+//delete appointment
+
+const deleteAppointment = async (req, res) => {
+  try {
+    const appointmentId = req.params.id;
+
+    // Find the appointment
+    const appointment = await Appointment.findOneAndDelete(appointmentId);
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found.' });
+    }
+
+    // Find the schedule and slot
+    const schedules = await DoctorSchedule.find({ doctorId: appointment.doctorId });
+    if (!schedules.length) return res.status(404).json({ message: 'Doctor schedule not found' });
+
+    let slot;
+    let schedule;
+
+    for (const sched of schedules) {
+      slot = sched.slots.id(appointment.slotId);
+      if (slot) {
+        schedule = sched;
+        break;
+      }
+    }
+
+    if (!slot) {
+      return res.status(404).json({ message: 'Slot not found in doctor schedule.' });
+    }
+
+    // Free up the slot
+    slot.isBooked = false;
+    await schedule.save();
+
+    res.status(200).json({ message: 'Appointment canceled successfully.' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error canceling appointment.', error });
+  }
+};
+
+//get appointments by patient name
+const getAppointmentsByPatientName = async (req, res) => {
+  try {
+    const { firstName, lastName } = req.params;
+    const appointments = await Appointment.find({ firstName, lastName });
+
+    if (!appointments.length) {
+      return res.status(404).json({ message: 'No appointments found for this patient.' });
+    }
+
+    res.status(200).json(appointments);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching appointments.', error });
+  }
+};
+
+//delete availability period and associated slots
+const deleteAvailability = async (req, res) => {
+  try {
+    const { doctorId, availabilityId } = req.params;
+
+    // Find all schedules for the doctor
+    const schedules = await DoctorSchedule.find({ doctorId });
+    if (!schedules.length) {
+      return res.status(404).json({ message: 'Doctor schedule not found' });
+    }
+
+    // Find which schedule contains the availability
+    let targetSchedule = null;
+    let availability = null;
+    
+    for (const schedule of schedules) {
+      availability = schedule.availability.id(availabilityId);
+      if (availability) {
+        targetSchedule = schedule;
+        break;
+      }
+    }
+
+    if (!targetSchedule || !availability) {
+      return res.status(404).json({ message: 'Availability period not found' });
+    }
+
+    // Get the start and end times of the availability period
+    const startTime = new Date(availability.startTime);
+    const endTime = new Date(availability.endTime);
+    const availabilityDay = new Date(availability.day);
+
+    // Remove slots that fall within this availability period
+    targetSchedule.slots = targetSchedule.slots.filter(slot => {
+      const slotTime = new Date(slot.slotTime);
+      const slotDay = new Date(slot.day);
+      
+      // Check if the slot is on the same day and within the time range
+      return !(slotDay.getTime() === availabilityDay.getTime() &&
+               slotTime >= startTime &&
+               slotTime <= endTime);
+    });
+
+    // Remove the availability period
+    targetSchedule.availability.pull(availabilityId);
+
+    // Save the updated schedule
+    await targetSchedule.save();
+
+    res.status(200).json({ 
+      message: 'Availability period and associated slots deleted successfully',
+      schedule: targetSchedule
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error deleting availability period', error });
+  }
+};
+
+//update appointment status
+const updateAppointmentStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const appointment = await Appointment.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true, runValidators: true }
+    );
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found.' });
+    }
+
+    res.status(200).json(appointment);
+  } catch (error) {
+    console.error('Error in updateAppointmentStatus:', error);
+    res.status(500).json({ message: 'Error updating appointment status.', error: error.message });
+  }
+};
+
+const getDoctorSlotsByDate = async (req, res) => {
+  try {
+    const { id: doctorId } = req.params;
+    const { date } = req.query;
+    const queryDate = new Date(date);
+
+    // Find all schedules for the doctor
+    const schedules = await DoctorSchedule.find({ doctorId }).lean();
+
+    if (!schedules.length) {
+      return res.status(404).json({ message: 'No schedule found for this doctor' });
+    }
+
+    // Filter slots for the specific date
+    const slotsForDate = schedules.reduce((acc, schedule) => {
+      const matchingSlots = schedule.slots.filter(slot => {
+        const slotDate = new Date(slot.slotTime);
+        return (
+          slotDate.getFullYear() === queryDate.getFullYear() &&
+          slotDate.getMonth() === queryDate.getMonth() &&
+          slotDate.getDate() === queryDate.getDate()
+        );
+      });
+      return [...acc, ...matchingSlots];
+    }, []);
+
+    // Sort slots by time
+    slotsForDate.sort((a, b) => new Date(a.slotTime) - new Date(b.slotTime));
+
+    res.json(slotsForDate);
+  } catch (error) {
+    console.error('Error in getDoctorSlotsByDate:', error);
+    res.status(500).json({ message: 'Error fetching slots', error: error.message });
+  }
+};
+
+//check slot availability
+const checkSlotAvailability = async (req, res) => {
+  try {
+    const { id: doctorId, slotId } = req.params;
+
+    // Find the doctor's schedule that contains this slot
+    const schedules = await DoctorSchedule.find({ doctorId });
+    if (!schedules.length) {
+      return res.status(404).json({ message: 'No schedule found for this doctor' });
+    }
+
+    // Find the specific slot
+    let slot = null;
+    for (const schedule of schedules) {
+      const foundSlot = schedule.slots.id(slotId);
+      if (foundSlot) {
+        slot = foundSlot;
+        break;
+      }
+    }
+
+    if (!slot) {
+      return res.status(404).json({ message: 'Slot not found' });
+    }
+
+    res.json({ isAvailable: !slot.isBooked });
+  } catch (error) {
+    console.error('Error in checkSlotAvailability:', error);
+    res.status(500).json({ message: 'Error checking slot availability', error: error.message });
+  }
+};
+
+module.exports = {
+    getAllDoctors,
+    createSchedule,
+    getDoctorSlots,
+    bookAppointment,
+    getDoctorById,
+    getDoctorSchedule,
+    updateSchedule,
+    getAppointmentById,
+    getAppointmentsByDoctor,
+    getAppointmentsByPatient,
+    deleteAppointment,
+    getActiveAppointments,
+    getAppointmentsByPatientName,
+    searchDoctorByName,
+    deleteAvailability,
+    updateAppointmentStatus,
+    getDoctorSlotsByDate,
+    checkSlotAvailability,
+};

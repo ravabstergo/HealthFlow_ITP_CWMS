@@ -1,0 +1,22 @@
+const express = require("express");
+const {
+  insertDocument,
+  getDocumentById,
+  getAllDocuments,
+  updateDocument,
+  deleteDocument,
+  statusUpdate,
+  downloadDocument
+} = require("../controllers/DocumentController");
+
+const router = express.Router();
+
+router.post("/", insertDocument);
+router.get("/:id", getDocumentById);
+router.get("/", getAllDocuments);
+router.put("/:id", updateDocument);
+router.delete("/:id", deleteDocument);
+router.put("/:patentid/status", statusUpdate);
+router.get("/:id/download", downloadDocument);
+
+module.exports = router;
