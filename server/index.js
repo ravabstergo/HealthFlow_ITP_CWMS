@@ -40,8 +40,7 @@ app.use("/api/feedback", feedbackRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 
 require('./aiModel');
-app.use("/api",aiModelRoute);
-
+app.use("/api/ai", aiModelRoute);
 
 app.use("/api/document", DocRoutes);
 
