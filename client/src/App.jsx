@@ -9,6 +9,8 @@ import PatientInformationTab from "./components/patient-detail/PatientInformatio
 import AppointmentHistoryTab from "./components/patient-detail/AppointmentHistoryTab";
 import NextTreatmentTab from "./components/patient-detail/NextTreatmentTab";
 import MedicalRecordTab from "./components/patient-detail/MedicalRecordTab";
+import PatientDocumentList from "./components/patient-detail/DocumentList";
+import DocumentList from "./pages/document_page";
 import PrescriptionPage from "./pages/prescription-page";
 import AppointmentsPage from "./pages/appointments-page";
 import FeedbackStartPage from "./pages/feedback-start-page";
@@ -43,8 +45,9 @@ function App() {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="patients" element={<PatientsPage />} />
-
+          <Route path="documents" element={<DocumentList />} />
           <Route path="prescription" element={<PrescriptionPage />} />
+
           {/* Patient detail and nested tabs */}
 
           <Route path="patients/:id" element={<PatientDetailPage />}>
@@ -53,6 +56,7 @@ function App() {
             <Route path="appointments" element={<AppointmentHistoryTab />} />
             <Route path="treatment" element={<NextTreatmentTab />} />
             <Route path="record" element={<MedicalRecordTab />} />
+            <Route path="documents" element={<PatientDocumentList />} />
           </Route>
           <Route path="appointments" element={<AppointmentsPage />} />
           <Route path="feedback" element={<FeedbackStartPage />} />
