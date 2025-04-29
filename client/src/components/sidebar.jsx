@@ -41,8 +41,9 @@ export default function Sidebar({ selectedItem, onSelectItem }) {
     {
       category: "TELEMEDICINE",
       items: [
-        { name: "Appointments", icon: <Calendar className="w-4 h-4" />, path: "appointments" },
-        { name: "Chart", icon: <BarChart2 className="w-4 h-4" />, path: "chart" },
+        { name: "Appointments", icon: <Calendar className="w-4 h-4" />, path: "schedule" },
+        { name: "Patient Appointments", icon: <Calendar className="w-4 h-4" />, path: "patient-appointments" },
+        { name: "PatientDash", icon: <BarChart2 className="w-4 h-4" />, path: "search" },
         { name: "Finance", icon: <DollarSign className="w-4 h-4" />, path: "finance" },
       ],
     },
