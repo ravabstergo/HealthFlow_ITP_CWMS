@@ -82,6 +82,15 @@ module.exports = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      animation: {
+        'slide-in': 'slide-in 0.3s ease-out',
+      },
+      keyframes: {
+        'slide-in': {
+          'from': { transform: 'translateX(100%)' },
+          'to': { transform: 'translateX(0)' },
+        }
+      }
     },
   },
   plugins: [],
