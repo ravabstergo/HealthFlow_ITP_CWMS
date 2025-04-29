@@ -1,18 +1,33 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { ArrowRight, File, ImageIcon, X, ChevronDown } from "lucide-react"
 import Button from "./button"
 import Input from "./input"
 import DropdownMenu, { DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "./dropdown-menu"
 import { useAuthContext } from "../../context/AuthContext"
+import DocumentService from "../../services/DocumentService"
+
+const getFileIcon = (fileType, preview = false) => {
+  const type = fileType.toLowerCase();
+  if (type.includes('pdf')) {
+    return <File className={`${preview ? "h-10 w-10" : "h-6 w-6"} text-red-500`} />;
+  } else if (type.includes('doc')) {
+    return <File className={`${preview ? "h-10 w-10" : "h-6 w-6"} text-blue-500`} />;
+  } else if (type.startsWith('image/')) {
+    return <ImageIcon className={`${preview ? "h-10 w-10" : "h-6 w-6"} text-green-500`} />;
+  }
+  return <File className={`${preview ? "h-10 w-10" : "h-6 w-6"} text-gray-400`} />;
+};
 
 export default function DocumentUpload({ 
   isOpen, 
   onClose, 
   mode = "create", 
   documentData = null,
-  isPatientView = false 
+  isPatientView = false,
+  onUploadSuccess,
+  onUpdateSuccess
 }) {
-  const { activeRole } = useAuthContext();
+  const { activeRole, currentUser } = useAuthContext();
   const isDoctor = activeRole?.name === "sys_doctor";
   const isBulkUpdate = mode === "bulk-update";
   
@@ -20,23 +35,21 @@ export default function DocumentUpload({
   const [documentName, setDocumentName] = useState("")
   const [documentType, setDocumentType] = useState("Lab Report")
   const [dragActive, setDragActive] = useState(false)
-  const [status, setStatus] = useState("reviewed")
+  const [status, setStatus] = useState("Pending")
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if ((mode === "edit" || mode === "bulk-update") && documentData) {
       if (isBulkUpdate) {
-        // For bulk update, use the first document's values as defaults
         const firstDoc = Array.isArray(documentData) ? documentData[0] : documentData;
-        setDocumentName(firstDoc.name || "")
-        setDocumentType(firstDoc.type || "Lab Report")
-        setStatus(firstDoc.status?.toLowerCase() || "reviewed")
+        setDocumentName(firstDoc.documentName || "")
+        setDocumentType(firstDoc.documentType || "Lab Report")
+        setStatus(firstDoc.status || "Pending")
       } else {
-        setDocumentName(documentData.name || "")
-        setDocumentType(documentData.type || "Lab Report")
-        setStatus(documentData.status?.toLowerCase() || "reviewed")
-      }
-      if (documentData.attachments) {
-        setAttachments(Array.isArray(documentData.attachments) ? documentData.attachments : [documentData.attachments])
+        setDocumentName(documentData.documentName || "")
+        setDocumentType(documentData.documentType || "Lab Report")
+        setStatus(documentData.status || "Pending")
       }
     }
   }, [mode, documentData, isBulkUpdate])
@@ -79,7 +92,6 @@ export default function DocumentUpload({
       type: file.type,
       size: file.size,
       preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
-      hasNotes: false
     }))
     setAttachments(prev => [...prev, ...newAttachments])
   }
@@ -103,31 +115,67 @@ export default function DocumentUpload({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
-  const handleAddNotes = (id) => {
-    setAttachments(
-      attachments.map((attachment) => (attachment.id === id ? { ...attachment, hasNotes: true } : attachment)),
-    )
+  const handleSubmit = async () => {
+    try {
+      setUploading(true)
+
+      if (mode === "create") {
+        // Handle new document upload
+        const formData = new FormData()
+        if (attachments[0]) {
+          formData.append("document", attachments[0].file)
+        }
+        formData.append("documentName", documentName)
+        formData.append("documentType", documentType)
+
+        const uploadedDoc = await DocumentService.uploadDocument(formData)
+        onUploadSuccess(uploadedDoc)
+      } 
+      else if (mode === "edit") {
+        // Handle document update
+        const formData = new FormData()
+        if (attachments[0]) {
+          formData.append("document", attachments[0].file)
+        }
+        formData.append("documentName", documentName)
+        formData.append("documentType", documentType)
+
+        const updatedDoc = await DocumentService.updateDocument(documentData._id, formData)
+        onUpdateSuccess(updatedDoc)
+      }
+      else if (mode === "bulk-update") {
+        // Handle bulk update
+        const updatePromises = documentData.map(doc => 
+          DocumentService.updateDocument(doc._id, {
+            documentName: documentName || doc.documentName,
+            documentType: documentType || doc.documentType,
+            status: status || doc.status
+          })
+        )
+        await Promise.all(updatePromises)
+        onUpdateSuccess()
+      }
+
+      handleCleanup()
+    } catch (error) {
+      console.error("Document operation failed:", error)
+    } finally {
+      setUploading(false)
+    }
   }
 
-  const handleStatusChange = (value) => {
-    setStatus(value)
+  const handleCleanup = () => {
+    setDocumentName("")
+    setDocumentType("Lab Report")
+    setStatus("Pending")
+    setAttachments([])
+    setDragActive(false)
+    onClose()
   }
 
-  const handleSubmit = () => {
-    const updatedDocument = {
-      name: documentName,
-      type: documentType,
-      status: status,
-      attachments
-    }
-    
-    if (isBulkUpdate) {
-      console.log("Bulk updating documents:", documentData.map(doc => doc.id), "with:", updatedDocument)
-    } else {
-      console.log(mode === "create" ? "Creating document:" : "Updating document:", updatedDocument)
-    }
-    onClose(true)
-  }
+  const handleBrowseClick = () => {
+    fileInputRef.current?.click();
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -145,7 +193,7 @@ export default function DocumentUpload({
               {attachments.map((attachment) => (
                 <div key={attachment.id} className="border border-gray-200 rounded-md overflow-hidden">
                   <div className="relative">
-                    {attachment.preview ? (
+                    {attachment.type.startsWith('image/') ? (
                       <img
                         src={attachment.preview}
                         alt={attachment.name}
@@ -153,7 +201,7 @@ export default function DocumentUpload({
                       />
                     ) : (
                       <div className="w-full h-24 bg-gray-50 flex items-center justify-center">
-                        <File className="h-10 w-10 text-gray-400" />
+                        {getFileIcon(attachment.type, true)}
                       </div>
                     )}
                     <button 
@@ -167,15 +215,10 @@ export default function DocumentUpload({
                     <p className="text-xs font-medium text-gray-900 truncate">{attachment.name}</p>
                     <div className="flex items-center justify-between mt-1">
                       <span className="text-xs text-gray-500">{formatFileSize(attachment.size)}</span>
-                      <span className="text-xs text-gray-500">{attachment.type.split('/')[1].toUpperCase()}</span>
+                      <span className="text-xs text-gray-500">
+                        {attachment.type.split('/')[1].toUpperCase()}
+                      </span>
                     </div>
-                    <button
-                      className="text-xs text-cyan-600 flex items-center mt-1 hover:text-cyan-700"
-                      onClick={() => handleAddNotes(attachment.id)}
-                    >
-                      <ImageIcon className="h-3 w-3 mr-1" />
-                      Add notes
-                    </button>
                   </div>
                 </div>
               ))}
@@ -189,180 +232,100 @@ export default function DocumentUpload({
           <div className="p-2 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-500">
-                {isBulkUpdate ? "Bulk Update Documents" : mode === "edit" ? `Document ID: ${documentData?.id}` : "New Document"}
+                {isBulkUpdate ? "Bulk Update Documents" : mode === "edit" ? `Edit Document: ${documentData?.documentName}` : "New Document"}
               </span>
-              {isBulkUpdate && (
+              {isBulkUpdate && documentData && (
                 <span className="text-xs text-gray-400">
-                  ({documentData?.length} documents selected)
+                  ({Array.isArray(documentData) ? documentData.length : 0} documents selected)
                 </span>
               )}
             </div>
-            <div className="flex items-center space-x-2">
-              <button className="text-gray-400" onClick={() => onClose(false)}>
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Patient info */}
-          <div className="p-2 flex items-center space-x-3 border-b border-gray-200">
-            <div className="h-8 w-8 rounded-full bg-purple-500 flex items-center justify-center text-white text-sm font-medium">
-              CJ
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Patient name</div>
-              <div className="text-sm font-medium">Chamara Janakantha</div>
-            </div>
-            <div className="ml-auto flex items-center space-x-2">
-              <span className="text-sm text-gray-500">Status:</span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 px-2 flex justify-between items-center min-w-[100px]">
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                    <ChevronDown className="h-4 w-4 opacity-50 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => handleStatusChange("reviewed")}>Reviewed</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleStatusChange("pending")}>Pending</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleStatusChange("approved")}>Approved</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            <button className="text-gray-400" onClick={handleCleanup}>
+              <X className="h-5 w-5" />
+            </button>
           </div>
 
           {/* Main content */}
-          <div className="flex-1 p-3">
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              {/* Left column */}
+          <div className="flex-1 p-4">
+            <div className="space-y-4">
               <div>
-                <div className="mb-3">
-                  <h3 className="text-xs font-medium text-gray-500 mb-1">TREATMENT</h3>
-                  <p className="text-sm">Endodontic</p>
-                </div>
-
-                <div>
-                  <h3 className="text-xs font-medium text-gray-500 mb-1">General info</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <div className="text-xs text-gray-500">FULL NAME</div>
-                      <div>Chamara Janakantha</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500">AGE</div>
-                      <div>32</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500">GENDER</div>
-                      <div>Male</div>
-                    </div>
-                  </div>
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Document Name</label>
+                <Input
+                  placeholder="Enter document name"
+                  value={documentName}
+                  onChange={(e) => setDocumentName(e.target.value)}
+                  className="w-full"
+                />
               </div>
 
-              {/* Right column */}
               <div>
-                <div className="mb-3">
-                  <h3 className="text-xs font-medium text-gray-500 mb-1">DATE AND TIME</h3>
-                  <div className="text-sm">Jul 26, 2023</div>
-                  <div className="text-xs text-gray-500">10:30 AM</div>
-                </div>
-
-                <div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <div className="text-xs text-gray-500">PHONE</div>
-                      <div>+44 77 12345678</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500">EMAIL</div>
-                      <div className="truncate">chamara@example.com</div>
-                    </div>
-                  </div>
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Document Type</label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between">
+                      {documentType}
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-full">
+                    {["Lab Report", "Scan", "Prescription", "System Generated"].map((type) => (
+                      <DropdownMenuItem key={type} onClick={() => setDocumentType(type.trim())}>
+                        {type}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-            </div>
 
-            {/* Upload area with inline document details */}
-            <div className="mt-2">
-              <div className="flex space-x-4">
-                <div className="flex-1">
-                  <div
-                    className={`border-2 border-dashed rounded-md p-4 flex flex-col items-center justify-center h-[180px] ${
-                      dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300"
-                    }`}
-                    onDragEnter={handleDrag}
-                    onDragOver={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDrop={handleDrop}
-                  >
-                    <input
-                      type="file"
-                      id="file-upload"
-                      multiple
-                      className="hidden"
-                      onChange={handleFileSelect}
-                      accept="image/*,.pdf,.doc,.docx"
-                    />
-                    <File className="h-6 w-6 text-blue-500 mb-2" />
-                    <p className="text-sm text-gray-600 mb-1">Select files or drag and drop here</p>
-                    <p className="text-xs text-gray-400 mb-2">PNG, JPG, PDF or DOC (max. 10MB each)</p>
-                    <label htmlFor="file-upload">
-                      <Button size="sm" variant="secondary" className="bg-blue-100 text-blue-600 hover:bg-blue-200">
-                        Browse Files
-                      </Button>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="w-64 space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Document Name</label>
-                    <Input
-                      placeholder="Document Name"
-                      value={documentName}
-                      onChange={(e) => setDocumentName(e.target.value)}
-                      className="w-full h-9 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Document Type</label>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full h-9 flex justify-between items-center text-sm">
-                          {documentType}
-                          <ChevronDown className="h-4 w-4 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-64">
-                        {["Lab Report", "X-Ray", "Scan Report", "Prescription", "Medical Certificate"].map(type => (
-                          <DropdownMenuItem 
-                            key={type}
-                            onClick={() => setDocumentType(type)}
-                          >
-                            {type}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
+              {/* File upload section - now shown in both create and edit modes */}
+              <div
+                className={`border-2 border-dashed rounded-md p-4 flex flex-col items-center justify-center h-[180px] ${
+                  dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300"
+                }`}
+                onDragEnter={handleDrag}
+                onDragOver={handleDrag}
+                onDragLeave={handleDrag}
+                onDrop={handleDrop}
+              >
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={handleFileSelect}
+                  accept="image/*,.pdf,.doc,.docx"
+                />
+                {getFileIcon("file", false)}
+                <p className="text-sm text-gray-600 mb-1">
+                  {mode === "edit" ? "Select a new file to replace the current one" : "Select a file or drag and drop here"}
+                </p>
+                <p className="text-xs text-gray-400 mb-2">PNG, JPG, PDF or DOC (max. 10MB)</p>
+                <Button 
+                  size="sm" 
+                  variant="secondary" 
+                  className="bg-blue-100 text-blue-600 hover:bg-blue-200"
+                  onClick={handleBrowseClick}
+                >
+                  Browse Files
+                </Button>
+                {mode === "edit" && attachments.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-2">Current file will be kept if no new file is selected</p>
+                )}
               </div>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="p-3 border-t border-gray-200">
+          <div className="p-4 border-t border-gray-200">
             <div className="flex justify-end space-x-2">
-              <Button variant="outline" className="px-3 h-8" onClick={() => onClose(false)}>
+              <Button variant="outline" onClick={handleCleanup} disabled={uploading}>
                 Cancel
               </Button>
               <Button 
-                className="px-3 h-8 bg-blue-600 hover:bg-blue-700"
+                className="bg-blue-600 hover:bg-blue-700" 
                 onClick={handleSubmit}
-                disabled={mode !== "bulk-update" && attachments.length === 0}
+                disabled={uploading || (!isBulkUpdate && attachments.length === 0) || !documentName}
               >
-                {isBulkUpdate ? "Update Selected" : mode === "create" ? "Upload" : "Save Changes"}
+                {uploading ? "Processing..." : isBulkUpdate ? "Update Selected" : mode === "edit" ? "Save Changes" : "Upload Document"}
               </Button>
             </div>
           </div>

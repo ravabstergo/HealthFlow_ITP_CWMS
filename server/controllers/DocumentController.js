@@ -1,6 +1,9 @@
 const Document = require("../models/DocumentModel");
 const cloudinary = require("../middleware/CloudinaryConfig");
 const upload = require("../middleware/MulterConfig");
+const fs = require('fs');
+
+
 
 const insertDocument = async (req, res) => {
   upload.single("document")(req, res, async (err) => {
@@ -11,14 +14,32 @@ const insertDocument = async (req, res) => {
     }
 
     try {
-      const cloudinaryResult = await cloudinary.uploader.upload(req.file.path);
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Determine if the file is a PDF
+      const isPdf = req.file.mimetype === 'application/pdf';
+      
+      // Upload to Cloudinary with appropriate resource_type
+      const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
+        folder: "HealthFlow",
+        resource_type: isPdf ? "auto" : "auto",
+        format: isPdf ? "pdf" : undefined,
+        transformation: isPdf ? [{ flags: 'attachment' }] : undefined
+      });
+
+      // Remove temporary file
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error('Error deleting temporary file:', err);
+      });
 
       const document = new Document({
         patentid: null,
         doctorid: null,
         documentName: req.body.documentName,
         documentUrl: cloudinaryResult.secure_url,
-        documentType: req.body.documentType,
+        documentType: req.body.documentType.trim(),
         status: "Pending",
         modifiedAt: null,
       });
@@ -31,6 +52,12 @@ const insertDocument = async (req, res) => {
       });
     } catch (error) {
       console.error(error);
+      // Clean up temporary file in case of error
+      if (req.file) {
+        fs.unlink(req.file.path, (err) => {
+          if (err) console.error('Error deleting temporary file:', err);
+        });
+      }
       res.status(500).json({
         message: "Failed to save document metadata",
         error: error.message,
@@ -64,10 +91,22 @@ const updateDocument = async (req, res) => {
       document.status = "Pending";
 
       if (req.file) {
-        const cloudinaryResult = await cloudinary.uploader.upload(
-          req.file.path
-        );
+        // Determine if the file is a PDF
+        const isPdf = req.file.mimetype === 'application/pdf';
+        
+        const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
+          folder: "HealthFlow",
+          resource_type: isPdf ? "auto" : "auto",
+          format: isPdf ? "pdf" : undefined,
+          transformation: isPdf ? [{ flags: 'attachment' }] : undefined
+        });
+        
         document.documentUrl = cloudinaryResult.secure_url;
+
+        // Remove temporary file
+        fs.unlink(req.file.path, (err) => {
+          if (err) console.error('Error deleting temporary file:', err);
+        });
       }
 
       document.modifiedAt = new Date();
@@ -80,6 +119,12 @@ const updateDocument = async (req, res) => {
       });
     } catch (error) {
       console.error(error);
+      // Clean up temporary file in case of error
+      if (req.file) {
+        fs.unlink(req.file.path, (err) => {
+          if (err) console.error('Error deleting temporary file:', err);
+        });
+      }
       res.status(500).json({
         message: "Failed to update document",
         error: error.message,
@@ -175,11 +220,60 @@ const statusUpdate = async (req, res) => {
   }
 };
 
+const downloadDocument = async (req, res) => {
+  try {
+    const document = await Document.findById(req.params.id);
+    if (!document) {
+      return res.status(404).json({ message: "Document not found" });
+    }
+
+    // Check if the document URL exists
+    if (!document.documentUrl) {
+      return res.status(404).json({ message: "Document URL not found" });
+    }
+
+    // Get the file extension from documentUrl
+    const fileExtension = document.documentUrl.split('.').pop().toLowerCase();
+
+    // Set appropriate content type
+    const contentTypes = {
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png'
+    };
+
+    const contentType = contentTypes[fileExtension] || 'application/octet-stream';
+
+    // Format filename for download
+    const filename = `${document.documentName}${fileExtension ? '.' + fileExtension : ''}`;
+
+    // For Cloudinary URLs, ensure we're getting a download URL
+    let downloadUrl = document.documentUrl;
+    if (downloadUrl.includes('cloudinary.com')) {
+      // Add fl_attachment flag for Cloudinary URLs to force download
+      downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
+    }
+
+    res.json({
+      url: downloadUrl,
+      filename: filename,
+      contentType: contentType
+    });
+  } catch (error) {
+    console.error('[DocumentController] Download document error:', error);
+    res.status(500).json({ message: "Error downloading document", error: error.message });
+  }
+};
+
 module.exports = {
   insertDocument,
   updateDocument,
   getDocumentById,
   getAllDocuments,
   deleteDocument,
-  statusUpdate
+  statusUpdate,
+  downloadDocument
 };

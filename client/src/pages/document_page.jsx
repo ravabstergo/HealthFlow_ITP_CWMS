@@ -1,156 +1,174 @@
-import { useState } from "react";
-import { useLocation } from "react-router-dom";
-import { Search, Plus, ChevronDown, Download, Printer, MoreVertical } from "lucide-react";
-import Button from "../components/ui/button";
+import { useState, useEffect } from "react";
+import { Search, ChevronDown, File, ImageIcon, Download, Filter } from "lucide-react";
 import Input from "../components/ui/input";
-import DropdownMenu from "../components/ui/dropdown-menu";
-import { DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../components/ui/dropdown-menu";
-import DocumentUpload from "../components/ui/DocumentUpload";
+import Button from "../components/ui/button";
+import DocumentService from "../services/DocumentService";
 import Toast from "../components/ui/toast";
-import ConfirmDialog from "../components/ui/confirm-dialog";
-import { useAuthContext } from "../context/AuthContext";
-
-// Sample document data
-const documents = [
-  {
-    id: "DOC00234",
-    created: "April 14, 2023",
-    creator: "Charles Williamson",
-    patientName: "Robert Johnson",
-    status: "Completed",
-    type: "Lab report",
-  },
-  {
-    id: "DOC00235",
-    created: "October 10, 2023",
-    creator: "Samantha Anderson",
-    patientName: "Emily Parker",
-    status: "Completed",
-    type: "Scan Report",
-  },
-  {
-    id: "DOC00236",
-    created: "October 14, 2023",
-    creator: "Michael Anderson",
-    patientName: "David Miller",
-    status: "Completed",
-    type: "Scan Report",
-  },
-  {
-    id: "DOC00237",
-    created: "March 28, 2023",
-    creator: "Samantha Rodriguez",
-    patientName: "Sarah Williams",
-    status: "Completed",
-    type: "Lab report",
-  },
-  {
-    id: "DOC00238",
-    created: "February 17, 2023",
-    creator: "Charles Williamson",
-    patientName: "James Thompson",
-    status: "Completed",
-    type: "Prescription",
-  },
-  {
-    id: "DOC00239",
-    created: "October 31, 2023",
-    creator: "Patricia Morgenson",
-    patientName: "Lisa Garcia",
-    status: "Completed",
-    type: "Prescription",
-  },
-];
+import DropdownMenu, { DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../components/ui/dropdown-menu";
 
 export default function DocumentList() {
-  const location = useLocation();
-  const { activeRole } = useAuthContext();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedDocuments, setSelectedDocuments] = useState([]);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [editingDocument, setEditingDocument] = useState(null);
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
-  const [bulkUpdateDocuments, setBulkUpdateDocuments] = useState(null);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
-  // Check if we're in the patient's document view
-  const isPatientView = location.pathname.includes("/patients/");
-  // Check if user is a doctor
-  const isDoctor = activeRole?.name === "sys_doctor";
+  // Status options
+  const statusOptions = ["All", "Pending", "Doctor Review", "Approved", "Rejected"];
 
-  const toggleSelectDocument = (id) => {
-    if (selectedDocuments.includes(id)) {
-      setSelectedDocuments(selectedDocuments.filter((docId) => docId !== id));
-    } else {
-      setSelectedDocuments([...selectedDocuments, id]);
-    }
-  };
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
 
-  const toggleSelectAll = () => {
-    if (selectedDocuments.length === documents.length) {
-      setSelectedDocuments([]);
-    } else {
-      setSelectedDocuments(documents.map((doc) => doc.id));
-    }
-  };
-
-  const handleEdit = (document) => {
-    // Prevent doctors from editing documents in patient view
-    if (isPatientView && isDoctor) {
+  const fetchDocuments = async () => {
+    try {
+      setLoading(true);
+      const data = await DocumentService.getAllDocuments();
+      if (!data || !Array.isArray(data)) {
+        throw new Error('Invalid document data received');
+      }
+      setDocuments(data);
+    } catch (error) {
+      console.error("Failed to load documents:", error);
       setToast({
         visible: true,
-        message: "Doctors cannot modify documents in patient view",
-        type: "warning"
+        message: "Failed to load documents. Please try again later.",
+        type: "error"
       });
-      return;
+      setDocuments([]);
+    } finally {
+      setLoading(false);
     }
-    setEditingDocument(document);
-    setIsUploadModalOpen(true);
   };
 
-  const handleUpdateSelected = () => {
-    const selectedDocs = documents.filter(doc => selectedDocuments.includes(doc.id));
-    if (selectedDocs.length === 0) {
-      setToast({
-        visible: true,
-        message: "Please select a document",
-        type: "warning"
-      });
-      return;
-    }
+  const getFileIcon = (documentUrl) => {
+    if (!documentUrl) return <File className="h-5 w-5 text-gray-500" />;
+    const extension = documentUrl.split('.').pop().toLowerCase();
     
-    setBulkUpdateDocuments(selectedDocs);
-    setIsBulkUpdateModalOpen(true);
+    switch(extension) {
+      case 'pdf':
+        return <File className="h-5 w-5 text-red-500" />;
+      case 'doc':
+      case 'docx':
+        return <File className="h-5 w-5 text-blue-500" />;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+        return <ImageIcon className="h-5 w-5 text-green-500" />;
+      default:
+        return <File className="h-5 w-5 text-gray-500" />;
+    }
   };
 
-  const handleDeleteConfirm = () => {
-    console.log("Deleting documents:", selectedDocuments);
-    setSelectedDocuments([]);
-    setToast({
-      visible: true,
-      message: "Documents deleted successfully",
-      type: "success"
-    });
+  const handleViewDocument = async (documentId) => {
+    try {
+      const doc = await DocumentService.getDocumentById(documentId);
+      if (!doc || !doc.documentUrl) {
+        setToast({
+          visible: true,
+          message: "Document URL is not available",
+          type: "error"
+        });
+        return;
+      }
+
+      const extension = doc.documentUrl.split('.').pop().toLowerCase();
+      
+      // Handle different file types
+      if (extension === 'pdf') {
+        // Open PDFs in new window
+        window.open(doc.documentUrl, '_blank', 'noopener,noreferrer');
+      } else if (['jpg', 'jpeg', 'png'].includes(extension)) {
+        // For images, open directly in new tab
+        window.open(doc.documentUrl, '_blank', 'noopener,noreferrer');
+      } else if (extension === 'doc' || extension === 'docx') {
+        // For Word documents, use Office Online Viewer
+        const viewerUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(doc.documentUrl)}`;
+        window.open(viewerUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        // For other file types, trigger download
+        window.location.href = doc.documentUrl;
+      }
+    } catch (error) {
+      console.error("Error viewing document:", error);
+      setToast({
+        visible: true,
+        message: "Failed to view document. Please try again.",
+        type: "error"
+      });
+    }
   };
 
-  const handleCloseModal = () => {
-    setIsUploadModalOpen(false);
-    setEditingDocument(null);
+  const handleDownload = async (id) => {
+    try {
+      const downloadInfo = await DocumentService.downloadDocument(id);
+      if (!downloadInfo || !downloadInfo.url) {
+        throw new Error('Download URL not available');
+      }
+      
+      const link = document.createElement('a');
+      // For Cloudinary URLs, ensure download attachment flag is set
+      const downloadUrl = downloadInfo.url.includes('cloudinary.com') 
+        ? downloadInfo.url.replace('/upload/', '/upload/fl_attachment/') 
+        : downloadInfo.url;
+        
+      link.href = downloadUrl;
+      link.setAttribute('download', downloadInfo.filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setToast({
+        visible: true,
+        message: "Download started successfully",
+        type: "success"
+      });
+    } catch (error) {
+      console.error('Download failed:', error);
+      setToast({
+        visible: true,
+        message: "Failed to download document. Please try again.",
+        type: "error"
+      });
+    }
   };
 
-  const handleCloseBulkUpdate = () => {
-    setIsBulkUpdateModalOpen(false);
-    setBulkUpdateDocuments(null);
+  const filteredDocuments = documents.filter((doc) => {
+    const matchesSearch = 
+      doc._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      doc.documentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      doc.documentType?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus = !selectedStatus || selectedStatus === "All" || doc.status === selectedStatus;
+
+    const docDate = new Date(doc.createdAt);
+    const matchesDateRange = (!startDate || docDate >= new Date(startDate)) &&
+                            (!endDate || docDate <= new Date(endDate));
+
+    return matchesSearch && matchesStatus && matchesDateRange;
+  });
+
+  // Calculate document statistics
+  const documentStats = {
+    total: documents.length,
+    ...documents.reduce((acc, doc) => {
+      acc[doc.status] = (acc[doc.status] || 0) + 1;
+      return acc;
+    }, {})
   };
 
-  // Filter documents based on search term
-  const filteredDocuments = documents.filter(
-    (doc) =>
-      doc.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.type.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  if (loading) {
+    return (
+      <div className="w-full max-w-6xl mx-auto p-6">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+          Loading documents...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-6xl mx-auto p-6">
@@ -161,138 +179,188 @@ export default function DocumentList() {
         onClose={() => setToast({ ...toast, visible: false })}
       />
 
-      <ConfirmDialog
-        isOpen={isDeleteDialogOpen}
-        onClose={() => setIsDeleteDialogOpen(false)}
-        onConfirm={handleDeleteConfirm}
-        title="Confirm Delete"
-        message="Are you sure you want to delete the selected documents?"
-      />
+      {/* Document Statistics Dashboard */}
+      <div className="grid grid-cols-5 gap-4 mb-6">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <h3 className="text-sm font-medium text-gray-900 mb-1">Total Documents</h3>
+          <p className="text-2xl font-bold text-blue-600">{documentStats.total}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <h3 className="text-sm font-medium text-gray-900 mb-1">Approved</h3>
+          <p className="text-2xl font-bold text-green-600">{documentStats.Approved || 0}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <h3 className="text-sm font-medium text-gray-900 mb-1">Doctor Review</h3>
+          <p className="text-2xl font-bold text-yellow-600">{documentStats['Doctor Review'] || 0}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <h3 className="text-sm font-medium text-gray-900 mb-1">Pending</h3>
+          <p className="text-2xl font-bold text-orange-600">{documentStats.Pending || 0}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+          <h3 className="text-sm font-medium text-gray-900 mb-1">Rejected</h3>
+          <p className="text-2xl font-bold text-red-600">{documentStats.Rejected || 0}</p>
+        </div>
+      </div>
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-200">
           <h1 className="text-xl font-semibold text-gray-900 mb-6">Document List</h1>
 
-          <div className="flex justify-between items-center">
-            <div className="max-w-md w-full">
-              <Input
-                placeholder="Search documents..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                icon={<Search className="h-4 w-4 text-gray-400" />}
-                className="w-full"
-              />
-            </div>
-            {(!isPatientView || !isDoctor) && (
-              <Button 
-                className="bg-blue-600 hover:bg-blue-700"
-                onClick={() => setIsUploadModalOpen(true)}
+          <div className="flex flex-col space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="max-w-md w-full">
+                <Input
+                  placeholder="Search documents..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  icon={<Search className="h-4 w-4 text-gray-400" />}
+                  className="w-full"
+                />
+              </div>
+              <Button
+                variant="secondary"
+                icon={<Filter className="h-4 w-4" />}
+                onClick={() => setShowFilters(!showFilters)}
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Document
+                {showFilters ? "Hide Filters" : "Show Filters"}
               </Button>
+            </div>
+
+            {showFilters && (
+              <div className="flex space-x-4 items-end">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Date
+                  </label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Date
+                  </label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between">
+                        {selectedStatus || "All Status"}
+                        <ChevronDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-[200px]">
+                      {statusOptions.map((status) => (
+                        <DropdownMenuItem 
+                          key={status}
+                          onClick={() => setSelectedStatus(status === "All" ? "" : status)}
+                        >
+                          {status}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setStartDate("");
+                    setEndDate("");
+                    setSelectedStatus("");
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              </div>
             )}
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 text-gray-700 text-sm">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left font-medium">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
-                      checked={selectedDocuments.length === documents.length && documents.length > 0}
-                      onChange={toggleSelectAll}
-                    />
-                    DOCUMENT ID
-                    <ChevronDown className="ml-1 h-4 w-4" />
-                  </div>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  DOCUMENT ID
                 </th>
-                <th className="px-6 py-3 text-left font-medium">
-                  <div className="flex items-center">
-                    CREATED
-                    <ChevronDown className="ml-1 h-4 w-4" />
-                  </div>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  CREATED
                 </th>
-                <th className="px-6 py-3 text-left font-medium">
-                  <div className="flex items-center">
-                    PATIENT NAME
-                    <ChevronDown className="ml-1 h-4 w-4" />
-                  </div>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  NAME
                 </th>
-                <th className="px-6 py-3 text-left font-medium">
-                  <div className="flex items-center">
-                    STATUS
-                    <ChevronDown className="ml-1 h-4 w-4" />
-                  </div>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  TYPE
                 </th>
-                <th className="px-6 py-3 text-left font-medium">
-                  <div className="flex items-center">
-                    DOCUMENT TYPE
-                    <ChevronDown className="ml-1 h-4 w-4" />
-                  </div>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  STATUS
                 </th>
-                <th className="px-6 py-3 text-right"></th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  ACTIONS
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-200">
               {filteredDocuments.map((doc) => (
-                <tr key={doc.id} className="hover:bg-gray-50">
+                <tr key={doc._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
-                        checked={selectedDocuments.includes(doc.id)}
-                        onChange={() => toggleSelectDocument(doc.id)}
-                      />
-                      <span className="text-sm text-gray-900">{doc.id}</span>
+                    <span className="text-sm text-gray-900">{doc._id}</span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-500">
+                      {new Date(doc.createdAt).toLocaleDateString()}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{doc.created}</div>
+                    <div className="flex items-center">
+                      {getFileIcon(doc.documentUrl)}
+                      <div className="text-sm text-gray-900 hover:text-blue-600 cursor-pointer ml-2" 
+                           onClick={() => handleViewDocument(doc._id)}>
+                        {doc.documentName}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {doc.documentType}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{doc.patientName}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
+                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
+                      doc.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                      doc.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                      doc.status === 'Doctor Review' ? 'bg-blue-100 text-blue-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
                       {doc.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{doc.type}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button className="text-gray-400 hover:text-gray-500">
-                        <Download className="h-5 w-5" />
+                    <div className="flex justify-end space-x-2">
+                      <button
+                        onClick={() => handleViewDocument(doc._id)}
+                        className="text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        View
                       </button>
-                      <button className="text-gray-400 hover:text-gray-500">
-                        <Printer className="h-5 w-5" />
+                      <button
+                        onClick={() => handleDownload(doc._id)}
+                        className="text-blue-600 hover:text-blue-700 font-medium flex items-center"
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        Download
                       </button>
-                      {(!isPatientView || !isDoctor) && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="text-gray-400 hover:text-gray-500">
-                              <MoreVertical className="h-5 w-5" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEdit(doc)}>
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedDocuments([doc.id]);
-                              setIsDeleteDialogOpen(true);
-                            }}>
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
                     </div>
                   </td>
                 </tr>
@@ -300,48 +368,7 @@ export default function DocumentList() {
             </tbody>
           </table>
         </div>
-
-        <div className="px-6 py-4 flex justify-end space-x-3 border-t border-gray-200">
-          {(!isPatientView || !isDoctor) && (
-            <>
-              <Button 
-                variant="outline" 
-                className="text-sm font-medium"
-                onClick={handleUpdateSelected}
-                disabled={selectedDocuments.length === 0}
-                title={selectedDocuments.length === 0 ? "Please select a document" : "Update selected documents"}
-              >
-                UPDATE
-              </Button>
-              <Button 
-                variant="outline" 
-                className="text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
-                disabled={selectedDocuments.length === 0}
-                title={selectedDocuments.length === 0 ? "Please select a document" : "Delete selected documents"}
-                onClick={() => setIsDeleteDialogOpen(true)}
-              >
-                DELETE
-              </Button>
-            </>
-          )}
-        </div>
       </div>
-
-      <DocumentUpload 
-        isOpen={isUploadModalOpen} 
-        onClose={handleCloseModal}
-        mode={editingDocument ? "edit" : "create"}
-        documentData={editingDocument}
-        isPatientView={isPatientView}
-      />
-
-      <DocumentUpload 
-        isOpen={isBulkUpdateModalOpen}
-        onClose={handleCloseBulkUpdate}
-        mode="bulk-update"
-        documentData={bulkUpdateDocuments}
-        isPatientView={isPatientView}
-      />
     </div>
   );
 }

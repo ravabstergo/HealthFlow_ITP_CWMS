@@ -6,6 +6,7 @@ const {
   updateDocument,
   deleteDocument,
   statusUpdate,
+  downloadDocument
 } = require("../controllers/DocumentController");
 
 const router = express.Router();
@@ -16,5 +17,6 @@ router.get("/", getAllDocuments);
 router.put("/:id", updateDocument);
 router.delete("/:id", deleteDocument);
 router.put("/:patentid/status", statusUpdate);
+router.get("/:id/download", downloadDocument);
 
 module.exports = router;
