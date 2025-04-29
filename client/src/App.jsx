@@ -16,6 +16,7 @@ import FeedbackSummaryPage from "./pages/feedback-summary-page";
 import FeedbackUpdatePage from "./pages/feedback-update-page";
 import FeedbackDeletePage from "./pages/feedback-delete-page";
 import DoctorFeedbackPage from "./pages/doctor-feedback-page";
+import FeedbackReportPage from "./pages/feedback-report-page";
 
 function App() {
   const { isAuthenticated, loading, activeRole } = useAuthContext(); // Destructure activeRole here
@@ -55,6 +56,7 @@ function App() {
           <Route path="feedback/edit/:id" element={<FeedbackUpdatePage />} />
           <Route path="feedback/delete/:id" element={<FeedbackDeletePage />} />
           <Route path="feedback/doctor" element={<DoctorFeedbackPage />} />
+          <Route path="/account/feedback/report" element={<FeedbackReportPage />} />
         </Route>
       </Routes>
     </div>

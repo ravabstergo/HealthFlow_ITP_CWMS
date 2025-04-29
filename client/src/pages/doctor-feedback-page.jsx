@@ -1,17 +1,21 @@
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Card from "../components/ui/card";
 import Button from "../components/ui/button";
 import { Search } from "lucide-react";
 import Input from "../components/ui/input";
-import { jsPDF } from "jspdf";
 import { toast } from "react-toastify";
+import FeedbackReportPopup from "./feedback-report-page";
 
 export default function DoctorFeedbackPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [feedbacks, setFeedbacks] = useState([]);
   const [metrics, setMetrics] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedFeedback, setSelectedFeedback] = useState(null);
+  const [showReportPopup, setShowReportPopup] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -20,18 +24,30 @@ export default function DoctorFeedbackPage() {
 
         console.log("[DoctorFeedbackPage] Fetching feedbacks...");
         const feedbacksResponse = await fetch(`${process.env.REACT_APP_API_URL}/feedback/doctor/me`);
+        if (!feedbacksResponse.ok) {
+          if (feedbacksResponse.status === 401) {
+            localStorage.removeItem("token");
+            toast.error("Session expired. Please log in again.");
+            navigate("/login");
+            return;
+          }
+          throw new Error("Failed to fetch feedbacks");
+        }
         const feedbacksData = await feedbacksResponse.json();
         console.log("[DoctorFeedbackPage] Fetched feedbacks:", feedbacksData);
         setFeedbacks(Array.isArray(feedbacksData) ? feedbacksData : []);
 
         console.log("[DoctorFeedbackPage] Fetching metrics...");
         const metricsResponse = await fetch(`${process.env.REACT_APP_API_URL}/feedback/metrics/me`);
+        if (!metricsResponse.ok) {
+          throw new Error("Failed to fetch metrics");
+        }
         const metricsData = await metricsResponse.json();
         console.log("[DoctorFeedbackPage] Fetched metrics:", metricsData);
         setMetrics(metricsData || {});
       } catch (error) {
         console.error("[DoctorFeedbackPage] Error fetching data:", error.message);
-        toast.error("Failed to load data. Displaying available content.");
+        toast.error(error.message || "Failed to load data. Displaying available content.");
         setFeedbacks([]);
       } finally {
         setLoading(false);
@@ -39,67 +55,16 @@ export default function DoctorFeedbackPage() {
     };
 
     fetchData();
-  }, []);
+  }, [location.pathname, navigate]);
 
-  const generateReport = async () => {
-    try {
-      console.log("[DoctorFeedbackPage] Generating report...");
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/feedback/report/generate`);
-      const { reportData, aiAnalysis } = await response.json();
-      console.log("[DoctorFeedbackPage] Report data:", reportData, "AI Analysis:", aiAnalysis);
+  const handleGenerateReport = () => {
+    console.log("[DoctorFeedbackPage] Opening report popup");
+    setShowReportPopup(true);
+  };
 
-      if (!reportData || reportData.length === 0) {
-        toast.info("No feedback available to generate a report.");
-        return;
-      }
-
-      const doc = new jsPDF();
-      let y = 10;
-
-      doc.setFontSize(16);
-      doc.text("Feedback Report", 10, y);
-      y += 10;
-
-      reportData.forEach((data, index) => {
-        doc.setFontSize(12);
-        doc.text(`Patient: ${data.patient.name}`, 10, y);
-        y += 5;
-        doc.text(`Email: ${data.patient.email}`, 10, y);
-        y += 5;
-
-        doc.text("Feedback:", 10, y);
-        y += 5;
-        data.feedback.forEach(f => {
-          const answerText = typeof f.answer === "object" ? f.answer.value || "No" : f.answer;
-          doc.text(`${f.question}: ${answerText}`, 15, y);
-          y += 5;
-        });
-
-        if (data.comments) {
-          doc.text(`Comments: ${data.comments}`, 10, y);
-          y += 5;
-        }
-
-        y += 5;
-        if (y > 270) {
-          doc.addPage();
-          y = 10;
-        }
-      });
-
-      doc.setFontSize(14);
-      doc.text("AI Analysis:", 10, y);
-      y += 5;
-      doc.setFontSize(12);
-      const splitAnalysis = doc.splitTextToSize(aiAnalysis, 180);
-      doc.text(splitAnalysis, 10, y);
-
-      doc.save("feedback-report.pdf");
-      toast.success("Feedback report generated successfully!");
-    } catch (error) {
-      console.error("[DoctorFeedbackPage] Error generating report:", error.message);
-      toast.error("Failed to generate report.");
-    }
+  const closeReportPopup = () => {
+    console.log("[DoctorFeedbackPage] Closing report popup");
+    setShowReportPopup(false);
   };
 
   const filteredFeedbacks = feedbacks.filter(f =>
@@ -143,7 +108,7 @@ export default function DoctorFeedbackPage() {
             <p className="text-sm text-gray-500">Treatment Success Rate (%)</p>
           </div>
         </div>
-        <Button onClick={generateReport}>Generate Feedback Report</Button>
+        <Button onClick={handleGenerateReport}>Generate Feedback Report</Button>
       </Card>
       <div className="flex space-x-4 mb-6">
         <Input
@@ -214,13 +179,8 @@ export default function DoctorFeedbackPage() {
       {/* Right-Side Modal for Viewing Feedback */}
       {selectedFeedback && (
         <div className="fixed inset-0 z-50 flex">
-          {/* Overlay */}
-          <div className="fixed inset-0 bg-black opacity-50" onClick={closeModal}></div>
-          {/* Modal Content */}
-          <div
-            className="relative ml-auto w-full max-w-lg bg-white shadow-xl p-6 overflow-y-auto"
-            style={{ marginTop: '2rem', marginBottom: '2rem', marginRight: '2rem', borderRadius: '1rem' }}
-          >
+          <div className="fixed inset-0 bg-black opacity-30" onClick={closeModal}></div>
+          <div className="relative ml-auto h-full w-96 bg-white shadow-xl p-6 overflow-y-auto" style={{ marginTop: '2rem', marginBottom: '2rem', marginRight: '2rem', borderRadius: '1rem' }}>
             <h2 className="text-xl font-bold mb-4">Client Feedback</h2>
             <div className="space-y-4">
               <div className="space-y-1">
@@ -253,10 +213,13 @@ export default function DoctorFeedbackPage() {
                 </div>
               )}
             </div>
-            <Button onClick={closeModal} className="mt-6 w-full">Close</Button>
+            <Button onClick={closeModal} className="mt-4 w-full">Close</Button>
           </div>
         </div>
       )}
+
+      {/* Right-Side Popup for Feedback Report */}
+      {showReportPopup && <FeedbackReportPopup onClose={closeReportPopup} />}
     </div>
   );
 }
