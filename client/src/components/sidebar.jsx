@@ -28,7 +28,7 @@ export default function Sidebar({ selectedItem, onSelectItem }) {
       category: "CLINICAL",
       items: [
         { name: "Patients", icon: <Users className="w-4 h-4" />, path: "patients" },
-        { name: "Prescriptions", icon: <FileText className="w-4 h-4" />, path: "prescriptions" },
+        { name: "Prescriptions", icon: <FileText className="w-4 h-4" />, path: "prescription" },
         { name: "Documents", icon: <File className="w-4 h-4" />, path: "documents" },
       ],
     },
@@ -46,8 +46,11 @@ export default function Sidebar({ selectedItem, onSelectItem }) {
     },
     {
       category: "FEEDBACK",
-      items: [{ name: "Feedback", icon: <MessageSquare className="w-4 h-4" />, path: "feedback" }],
-    },
+      items: [
+        { name: "Feedback", icon: <MessageSquare className="w-4 h-4" />, path: "feedback" },
+        { name: "View Feedback", icon: <FileText className="w-4 h-4" />, path: "feedback/doctor" },
+      ],
+    }
   ]
 
   const bottomItems = [
@@ -117,18 +120,16 @@ export default function Sidebar({ selectedItem, onSelectItem }) {
             {item.name}
           </Link>
         ))}
-       <div className="flex justify-start pb-4 px-4">
-  <Button
-    onClick={handleLogout}
-    variant="outline"
-    size="sm"
-    className="px-4 py-2.5"
-  >
-    Logout
-  </Button>
-</div>
-
-
+        <div className="flex justify-start pb-4 px-4">
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            size="sm"
+            className="px-4 py-2.5"
+          >
+            Logout
+          </Button>
+        </div>
       </div>
     </aside>
   )

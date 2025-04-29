@@ -11,45 +11,47 @@ import NextTreatmentTab from "./components/patient-detail/NextTreatmentTab";
 import MedicalRecordTab from "./components/patient-detail/MedicalRecordTab";
 import PatientDocumentList from "./components/patient-detail/DocumentList";
 import DocumentList from "./pages/document_page";
+import PrescriptionPage from "./pages/prescription-page";
 import AppointmentsPage from "./pages/appointments-page";
+import FeedbackStartPage from "./pages/feedback-start-page";
+import FeedbackCreatePage from "./pages/feedback-create-page";
+import FeedbackSummaryPage from "./pages/feedback-summary-page";
+import FeedbackUpdatePage from "./pages/feedback-update-page";
+import FeedbackDeletePage from "./pages/feedback-delete-page";
+import DoctorFeedbackPage from "./pages/doctor-feedback-page";
+import FeedbackReportPage from "./pages/feedback-report-page";
 
 function App() {
-  const { isAuthenticated, loading } = useAuthContext();
+  const { isAuthenticated, loading, activeRole } = useAuthContext(); // Destructure activeRole here
 
   if (loading) {
-    // Show a loading spinner or placeholder until the authentication is initialized
     return <div className="loading-spinner">Loading...</div>;
   }
 
   return (
     <div>
       <Routes>
-        {/* Redirect from root to login */}
         <Route path="/" element={<Navigate to="/login" />} />
-
-        {/* Login Route */}
         <Route
           path="/login"
           element={isAuthenticated ? <Navigate to="/account" /> : <LoginPage />}
         />
-
-        {/* Dashboard Route (only accessible after login) */}
         <Route
           path="/account"
           element={
             isAuthenticated ? <DashboardWrapper /> : <Navigate to="/login" />
           }
         >
-          {/* Nested Routes */}
           <Route index element={<Navigate to="dashboard" replace />} />
-
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="patients" element={<PatientsPage />} />
           <Route path="documents" element={<DocumentList />} />
+          <Route path="prescription" element={<PrescriptionPage />} />
+
           {/* Patient detail and nested tabs */}
+
           <Route path="patients/:id" element={<PatientDetailPage />}>
             <Route index element={<Navigate to="information" replace />} />
-
             <Route path="information" element={<PatientInformationTab />} />
             <Route path="appointments" element={<AppointmentHistoryTab />} />
             <Route path="treatment" element={<NextTreatmentTab />} />
@@ -57,6 +59,13 @@ function App() {
             <Route path="documents" element={<PatientDocumentList />} />
           </Route>
           <Route path="appointments" element={<AppointmentsPage />} />
+          <Route path="feedback" element={<FeedbackStartPage />} />
+          <Route path="feedback/create/:id" element={<FeedbackCreatePage />} />
+          <Route path="feedback/summary/:id" element={<FeedbackSummaryPage />} />
+          <Route path="feedback/edit/:id" element={<FeedbackUpdatePage />} />
+          <Route path="feedback/delete/:id" element={<FeedbackDeletePage />} />
+          <Route path="feedback/doctor" element={<DoctorFeedbackPage />} />
+          <Route path="/account/feedback/report" element={<FeedbackReportPage />} />
         </Route>
       </Routes>
     </div>
