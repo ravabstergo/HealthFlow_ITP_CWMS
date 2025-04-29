@@ -5,7 +5,6 @@ import Card from "../ui/card";
 import Button from "../ui/button";
 import Input from "../ui/input";
 import Modal from "../ui/modal";
-import { useParams } from "react-router-dom";
 import { Plus, Trash2, FileText, Calendar, User, Clock, Eye, Edit, Save, Bot } from "lucide-react";
 import jsPDF from 'jspdf';
 
@@ -48,12 +47,9 @@ const samplePatientHistory = {
 };
 
 export default function NextTreatmentTab() {
-  const { id } = useParams();
-  const patientId = id
+  const patientId = "6804c179ef580968b447f2c1"; // Replace with actual patient ID from context or props
   const { currentUser } = useAuthContext();
-
   const doctorId = currentUser?.id;
-  
 
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -88,7 +84,17 @@ export default function NextTreatmentTab() {
     const fetchData = async () => {
       try {
         const token = TokenService.getAccessToken();
-        console.log("token", token);  
+        
+        const patientResponse = await fetch(`/api/auth/users/${patientId}`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+
+        if (patientResponse.ok) {
+          const patientData = await patientResponse.json();
+          setPatientName(patientData.name);
+        }
 
         const prescriptionResponse = await fetch(`/api/prescriptions/patient/${patientId}`, {
           headers: {
@@ -138,8 +144,6 @@ export default function NextTreatmentTab() {
 
     try {
       const token = TokenService.getAccessToken();
-        console.log("Current User:", patientId);
-        console.log("Doctor ID:", doctorId);
       const response = await fetch("/api/prescriptions", {
         method: "POST",
         headers: {
