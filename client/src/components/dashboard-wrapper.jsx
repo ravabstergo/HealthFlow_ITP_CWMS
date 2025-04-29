@@ -38,8 +38,8 @@ export default function DashboardWrapper() {
         {/* Top Bar */}
         <TopBar />
 
-        {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto overflow-x-auto p-4 bg-gray-50">
+        {/* Main Content Area - removed p-4 */}
+        <main className="flex-1 overflow-y-auto overflow-x-auto bg-gray-50">
           <Outlet />
         </main>
       </div>
