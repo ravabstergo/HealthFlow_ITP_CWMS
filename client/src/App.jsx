@@ -13,6 +13,9 @@ import PatientDocumentList from "./components/patient-detail/DocumentList";
 import DocumentList from "./pages/document_page";
 import PrescriptionPage from "./pages/prescription-page";
 import AppointmentsPage from "./pages/appointments-page";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { RecordContextProvider } from "./context/RecordContext";
+import { HoverPanelProvider } from "./context/HoverPanelContext";
 import FeedbackStartPage from "./pages/feedback-start-page";
 import FeedbackCreatePage from "./pages/feedback-create-page";
 import FeedbackSummaryPage from "./pages/feedback-summary-page";
@@ -22,7 +25,12 @@ import DoctorFeedbackPage from "./pages/doctor-feedback-page";
 import FeedbackReportPage from "./pages/feedback-report-page";
 
 function App() {
-  const { isAuthenticated, loading, activeRole } = useAuthContext(); // Destructure activeRole here
+  const { currentUser, loading } = useAuthContext();
+
+
+
+
+
 
   if (loading) {
     return <div className="loading-spinner">Loading...</div>;
@@ -34,12 +42,23 @@ function App() {
         <Route path="/" element={<Navigate to="/login" />} />
         <Route
           path="/login"
-          element={isAuthenticated ? <Navigate to="/account" /> : <LoginPage />}
+          element={currentUser ? <Navigate to="/account" /> : <LoginPage />}
         />
+
+
+        {/* Protected Routes */}
+
+
         <Route
           path="/account"
           element={
-            isAuthenticated ? <DashboardWrapper /> : <Navigate to="/login" />
+            <ProtectedRoute>
+              <RecordContextProvider>
+                <HoverPanelProvider>
+                  <DashboardWrapper />
+                </HoverPanelProvider>
+              </RecordContextProvider>
+            </ProtectedRoute>
           }
         >
           <Route index element={<Navigate to="dashboard" replace />} />
@@ -51,8 +70,9 @@ function App() {
           {/* Patient detail and nested tabs */}
 
           <Route path="patients/:id" element={<PatientDetailPage />}>
-            <Route index element={<Navigate to="information" replace />} />
-            <Route path="information" element={<PatientInformationTab />} />
+
+            <Route index element={<PatientInformationTab />} />
+
             <Route path="appointments" element={<AppointmentHistoryTab />} />
             <Route path="treatment" element={<NextTreatmentTab />} />
             <Route path="record" element={<MedicalRecordTab />} />
