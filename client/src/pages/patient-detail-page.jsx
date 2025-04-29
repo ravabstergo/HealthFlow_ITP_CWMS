@@ -5,7 +5,7 @@ import { NavLink, Outlet, useParams } from "react-router-dom";
 const tabs = [
   { label: "Patient Information", path: "information" },
   { label: "Appointment History", path: "appointments" },
-  { label: "Next Treatment", path: "treatment" },
+  { label: "Prescriptions", path: "treatment" },
   { label: "Medical Record", path: "record" },
 ];
 

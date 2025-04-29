@@ -28,7 +28,7 @@ export default function Sidebar({ selectedItem, onSelectItem }) {
       category: "CLINICAL",
       items: [
         { name: "Patients", icon: <Users className="w-4 h-4" />, path: "patients" },
-        { name: "Prescriptions", icon: <FileText className="w-4 h-4" />, path: "prescriptions" },
+        { name: "Prescriptions", icon: <FileText className="w-4 h-4" />, path: "prescription" },
         { name: "Documents", icon: <File className="w-4 h-4" />, path: "documents" },
       ],
     },
