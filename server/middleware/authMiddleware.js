@@ -1,9 +1,9 @@
 const { verifyToken } = require("../utils/jwt");
 const Role = require("../models/Role");
 
-exports.protect = async (req, res, next) => {
+const protect = async (req, res, next) => {
   try {
-    console.log("[AuthMiddleware protect]Checking authentication...");
+    console.log("[AuthMiddleware protect] Checking authentication...");
 
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -27,7 +27,7 @@ exports.protect = async (req, res, next) => {
       activeRole: decoded.activeRoleId,
     };
 
-    console.log("[AuthMiddleware protect]User authenticated:", req.user);
+    console.log("[AuthMiddleware protect] User authenticated:", req.user);
     next();
   } catch (error) {
     console.error(
@@ -44,7 +44,7 @@ exports.protect = async (req, res, next) => {
   }
 };
 
-exports.checkPermission = (entity, action, scope) => {
+const checkPermission = (entity, action, scope) => {
   return async (req, res, next) => {
     console.log("Checking permissions...");
     try {
@@ -95,3 +95,5 @@ exports.checkPermission = (entity, action, scope) => {
     }
   };
 };
+
+module.exports = { protect, checkPermission };

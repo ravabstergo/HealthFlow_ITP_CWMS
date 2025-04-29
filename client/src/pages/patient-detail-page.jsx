@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Mail, Phone, Calendar, User, MapPin, Edit } from "lucide-react";
 import { NavLink, Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
@@ -6,9 +7,11 @@ import { useRecordContext } from "../context/RecordContext";
 const tabs = [
   { label: "Patient Information", path: "" },
   { label: "Appointment History", path: "appointments" },
-  { label: "Next Treatment", path: "treatment" },
+  { label: "Prescriptions", path: "treatment" },
   { label: "Medical Record", path: "record" },
+  { label: "Documents", path: "documents" }
 ];
+
 
 export default function PatientDetailPage() {
   const { id } = useParams();
@@ -202,6 +205,7 @@ export default function PatientDetailPage() {
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
   if (!patient) return <div className="p-6">Patient not found</div>;
 
+
   return (
     <div className="bg-white rounded-lg shadow-sm">
       {/* Patient Info Header section */}
@@ -361,8 +365,11 @@ export default function PatientDetailPage() {
           {tabs.map(({ label, path }) => (
             <NavLink
               key={path}
+
               to={path}
               end={path === ""}
+
+
               className={({ isActive }) =>
                 `px-6 py-3 text-sm font-medium ${
                   isActive
