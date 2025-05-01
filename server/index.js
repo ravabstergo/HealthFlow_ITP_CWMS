@@ -1,9 +1,15 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
+
+
+const appointmentRoutes = require("./routes/appointmentRoutes");
+
+
 const connectDB = require("./config/DB");
 const prescriptionRoutes = require('./routes/PrescriptionRoute');
 const aiModelRoute = require('./routes/aiModelRoute');
+
 const authRoutes = require("./routes/authRoutes");
 
 const recordRoutes = require("./routes/recordRoutes");
@@ -34,14 +40,16 @@ app.use("/api/feedback", feedbackRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 
 require('./aiModel');
-app.use("/api",aiModelRoute);
-
+app.use("/api/ai", aiModelRoute);
 
 app.use("/api/document", DocRoutes);
 
 
 // DB Connection
 connectDB();
+
+
+app.use('/api/appointments',appointmentRoutes);
 
 // Start server
 app.listen(PORT, () => {

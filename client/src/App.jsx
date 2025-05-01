@@ -9,6 +9,11 @@ import PatientInformationTab from "./components/patient-detail/PatientInformatio
 import AppointmentHistoryTab from "./components/patient-detail/AppointmentHistoryTab";
 import NextTreatmentTab from "./components/patient-detail/NextTreatmentTab";
 import MedicalRecordTab from "./components/patient-detail/MedicalRecordTab";
+
+import DoctorSchedule from './components/DoctorSchedule';
+import TelemedicineMeeting from "./components/TelemedicineMeeting";
+import DoctorSearch from "./pages/doctor-search";
+import PatientAppointmentsPage from "./pages/patient-appointments-page";
 import PatientDocumentList from "./components/patient-detail/DocumentList";
 import DocumentList from "./pages/document_page";
 import PrescriptionPage from "./pages/prescription-page";
@@ -23,6 +28,7 @@ import FeedbackUpdatePage from "./pages/feedback-update-page";
 import FeedbackDeletePage from "./pages/feedback-delete-page";
 import DoctorFeedbackPage from "./pages/doctor-feedback-page";
 import FeedbackReportPage from "./pages/feedback-report-page";
+
 
 function App() {
   const { currentUser, loading } = useAuthContext();
@@ -62,10 +68,18 @@ function App() {
           }
         >
           <Route index element={<Navigate to="dashboard" replace />} />
+
+          <Route path="search" element={<DoctorSearch />} />  
+
+          <Route path="patient-appointments" element={<PatientAppointmentsPage />} />
+
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="patients" element={<PatientsPage />} />
           <Route path="documents" element={<DocumentList />} />
           <Route path="prescription" element={<PrescriptionPage />} />
+          <Route path="schedule" element={<DoctorSchedule />} />   
+          <Route path="meeting/:appointmentId" element={<TelemedicineMeeting />} />
+
 
           {/* Patient detail and nested tabs */}
 
@@ -78,6 +92,7 @@ function App() {
             <Route path="record" element={<MedicalRecordTab />} />
             <Route path="documents" element={<PatientDocumentList />} />
           </Route>
+
           <Route path="appointments" element={<AppointmentsPage />} />
           <Route path="feedback" element={<FeedbackStartPage />} />
           <Route path="feedback/create/:id" element={<FeedbackCreatePage />} />
