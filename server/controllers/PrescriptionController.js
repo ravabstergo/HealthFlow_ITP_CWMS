@@ -62,10 +62,13 @@ const CreatePrescription = async (req, res) => {
             notes
         } = req.body;
 
+        console.log("patient id in the backend",patientId);
+        console.log("doctor id in the backend",doctorId);
         const patient = await user.findById(patientId);
         const doctor = await user.findById(doctorId);
-        console.log(doctor);
-        if (!patient || !doctor) {
+        console.log("doctor found in the backend",doctor);
+        console.log("patient found in the backend",patient);
+        if (!patientId || !doctorId) {
             return res.status(404).json({ message: 'Patient or Doctor not found' });
         }
 
