@@ -6,8 +6,8 @@ import { useRecordContext } from "../context/RecordContext";
 
 const tabs = [
   { label: "Patient Information", path: "" },
-  { label: "Appointment History", path: "appointments" },
-  { label: "Prescriptions", path: "treatment" },
+  { label: "Appointment History", path: "treatments" },
+  { label: "Prescriptions", path: "prescriptions" },
   { label: "Medical Record", path: "record" },
   { label: "Documents", path: "documents" }
 ];

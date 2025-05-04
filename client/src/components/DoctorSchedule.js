@@ -30,7 +30,37 @@ export default function HealthFlowDashboard() {
 
   const handleAvailabilityChange = (index, field, value) => {
     const newAvailability = [...availability];
-    newAvailability[index][field] = value;
+    
+    if (field === "day") {
+      // When day changes, update the date part of startTime and endTime
+      const currentStartTime = new Date(newAvailability[index].startTime);
+      const currentEndTime = new Date(newAvailability[index].endTime);
+      
+      const newStartTime = new Date(value);
+      newStartTime.setHours(currentStartTime.getHours(), currentStartTime.getMinutes(), 0, 0);
+      
+      const newEndTime = new Date(value);
+      newEndTime.setHours(currentEndTime.getHours(), currentEndTime.getMinutes(), 0, 0);
+      
+      newAvailability[index] = {
+        ...newAvailability[index],
+        day: value,
+        startTime: newStartTime,
+        endTime: newEndTime
+      };
+    } else if (field === "startTime" || field === "endTime") {
+      // When times change, preserve the date from the day field
+      const selectedDate = new Date(newAvailability[index].day);
+      const newTime = new Date(value);
+      
+      const combinedDateTime = new Date(selectedDate);
+      combinedDateTime.setHours(newTime.getHours(), newTime.getMinutes(), 0, 0);
+      
+      newAvailability[index][field] = combinedDateTime;
+    } else {
+      newAvailability[index][field] = value;
+    }
+    
     setAvailability(newAvailability);
   };
 
