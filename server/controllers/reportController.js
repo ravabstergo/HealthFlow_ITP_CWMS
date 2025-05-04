@@ -37,7 +37,7 @@ Analyze the following patient feedback to provide an overall summary of patient 
 
 ${JSON.stringify(reportData, null, 2)}
 
-Provide a concise summary focusing on trends, common issues, and recommendations for improving patient care.
+Ensure your response is formatted with the following sections: Trends, Common Issues, and Recommendations, as per the instructions provided in your system prompt.
 `;
     const aiAnalysis = await runAI(prompt);
 

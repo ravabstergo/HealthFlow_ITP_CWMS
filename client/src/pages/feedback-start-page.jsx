@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Card from "../components/ui/card";
 import Button from "../components/ui/button";
 import { toast } from "react-toastify";
+import TokenService from "../services/TokenService"; // Import TokenService for token
 
 export default function FeedbackStartPage() {
   const [feedbacks, setFeedbacks] = useState([]);
@@ -16,7 +17,19 @@ export default function FeedbackStartPage() {
         setLoading(true);
         setError(null);
         console.log("[FeedbackStartPage] Fetching feedbacks...");
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/feedback/patient/me`);
+
+        const token = TokenService.getAccessToken(); // Retrieve the access token
+        if (!token) {
+          throw new Error("No access token found. Please log in again.");
+        }
+
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/feedback/patient/me`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`, // Add the Authorization header with the token
+          },
+        });
+
         if (!response.ok) {
           throw new Error(`Failed to fetch feedbacks: ${response.statusText}`);
         }
@@ -52,22 +65,10 @@ export default function FeedbackStartPage() {
       {error ? (
         <Card>
           <p className="text-red-500">{error}</p>
-          <Button
-            className="mt-4"
-            onClick={() => navigate("/account/feedback/create/PE123")}
-          >
-            Give Feedback
-          </Button>
         </Card>
       ) : feedbacks.length === 0 ? (
         <Card>
           <p className="text-gray-500">No feedback yet!</p>
-          <Button
-            className="mt-4"
-            onClick={() => navigate("/account/feedback/create/PE123")}
-          >
-            Give Feedback
-          </Button>
         </Card>
       ) : (
         feedbacks.map(feedback => (
@@ -78,6 +79,15 @@ export default function FeedbackStartPage() {
           </div>
         ))
       )}
+      {/* Always show the "Give Feedback" button */}
+      <Card>
+        <Button
+          className="mt-4 w-full"
+          onClick={() => navigate("/account/feedback/create/PE123")}
+        >
+          Give Feedback
+        </Button>
+      </Card>
     </div>
   );
 }
