@@ -9,7 +9,7 @@ import PatientInformationTab from "./components/patient-detail/PatientInformatio
 import AppointmentHistoryTab from "./components/patient-detail/AppointmentHistoryTab";
 import NextTreatmentTab from "./components/patient-detail/NextTreatmentTab";
 import MedicalRecordTab from "./components/patient-detail/MedicalRecordTab";
-
+import {EncounterContextProvider} from "./context/EncounterContext";
 import DoctorSchedule from './components/DoctorSchedule';
 import TelemedicineMeeting from "./components/TelemedicineMeeting";
 import DoctorSearch from "./pages/doctor-search";
@@ -60,9 +60,11 @@ function App() {
           element={
             <ProtectedRoute>
               <RecordContextProvider>
+              <EncounterContextProvider>
                 <HoverPanelProvider>
                   <DashboardWrapper />
                 </HoverPanelProvider>
+                </EncounterContextProvider>
               </RecordContextProvider>
             </ProtectedRoute>
           }
@@ -84,11 +86,9 @@ function App() {
           {/* Patient detail and nested tabs */}
 
           <Route path="patients/:id" element={<PatientDetailPage />}>
-
             <Route index element={<PatientInformationTab />} />
-
-            <Route path="appointments" element={<AppointmentHistoryTab />} />
-            <Route path="treatment" element={<NextTreatmentTab />} />
+            <Route path="treatments" element={<AppointmentHistoryTab />} />
+            <Route path="prescriptions" element={<NextTreatmentTab />} />
             <Route path="record" element={<MedicalRecordTab />} />
             <Route path="documents" element={<PatientDocumentList />} />
           </Route>

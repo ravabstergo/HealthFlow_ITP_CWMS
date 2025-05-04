@@ -4,7 +4,7 @@ const dotenv = require("dotenv");
 
 
 const appointmentRoutes = require("./routes/appointmentRoutes");
-
+const encounterRoutes = require("./routes/encounterRoutes");
 
 const connectDB = require("./config/DB");
 const prescriptionRoutes = require('./routes/PrescriptionRoute');
@@ -43,6 +43,8 @@ require('./aiModel');
 app.use("/api/ai", aiModelRoute);
 
 app.use("/api/document", DocRoutes);
+
+app.use("/api/encounters", encounterRoutes);
 
 
 // DB Connection
