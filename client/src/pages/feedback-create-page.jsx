@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../components/ui/button";
 import { toast } from "react-toastify";
+import TokenService from "../services/TokenService"; // Import TokenService for token
+import { X } from "lucide-react"; // Import X icon from lucide-react
 
 export default function FeedbackCreatePage() {
   const navigate = useNavigate();
@@ -12,7 +14,7 @@ export default function FeedbackCreatePage() {
   const questionsPerPage = 2;
   const totalPages = 5;
 
-  useEffect(() => {
+  useEffect(() => {       
     const fetchQuestions = async () => {
       try {
         console.log("[FeedbackCreatePage] Fetching questions...");
@@ -119,9 +121,17 @@ export default function FeedbackCreatePage() {
     }));
 
     try {
+      const token = TokenService.getAccessToken(); // Retrieve the access token
+      if (!token) {
+        throw new Error("No access token found. Please log in again.");
+      }
+
       const response = await fetch(`${process.env.REACT_APP_API_URL}/feedback`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // Add the Authorization header with the token
+        },
         body: JSON.stringify({
           encounterId: "PE123",
           answers: formattedAnswers,
@@ -196,57 +206,79 @@ export default function FeedbackCreatePage() {
   const endIndex = startIndex + questionsPerPage;
   const currentQuestions = questions.slice(startIndex, endIndex);
 
+  const handleBackgroundClick = (e) => {
+    if (e.target.id === "backdrop") {
+      navigate("/account/feedback");
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-end z-50">
-      <div className="bg-white w-full md:w-1/3 h-full p-6 rounded-lg shadow-lg transform transition-transform duration-300 ease-in-out translate-x-0">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Encounter ID #PE123</h2>
-          <button onClick={() => navigate("/account/feedback")} className="text-gray-500">
-            Cancel
+    <div
+      id="backdrop"
+      onClick={handleBackgroundClick}
+      className="fixed inset-0 z-50 bg-black/50 transition-opacity duration-300 flex justify-end m-0"
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby="panel-title"
+    >
+      <div
+        className="relative m-4 h-[calc(100%-2rem)] w-[90vw] max-w-xl bg-white rounded-2xl shadow-xl transition-transform duration-30 flex flex-col"
+      >
+        <div className="flex justify-between items-center p-4 border-b sticky top-0 rounded-t-lg z-10">
+          <h2 id="panel-title" className="text-lg font-semibold">Encounter ID #PE123</h2>
+          <button
+            onClick={() => navigate("/account/feedback")}
+            className="p-1 rounded-full hover:bg-gray-100"
+            aria-label="Close panel"
+          >
+            <X className="w-5 h-5 text-gray-500 hover:text-black" />
           </button>
         </div>
-        <div className="flex justify-center mb-4">
-          {Array.from({ length: totalPages }, (_, i) => (
-            <div
-              key={i}
-              className={`w-8 h-8 flex items-center justify-center rounded-full mx-1 ${
-                currentPage === i + 1 ? "bg-blue-600 text-white" : "bg-gray-300 text-gray-700"
-              }`}
-            >
-              {i + 1}
-            </div>
-          ))}
-        </div>
-        {questions.length === 0 ? (
-          <p className="text-gray-500">Loading questions...</p>
-        ) : (
-          currentQuestions.map((question, index) => renderQuestion(question, index))
-        )}
-        {currentPage === totalPages && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">
-              Other Comments
-            </label>
-            <textarea
-              value={comments}
-              onChange={e => setComments(e.target.value)}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-              rows="3"
-            />
+
+        <div className="p-4 overflow-y-auto flex-grow">
+          <div className="flex justify-center mb-4">
+            {Array.from({ length: totalPages }, (_, i) => (
+              <div
+                key={i}
+                className={`w-8 h-8 flex items-center justify-center rounded-full mx-1 ${
+                  currentPage === i + 1 ? "bg-blue-600 text-white" : "bg-gray-300 text-gray-700"
+                }`}
+              >
+                {i + 1}
+              </div>
+            ))}
           </div>
-        )}
-        <div className="flex justify-between">
-          <Button
-            variant="secondary"
-            onClick={currentPage === 1 ? () => navigate("/account/feedback") : handlePrevious}
-          >
-            {currentPage === 1 ? "Cancel" : "Previous"}
-          </Button>
-          <Button
-            onClick={currentPage === totalPages ? handleSubmit : handleNext}
-          >
-            {currentPage === totalPages ? "Submit" : "Next"}
-          </Button>
+          {questions.length === 0 ? (
+            <p className="text-gray-500">Loading questions...</p>
+          ) : (
+            currentQuestions.map((question, index) => renderQuestion(question, index))
+          )}
+          {currentPage === totalPages && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Other Comments
+              </label>
+              <textarea
+                value={comments}
+                onChange={e => setComments(e.target.value)}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                rows="3"
+              />
+            </div>
+          )}
+          <div className="flex justify-between">
+            <Button
+              variant="secondary"
+              onClick={currentPage === 1 ? () => navigate("/account/feedback") : handlePrevious}
+            >
+              {currentPage === 1 ? "Cancel" : "Previous"}
+            </Button>
+            <Button
+              onClick={currentPage === totalPages ? handleSubmit : handleNext}
+            >
+              {currentPage === totalPages ? "Submit" : "Next"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
