@@ -1,17 +1,29 @@
-import Card from "../ui/card";
 import { useOutletContext } from "react-router-dom";
-import { Edit } from "lucide-react";
+import { Edit, Trash2 } from "lucide-react";
+import Card from "../ui/card";
+import { useState, useEffect } from "react";
 
 export default function PatientInformationTab() {
-
   const { patient, isEditing, setIsEditing, formData, setFormData, handleSubmit } = useOutletContext();
+  // Create a local draft state for editing that doesn't affect the parent state until saved
+  const [draftData, setDraftData] = useState({...formData});
+
+  // Update the draft data when formData changes (e.g., when entering edit mode)
+  useEffect(() => {
+    setDraftData({...formData});
+  }, [formData]);
+
+  // Debug log to check what formData we have on mount and when it changes
+  useEffect(() => {
+    console.log("formData updated:", formData);
+  }, [formData]);
 
   const handleMedicalInfoChange = (e, section = null, index = null) => {
     const { name, value } = e.target;
 
     if (section && index !== null) {
       // Handle nested array fields
-      setFormData((prev) => ({
+      setDraftData((prev) => ({
         ...prev,
         [section]: prev[section].map((item, i) =>
           i === index ? { ...item, [name]: value } : item
@@ -19,14 +31,14 @@ export default function PatientInformationTab() {
       }));
     } else if (section) {
       // Handle nested object fields
-      setFormData((prev) => ({
+      setDraftData((prev) => ({
         ...prev,
         [section]: { ...prev[section], [name]: value },
       }));
     } else if (name.includes(".")) {
       // Handle dot notation for nested fields
       const [parent, child] = name.split(".");
-      setFormData((prev) => ({
+      setDraftData((prev) => ({
         ...prev,
         [parent]: {
           ...prev[parent],
@@ -35,11 +47,43 @@ export default function PatientInformationTab() {
       }));
     } else {
       // Handle top-level fields
-      setFormData((prev) => ({
+      setDraftData((prev) => ({
         ...prev,
         [name]: value,
       }));
     }
+  };
+
+  // Function to handle removing items - this is key for our delete functionality
+  const handleRemoveItem = (section, index) => {
+    console.log(`Removing item ${index} from ${section}`);
+    
+    setDraftData((prev) => {
+      // Create a new array without the item at the specified index
+      const updatedSection = prev[section].filter((_, i) => i !== index);
+      console.log(`Section ${section} after removal:`, updatedSection);
+      
+      return {
+        ...prev,
+        [section]: updatedSection
+      };
+    });
+  };
+
+  // Modified save function to ensure data is passed correctly to parent
+  const handleSaveChanges = (e) => {
+    e.preventDefault();
+    
+    // Create a deep clone of the draft data to ensure no references are shared
+    const finalDataToSave = JSON.parse(JSON.stringify(draftData));
+    
+    console.log("FINAL DATA TO SAVE:", finalDataToSave);
+    
+    // Update the parent's formData state with our changes
+    setFormData(finalDataToSave);
+    
+    // Call the parent's handleSubmit with the event and the data
+    handleSubmit(e, finalDataToSave);
   };
 
   const renderSection = (title, items, renderItem, sectionName) => (
@@ -48,9 +92,10 @@ export default function PatientInformationTab() {
         <h3 className="text-lg font-semibold">{title}</h3>
         {isEditing && (
           <button
+            type="button" // Explicitly mark as button to prevent form submission
             onClick={() => {
-              // Add a new empty item to the section
-              setFormData((prev) => ({
+              // Add a new empty item to the draft state
+              setDraftData((prev) => ({
                 ...prev,
                 [sectionName]: [...(prev[sectionName] || []), {}],
               }));
@@ -63,9 +108,22 @@ export default function PatientInformationTab() {
       </div>
       {isEditing ? (
         <div className="space-y-3">
-          {formData[sectionName]?.map((item, index) => (
-            <div key={index} className="bg-gray-50 p-3 rounded-md">
-              {renderItem(item, index, true)}
+          {draftData[sectionName]?.map((item, index) => (
+            <div key={`${sectionName}-${index}`} className="bg-gray-50 p-3 rounded-md relative">
+              {/* Trash Button */}
+              <button
+                type="button"
+                onClick={() => handleRemoveItem(sectionName, index)}
+                className="absolute top-3 right-3 text-red-500 hover:text-red-700"
+                aria-label="Remove item"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+              
+              {/* Add padding-right to create space for the trash button */}
+              <div className="pr-10">
+                {renderItem(item, index, true)}
+              </div>
             </div>
           ))}
         </div>
@@ -80,13 +138,11 @@ export default function PatientInformationTab() {
   );
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Information</h1>
-      <Card>
-      <div className="space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">Medical Information</h2>
         <button
+          type="button" // Explicitly mark as button to prevent form submission
           onClick={() => setIsEditing(!isEditing)}
           className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
         >
@@ -96,7 +152,7 @@ export default function PatientInformationTab() {
       </div>
 
       {isEditing ? (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSaveChanges} className="space-y-6">
           {/* Allergies */}
           {renderSection(
             "Allergies",
@@ -306,7 +362,7 @@ export default function PatientInformationTab() {
                       className="w-full p-2 border border-gray-300 rounded-md"
                     />
                   </div>
-                ) : (
+                ): (
                   <>
                     <p className="font-medium">{vaccine.vaccineName}</p>
                     <p className="text-sm text-gray-600">Date: {vaccine.date}</p>
@@ -424,7 +480,10 @@ export default function PatientInformationTab() {
             <div className="flex justify-end space-x-2 mt-6">
               <button
                 type="button"
-                onClick={() => setIsEditing(false)}
+                onClick={() => {
+                  setDraftData(formData); // Reset draft data to original
+                  setIsEditing(false);
+                }}
                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
               >
                 Cancel
@@ -547,9 +606,6 @@ export default function PatientInformationTab() {
           )}
         </>
       )}
-    </div>
-
-      </Card>
     </div>
   );
 }
