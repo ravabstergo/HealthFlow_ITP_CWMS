@@ -144,6 +144,8 @@ export default function NextTreatmentTab() {
     setIsSubmitting(true);
     setError(null);
 
+    console.log("patiid", patientId, "docid", doctorId)
+
 
     if (!patientId || !doctorId) {
       setError("Patient ID or Doctor ID not found");
@@ -151,9 +153,12 @@ export default function NextTreatmentTab() {
       return;
     }
 
+    console.log("patiid", patientId, "docid", doctorId)
+
 
     try {
       const token = TokenService.getAccessToken();
+      console.log("patiid", patientId, "docid", doctorId)
       const response = await fetch("/api/prescriptions", {
         method: "POST",
         headers: {
