@@ -144,17 +144,12 @@ export default function NextTreatmentTab() {
     setIsSubmitting(true);
     setError(null);
 
-    console.log("patiid", patientId, "docid", doctorId)
-
 
     if (!patientId || !doctorId) {
-      console.log("patiid", patientId, "docid", doctorId)
       setError("Patient ID or Doctor ID not found");
       setIsSubmitting(false);
       return;
     }
-
-    console.log("patiid", patientId, "docid", doctorId)
 
 
     try {
@@ -674,7 +669,7 @@ Please analyze and provide:
                       className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full p-1"
                     >
                       <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414-1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414-1.414L10 11.414l4.293 4.293a1 1 0 01-1.414-1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                       </svg>
                     </button>
                   </div>
@@ -749,7 +744,7 @@ Please analyze and provide:
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="bg-green-700 hover:bg-green-700 text-white"
+                    className="bg-green-600 hover:bg-green-700 text-white"
                     icon={<FileText className="w-4 h-4" />}
                     onClick={() => handleDownloadPrescription(selectedPrescription)}
                   >
@@ -929,13 +924,12 @@ Please analyze and provide:
           ) : (
             <div className="w-full">
               <div className="bg-gray-50">
-                <div className="grid grid-cols-6 gap-4 px-6 py-3 text-sm font-medium text-gray-500">
+                <div className="grid grid-cols-5 gap-4 px-6 py-3 text-sm font-medium text-gray-500">
                   <div>Date Issued</div>
                   <div>Valid Until</div>
-                  <div>Doctor</div>
                   <div>Status</div>
                   <div>Notes</div>
-                  <div className="text-right">Actions</div>
+                  <div></div>
                 </div>
               </div>
 
@@ -943,7 +937,7 @@ Please analyze and provide:
                 {prescriptions.map((prescription) => (
                   <div
                     key={prescription._id}
-                    className="grid grid-cols-6 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors"
+                    className="grid grid-cols-5 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-center text-sm text-gray-900">
                       <Calendar className="w-4 h-4 text-blue-600 mr-2" />
@@ -952,10 +946,6 @@ Please analyze and provide:
                     <div className="flex items-center text-sm text-gray-900">
                       <Clock className="w-4 h-4 text-orange-600 mr-2" />
                       {formatDate(prescription.validUntil)}
-                    </div>
-                    <div className="flex items-center text-sm text-gray-900">
-                      <User className="w-4 h-4 text-gray-400 mr-2" />
-                      {prescription.doctorId?.name || "Unknown"}
                     </div>
                     <div>
                       {new Date(prescription.validUntil) > new Date() ? (

@@ -17,6 +17,7 @@ import PatientAppointmentsPage from "./pages/patient-appointments-page";
 import PatientDocumentList from "./components/patient-detail/DocumentList";
 import DocumentList from "./pages/document_page";
 import PrescriptionPage from "./pages/prescription-page";
+import PrescriptionReport from "./pages/prescription-report";
 import AppointmentsPage from "./pages/appointments-page";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { RecordContextProvider } from "./context/RecordContext";
@@ -79,6 +80,7 @@ function App() {
           <Route path="patients" element={<PatientsPage />} />
           <Route path="documents" element={<DocumentList />} />
           <Route path="prescription" element={<PrescriptionPage />} />
+          <Route path="prescription-report" element={<PrescriptionReport />} />
           <Route path="schedule" element={<DoctorSchedule />} />   
           <Route path="meeting/:appointmentId" element={<TelemedicineMeeting />} />
 

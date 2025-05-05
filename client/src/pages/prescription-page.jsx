@@ -6,11 +6,12 @@ import Input from "../components/ui/input";
 import Modal from "../components/ui/modal";
 import { Plus, Calendar, User, Clock, Eye } from "lucide-react";
 import jsPDF from 'jspdf';
+import { useNavigate } from "react-router-dom";
 
 export default function PrescriptionPage() {
   const { currentUser } = useAuthContext();
   const doctorId = currentUser?.id;
-
+  console.log("Doctor ID:", doctorId);
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,6 +23,7 @@ export default function PrescriptionPage() {
   const [editedPrescription, setEditedPrescription] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editButtonsVisible, setEditButtonsVisible] = useState(false);
+  const navigate = useNavigate();
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -49,7 +51,6 @@ export default function PrescriptionPage() {
     console.log("Current time:", new Date(currentTime).toLocaleString());
     console.log("Time left for editing:", Math.floor(timeLeft / 1000 / 60), "minutes");
     console.log("Is editable:", timeLeft > 0);
-    console.log("=============================================");
     
     return timeLeft > 0;
   };
@@ -291,6 +292,10 @@ export default function PrescriptionPage() {
     doc.save(`prescription-${prescription._id}.pdf`);
   };
 
+  const handleViewAnalytics = () => {
+    navigate('/account/prescription-report');
+  };
+
   const filteredPrescriptions = prescriptions.filter((prescription) =>
     prescription.patientId?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -339,7 +344,7 @@ export default function PrescriptionPage() {
                 </Button>
                 <Button
                   variant="secondary"
-                  className="bg-green-700 hover:bg-green-700 text-white inline-flex items-center justify-center"
+                  className="bg-green-600 hover:bg-green-700 text-white inline-flex items-center justify-center"
                   onClick={() => handleDownloadPrescription(selectedPrescription)}
                 >
                   Download PDF
@@ -468,8 +473,8 @@ export default function PrescriptionPage() {
             </div>
           ) : (
             <div className="w-full space-y-4">
-              <div className="flex justify-between items-center mb-6">
-                <div className="space-y-1">
+              <div className="flex flex-col items-center mb-6 gap-4">
+                <div className="text-center">
                   <h2 className="text-2xl font-bold text-gray-800">
                     Dr. {doctorDetails?.name || "Unknown"}
                   </h2>
@@ -477,13 +482,28 @@ export default function PrescriptionPage() {
                     Total Prescriptions: {prescriptions.length}
                   </p>
                 </div>
-                <div className="w-72">
-                  <Input
-                    type="text"
-                    placeholder="Search by patient name..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
+                <div className="flex gap-4 items-center">
+                  <div className="w-96">
+                    <Input
+                      type="text"
+                      placeholder="Search by patient name..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <Button
+                    variant="primary"
+                    className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                    onClick={handleViewAnalytics}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 3v18h18"></path>
+                      <path d="M18 17V9"></path>
+                      <path d="M13 17V5"></path>
+                      <path d="M8 17v-3"></path>
+                    </svg>
+                    View Analytics
+                  </Button>
                 </div>
               </div>
 
@@ -500,7 +520,7 @@ export default function PrescriptionPage() {
                       <div>Patient Name</div>
                       <div>Status</div>
                       <div>Notes</div>
-                      <div className="text-right">Actions</div>
+                      <div className="text-right"></div>
                     </div>
                   </div>
 
