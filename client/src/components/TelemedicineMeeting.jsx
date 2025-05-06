@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { ArrowLeft, Mic, Video, FileText, UserIcon, AlertCircle } from "lucide-react"
+import { ArrowLeft, Mic, Video, FileText, UserIcon, AlertCircle, Download, Eye } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 import {
   LocalUser,
@@ -14,6 +14,8 @@ import {
 } from "agora-rtc-react"
 import AgoraRTC, { AgoraRTCProvider } from "agora-rtc-react"
 import { getAppointmentWithPatientData } from "../services/patientService"
+import DocumentService from "../services/DocumentService"
+import { useAuthContext } from "../context/AuthContext"
 
 const APP_ID = process.env.REACT_APP_AGORA_APP_ID;
 
@@ -171,7 +173,7 @@ const PatientProfileSection = ({ patientData }) => {
   );
 };
 
-const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile }) => {
+const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, documents }) => {
   const navigate = useNavigate();
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
@@ -354,13 +356,68 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile })
           </div>
 
           {/* Documents section - reduced height */}
-          <div className="bg-white border border-gray-200 rounded-3xl p-4 flex-1 flex-grow-[1] min-h-[120px]">
+          <div className="bg-white border border-gray-200 rounded-3xl p-4 flex-1 flex-grow-[1] min-h-[120px] overflow-y-auto">
             <div className="mb-3">
               <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">Documents</span>
             </div>
-            <div className="h-full flex items-center justify-center text-gray-400">
-              <FileText className="h-12 w-12 opacity-20" />
-            </div>
+            {documents.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-gray-400">
+                <FileText className="h-12 w-12 opacity-20" />
+                <p className="text-gray-400 ml-2">No documents available</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {documents.map((doc) => (
+                  <div key={doc._id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
+                    <div className="flex items-center">
+                      <FileText className="h-5 w-5 text-gray-400 mr-2" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">{doc.documentName}</p>
+                        <p className="text-xs text-gray-500">{new Date(doc.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={async () => {
+                          try {
+                            const downloadInfo = await DocumentService.downloadDocument(doc._id);
+                            const link = document.createElement('a');
+                            link.href = downloadInfo.url;
+                            link.setAttribute('download', downloadInfo.filename);
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          } catch (error) {
+                            console.error('Download failed:', error);
+                          }
+                        }}
+                        className="p-1 hover:bg-gray-100 rounded-full"
+                        title="Download"
+                      >
+                        <Download className="h-4 w-4 text-gray-600" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const extension = doc.documentUrl?.split('.').pop().toLowerCase();
+                          if (extension === 'pdf') {
+                            window.open(doc.documentUrl, '_blank');
+                          } else if (['doc', 'docx'].includes(extension)) {
+                            const viewerUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(doc.documentUrl)}`;
+                            window.open(viewerUrl, '_blank');
+                          } else if (['jpg', 'jpeg', 'png'].includes(extension)) {
+                            window.open(doc.documentUrl, '_blank');
+                          }
+                        }}
+                        className="p-1 hover:bg-gray-100 rounded-full"
+                        title="View"
+                      >
+                        <Eye className="h-4 w-4 text-gray-600" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -420,58 +477,45 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile })
 }
 
 export default function TelemedicineMeeting() {
-  console.log('1. TelemedicineMeeting component initialization started');
-  
   const { appointmentId } = useParams();
-  console.log('2. appointmentId from useParams:', appointmentId);
-  
   const [appointmentData, setAppointmentData] = useState(null);
   const [patientProfile, setPatientProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  console.log("3. TelemedicineMeeting component mounted with appointmentId:", appointmentId);
+  const [documents, setDocuments] = useState([]);
+  const { currentUser } = useAuthContext();
 
   // Create Agora client
   const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-  console.log('4. Agora RTC client created');
 
   // Fetch appointment and patient data
   useEffect(() => {
-    console.log('5. useEffect triggered with appointmentId:', appointmentId);
-    
     async function fetchData() {
-      console.log('6. fetchData function started');
       try {
         setLoading(true);
-        console.log("7. Fetching appointment data for ID:", appointmentId);
         const data = await getAppointmentWithPatientData(appointmentId);
-        console.log("8. Received data from API:", data);
-        
         setAppointmentData(data.appointment);
         setPatientProfile(data.patientData);
-        console.log("9. State updated with appointment and patient data");
+        
+        // Fetch documents using patient ID and doctor ID
+        if (data.patientData?._id && currentUser?.id) {
+          console.log("Fetching documents for patient ID:", data.patientData._id, "and doctor ID:", currentUser.id);
+          const docsResponse = await DocumentService.getAllDocuments(data.patientData._id, currentUser.id);
+          setDocuments(docsResponse.documents || []);
+        }
+        
         setLoading(false);
       } catch (err) {
-        console.error("10. Error fetching appointment data:", err);
+        console.error("Error fetching data:", err);
         setError(err.message);
         setLoading(false);
       }
     }
     
     if (appointmentId) {
-      console.log('11. appointmentId exists, calling fetchData()');
       fetchData();
-    } else {
-      console.log('11a. appointmentId is falsy, not calling fetchData()');
-      setLoading(false);
-      setError('No appointment ID provided');
     }
-    
-    return () => {
-      console.log('12. useEffect cleanup function called');
-    };
-  }, [appointmentId]);
+  }, [appointmentId, currentUser?.id]);
 
   console.log('13. Rendering component with loading:', loading, 'error:', error);
 
@@ -507,6 +551,7 @@ export default function TelemedicineMeeting() {
         patientName={appointmentData?.firstName ? `${appointmentData.firstName} ${appointmentData.lastName}` : 'Patient'}
         appointmentDate={appointmentData?.time ? new Date(appointmentData.time).toLocaleDateString() : ''}
         patientProfile={patientProfile}
+        documents={documents}
       />
     </AgoraRTCProvider>
   );

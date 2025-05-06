@@ -281,6 +281,7 @@ const downloadDocument = async (req, res) => {
     // For Cloudinary URLs, ensure we're getting a download URL
     let downloadUrl = document.documentUrl;
     if (downloadUrl.includes('cloudinary.com')) {
+      // Add fl_attachment flag for Cloudinary URLs
       downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
     }
 
@@ -290,7 +291,7 @@ const downloadDocument = async (req, res) => {
       contentType
     });
   } catch (error) {
-    console.error(error);
+    console.error("Download document error:", error);
     res.status(500).json({
       message: "Failed to process document download",
       error: error.message,

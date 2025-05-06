@@ -26,6 +26,7 @@ export const getAppointmentWithPatientData = async (appointmentId) => {
       // Next, get the patient's medical profile using the NIC from the appointment
       const patientData = await getPatientByNIC(appointment.nic);
       
+      console.log("patientData:" + patientData);
       // Return combined data
       return {
         appointment,

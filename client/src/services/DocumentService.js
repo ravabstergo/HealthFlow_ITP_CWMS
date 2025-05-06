@@ -23,8 +23,7 @@ const DocumentService = {
       console.error('Error fetching documents:', error);
       throw error;
     }
-  },
-
+  },  
   async getAllDocumentsByDoctor(doctorId) {
     try {
       console.log('Fetching all documents for doctor:', doctorId);
@@ -149,11 +148,15 @@ const DocumentService = {
       
       const data = await response.json();
       
-      if (!data.url) {
+      if (!data.downloadUrl) {
         throw new Error('Download URL not available');
       }
       
-      return data;
+      return {
+        url: data.downloadUrl,
+        filename: data.filename,
+        contentType: data.contentType
+      };
     } catch (error) {
       console.error('[DocumentService] Download document error:', error);
       throw error;
