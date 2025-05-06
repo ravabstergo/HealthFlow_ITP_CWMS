@@ -68,7 +68,7 @@ const CreatePrescription = async (req, res) => {
         const patient = await user.findById(patientId);
         const doctor = await user.findById(doctorId);
         console.log(doctor);
-        if (!patient || !doctor) {
+        if (!patientId || !doctorId) {
             return res.status(404).json({ message: 'Patient or Doctor not found' });
         }
 
@@ -171,14 +171,7 @@ const SearchPrescription = async (req, res) => {
 
 
 
-//GetAllagiceById
-
-
-
-
-
-
-//Exporting all the functions
+//GetAllagiceByIl the functions
 module.exports= {
     getAllPrescriptions,
     getAllPrescriptionsByDoctor,

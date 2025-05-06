@@ -473,7 +473,7 @@ export default function PrescriptionPage() {
             </div>
           ) : (
             <div className="w-full space-y-4">
-              <div className="flex flex-col items-center mb-6 gap-4">
+              <div className="flex justify-between items-center mb-6">
                 <div className="text-center">
                   <h2 className="text-2xl font-bold text-gray-800">
                     Dr. {doctorDetails?.name || "Unknown"}
@@ -482,28 +482,29 @@ export default function PrescriptionPage() {
                     Total Prescriptions: {prescriptions.length}
                   </p>
                 </div>
-                <div className="flex gap-4 items-center">
-                  <div className="w-96">
-                    <Input
-                      type="text"
-                      placeholder="Search by patient name..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  <Button
-                    variant="primary"
-                    className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
-                    onClick={handleViewAnalytics}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 3v18h18"></path>
-                      <path d="M18 17V9"></path>
-                      <path d="M13 17V5"></path>
-                      <path d="M8 17v-3"></path>
-                    </svg>
-                    View Analytics
-                  </Button>
+                <Button
+                  variant="primary"
+                  className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                  onClick={handleViewAnalytics}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 3v18h18"></path>
+                    <path d="M18 17V9"></path>
+                    <path d="M13 17V5"></path>
+                    <path d="M8 17v-3"></path>
+                  </svg>
+                  View Analytics
+                </Button>
+              </div>
+
+              <div className="mb-6">
+                <div className="w-96">
+                  <Input
+                    type="text"
+                    placeholder="Search by patient name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
                 </div>
               </div>
 
