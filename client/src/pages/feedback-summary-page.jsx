@@ -119,7 +119,7 @@ export default function FeedbackSummaryPage() {
                         {canEditOrDelete && (
                           <>
                             <Link
-                              to={`/account/feedback/update/${f._id}`}
+                              to={`/account/feedback/edit/${f._id}`}
                               state={{ feedback: f }} // Pass feedback object in state
                               className="mr-2"
                             >
@@ -149,7 +149,7 @@ export default function FeedbackSummaryPage() {
       {selectedFeedback && (
         <div className="fixed inset-0 z-50 flex">
           {/* Overlay */}
-          <div className="fixed inset-0 bg-black opacity-50" onClick={closeModal}></div>
+          <div className="fixed inse t-0 bg-black opacity-50" onClick={closeModal}></div>
           {/* Modal Content */}
           <div
             className="relative ml-auto w-full max-w-lg bg-white shadow-xl p-6 overflow-y-auto"
