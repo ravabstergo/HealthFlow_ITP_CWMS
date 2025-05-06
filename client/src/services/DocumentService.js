@@ -1,14 +1,24 @@
 const DocumentService = {
-  async getAllDocuments() {
+  async getAllDocuments(patientId, doctorId) {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/document`);
+      const params = new URLSearchParams();
+      if (patientId) params.append('patientId', patientId);
+      if (doctorId) params.append('doctorId', doctorId);
+      
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/documents?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
       if (!response.ok) {
         throw new Error('Failed to fetch documents');
       }
-      const data = await response.json();
-      return data.documents;
+
+      return await response.json();
     } catch (error) {
-      console.error('[DocumentService] Get all documents error:', error);
+      console.error('Error fetching documents:', error);
       throw error;
     }
   },
@@ -31,15 +41,18 @@ const DocumentService = {
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/document`, {
         method: 'POST',
-        body: formData, // FormData containing file and metadata
+        body: formData,
       });
+
       if (!response.ok) {
-        throw new Error('Failed to upload document');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to upload document');
       }
+
       const data = await response.json();
       return data.document;
     } catch (error) {
-      console.error('[DocumentService] Upload document error:', error);
+      console.error('Error uploading document:', error);
       throw error;
     }
   },
@@ -50,13 +63,16 @@ const DocumentService = {
         method: 'PUT',
         body: formData,
       });
+
       if (!response.ok) {
-        throw new Error('Failed to update document');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update document');
       }
+
       const data = await response.json();
       return data.document;
     } catch (error) {
-      console.error('[DocumentService] Update document error:', error);
+      console.error('Error updating document:', error);
       throw error;
     }
   },
