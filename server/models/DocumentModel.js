@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const documentSchema = new mongoose.Schema({
   patientid: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    ref: "Patient",
     required: [true, "Patient ID is required"],
   },
   doctorid: {

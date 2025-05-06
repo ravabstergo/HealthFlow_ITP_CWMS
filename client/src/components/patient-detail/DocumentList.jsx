@@ -13,7 +13,7 @@ import DocumentService from "../../services/DocumentService";
 
 export default function PatientDocumentList() {
   const { id: patientId } = useParams();
-  const { activeRole, user } = useAuthContext();
+  const { currentUser:user } = useAuthContext();
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,7 +30,6 @@ export default function PatientDocumentList() {
   const [selectedStatus, setSelectedStatus] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
-  const isDoctor = activeRole?.name === "sys_doctor";
 
   const statusOptions = ["All", "Pending", "Doctor Review", "Approved", "Rejected"];
 
@@ -40,9 +39,12 @@ export default function PatientDocumentList() {
 
   const fetchDocuments = async () => {
     try {
+
+      console.log("Fetching documents for patient:", patientId);
+      console.log("User ID:", user?.id);
       setLoading(true);
-      const data = await DocumentService.getAllDocuments(patientId, user?._id);
-      setDocuments(data || []);
+      const response = await DocumentService.getAllDocuments(patientId, user?.id);
+      setDocuments(response.documents || []);
     } catch (error) {
       setToast({
         visible: true,

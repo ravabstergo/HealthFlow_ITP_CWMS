@@ -172,17 +172,21 @@ const getAllDocuments = async (req, res) => {
     const { patientId, doctorId } = req.query;
     let query = {};
 
+    console.log("get all doc, :",patientId, doctorId);
+
     if (patientId) {
-      query.patientid = patientId;
+      query.patientid = patientId;  // Keep as patientid to match the database field
     }
     if (doctorId) {
-      query.doctorid = doctorId;
+      query.doctorid = doctorId;  // Keep as doctorid to match the database field
     }
 
     const documents = await Document.find(query)
       .populate('patientid', 'name')
       .populate('doctorid', 'name')
       .sort({ createdAt: -1 });
+
+      console.log("Documents found:", documents);
 
     res.status(200).json({ documents });
   } catch (error) {
@@ -294,6 +298,34 @@ const downloadDocument = async (req, res) => {
   }
 };
 
+const getAllDocumentsByDoctor = async (req, res) => {
+  try {
+    // Use doctorId from query params if provided, otherwise use authenticated user's ID
+    const doctorId = req.query.doctorId || req.user?.id;
+
+    console.log("Doctor ID:", doctorId);
+    
+    if (!doctorId) {
+      return res.status(400).json({ message: "Doctor ID is required" });
+    }
+
+    // Find all documents where the specified doctor is assigned
+    const documents = await Document.find({ doctorid: doctorId })
+      .populate('patientid', 'name')
+      .populate('doctorid', 'name')
+      .sort({ createdAt: -1 });
+
+    console.log(`Found ${documents.length} documents for doctor ${doctorId}`);
+    res.status(200).json({ documents });
+  } catch (error) {
+    console.error("Error in getAllDocumentsByDoctor:", error);
+    res.status(500).json({ 
+      message: "Failed to get doctor's documents", 
+      error: error.message 
+    });
+  }
+};
+
 module.exports = {
   insertDocument,
   updateDocument,
@@ -301,5 +333,6 @@ module.exports = {
   getAllDocuments,
   deleteDocument,
   statusUpdate,
-  downloadDocument
+  downloadDocument,
+  getAllDocumentsByDoctor
 };

@@ -57,7 +57,7 @@ export default function DocumentUpload({
   const fileInputRef = useRef(null);
 
   // Get the doctor ID from context
-  const doctorIdFromContext = activeRole?.id || currentUser?.id; // Use either the role's ID or currentUser's ID if role doesn't have one
+  const doctorIdFromContext = currentUser?.id; // Use either the role's ID or currentUser's ID if role doesn't have one
 
   useEffect(() => {
     if ((mode === "edit" || mode === "bulk-update") && documentData) {

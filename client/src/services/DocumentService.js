@@ -1,11 +1,13 @@
 const DocumentService = {
   async getAllDocuments(patientId, doctorId) {
     try {
+
+      console.log('Fetching all documents with patientId:', patientId, 'and doctorId:', doctorId);
       const params = new URLSearchParams();
       if (patientId) params.append('patientId', patientId);
       if (doctorId) params.append('doctorId', doctorId);
       
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/documents?${params.toString()}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/document?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -19,6 +21,29 @@ const DocumentService = {
       return await response.json();
     } catch (error) {
       console.error('Error fetching documents:', error);
+      throw error;
+    }
+  },
+
+  async getAllDocumentsByDoctor(doctorId) {
+    try {
+      console.log('Fetching all documents for doctor:', doctorId);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/document/doctor/documents?doctorId=${doctorId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch doctor documents');
+      }
+
+      const result = await response.json();
+      return result.documents; // Return the documents array directly
+    } catch (error) {
+      console.error('Error fetching doctor documents:', error);
       throw error;
     }
   },
