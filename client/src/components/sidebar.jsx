@@ -16,7 +16,7 @@ import {
 
 export default function Sidebar({ selectedItem, onSelectItem }) {
 
-  const { logout } = useAuthContext();
+  const { logout, currentUser } = useAuthContext(); // Get currentUser
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -29,36 +29,95 @@ export default function Sidebar({ selectedItem, onSelectItem }) {
     return location.pathname.includes(path);
   };
 
-  const menuItems = [
-    {
-      category: "CLINICAL",
-      items: [
-        { name: "Patients", icon: <Users className="w-4 h-4" />, path: "patients" },
-        { name: "Prescriptions", icon: <FileText className="w-4 h-4" />, path: "prescription" },
-        { name: "Documents", icon: <File className="w-4 h-4" />, path: "documents" },
-      ],
-    },
-    {
-      category: "TELEMEDICINE",
-      items: [
-        { name: "Appointments", icon: <Calendar className="w-4 h-4" />, path: "schedule" },
-        { name: "Patient Appointments", icon: <Calendar className="w-4 h-4" />, path: "patient-appointments" },
-        { name: "PatientDash", icon: <BarChart2 className="w-4 h-4" />, path: "search" },
-        { name: "Finance", icon: <DollarSign className="w-4 h-4" />, path: "finance" },
-      ],
-    },
-    {
-      category: "STAFF",
-      items: [{ name: "Roles", icon: <UserCheck className="w-4 h-4" />, path: "roles" }],
-    },
-    {
-      category: "FEEDBACK",
-      items: [
-        { name: "Feedback", icon: <MessageSquare className="w-4 h-4" />, path: "feedback" },
-        { name: "View Feedback", icon: <FileText className="w-4 h-4" />, path: "feedback/doctor" },
-      ],
+  // Define menu items based on user role
+  const getMenuItems = (role) => {
+    const commonClinical = [
+      { name: "Patients", icon: <Users className="w-4 h-4" />, path: "patients" },
+      { name: "Prescriptions", icon: <FileText className="w-4 h-4" />, path: "prescription" },
+      { name: "Documents", icon: <File className="w-4 h-4" />, path: "documents" },
+    ];
+
+    const commonTelemedicine = [
+      { name: "Appointments", icon: <Calendar className="w-4 h-4" />, path: "schedule" },
+    ];
+
+    const commonFeedback = [
+      { name: "Feedback", icon: <MessageSquare className="w-4 h-4" />, path: "feedback" },
+    ];
+
+    let menu = [];
+
+    if (role === 'doctor') {
+      menu = [
+        {
+          category: "CLINICAL",
+          items: commonClinical,
+        },
+        {
+          category: "TELEMEDICINE",
+          items: [
+            ...commonTelemedicine,
+            { name: "Doctor Chat", icon: <MessageSquare className="w-4 h-4" />, path: "doctor-chat" }, // Doctor Chat link
+          ],
+        },
+        {
+          category: "FEEDBACK",
+          items: [
+            ...commonFeedback,
+            { name: "View Feedback", icon: <FileText className="w-4 h-4" />, path: "feedback/doctor" },
+          ],
+        }
+      ];
+    } else if (role === 'patient') {
+      menu = [
+        {
+          category: "MY HEALTH",
+          items: [
+            { name: "Appointments", icon: <Calendar className="w-4 h-4" />, path: "patient-appointments" },
+            { name: "Chat with Doctor", icon: <MessageSquare className="w-4 h-4" />, path: "patient-chat" },
+            { name: "Search Doctors", icon: <Users className="w-4 h-4" />, path: "search" },
+            // Add other patient-specific links here
+          ],
+        },
+        {
+          category: "FEEDBACK",
+          items: commonFeedback,
+        }
+      ];
+    } else { // Default/Admin view (can adjust as needed)
+      menu = [
+        {
+          category: "CLINICAL",
+          items: commonClinical,
+        },
+        {
+          category: "TELEMEDICINE",
+          items: [
+            ...commonTelemedicine,
+            { name: "Patient Appointments", icon: <Calendar className="w-4 h-4" />, path: "patient-appointments" },
+            { name: "PatientDash", icon: <BarChart2 className="w-4 h-4" />, path: "search" },
+            { name: "Finance", icon: <DollarSign className="w-4 h-4" />, path: "finance" },
+            { name: "Patient Chat", icon: <MessageSquare className="w-4 h-4" />, path: "patient-chat" },
+            { name: "Doctor Chat", icon: <MessageSquare className="w-4 h-4" />, path: "doctor-chat" }, // Doctor Chat link for admin
+          ],
+        },
+        {
+          category: "STAFF",
+          items: [{ name: "Roles", icon: <UserCheck className="w-4 h-4" />, path: "roles" }],
+        },
+        {
+          category: "FEEDBACK",
+          items: [
+            ...commonFeedback,
+            { name: "View Feedback", icon: <FileText className="w-4 h-4" />, path: "feedback/doctor" },
+          ],
+        }
+      ];
     }
-  ]
+    return menu;
+  };
+
+  const menuItems = getMenuItems(currentUser?.role);
 
   const bottomItems = [
     { name: "Settings", icon: <Settings className="w-4 h-4" />, path: "settings" },
@@ -79,11 +138,14 @@ export default function Sidebar({ selectedItem, onSelectItem }) {
       <div className="px-4 py-3 border-b border-gray-200">
         <div className="flex items-center">
           <div className="w-6 h-6 bg-[#ffedd5] rounded-full flex items-center justify-center mr-2">
-            <span className="text-[#9a3412] font-medium text-xs">DS</span>
+            {/* Dynamically generate initials or use a placeholder */}
+            <span className="text-[#9a3412] font-medium text-xs">
+              {currentUser?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+            </span>
           </div>
           <div className="flex flex-col">
-            <span className="text-xs font-medium">Darrell Steward</span>
-            <span className="text-[10px] text-gray-500">Super admin</span>
+            <span className="text-xs font-medium">{currentUser?.name || 'User'}</span>
+            <span className="text-[10px] text-gray-500">{currentUser?.role || 'Role'}</span>
           </div>
         </div>
       </div>

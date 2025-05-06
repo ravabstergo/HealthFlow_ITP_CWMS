@@ -359,7 +359,8 @@ const updateSchedule = async (req, res) => {
 
 const getAppointmentById = async (req, res) => {
   try {
-    const appointmentId = req.params.id;
+    const appointmentId = req.params.appointmentId;  // Changed from req.params.id to req.params.appointmentId
+    console.log('Received appointment ID:', appointmentId);
     const appointment = await Appointment.findById(appointmentId);
 
     if (!appointment) {
@@ -539,6 +540,24 @@ const deleteAvailability = async (req, res) => {
     const endTime = new Date(availability.endTime);
     const availabilityDay = new Date(availability.day);
 
+    // Check if any slots in this availability period are already booked
+    const slotsInPeriod = targetSchedule.slots.filter(slot => {
+      const slotTime = new Date(slot.slotTime);
+      const slotDay = new Date(slot.day);
+      
+      return (slotDay.getTime() === availabilityDay.getTime() &&
+              slotTime >= startTime &&
+              slotTime <= endTime);
+    });
+
+    // If any slot is booked, prevent deletion
+    const anySlotBooked = slotsInPeriod.some(slot => slot.isBooked);
+    if (anySlotBooked) {
+      return res.status(400).json({ 
+        message: 'Cannot delete availability period because it contains booked appointments'
+      });
+    }
+
     // Remove slots that fall within this availability period
     targetSchedule.slots = targetSchedule.slots.filter(slot => {
       const slotTime = new Date(slot.slotTime);
@@ -657,6 +676,173 @@ const checkSlotAvailability = async (req, res) => {
   }
 };
 
+// Check if an availability is updatable (no booked slots)
+const checkAvailabilityUpdatable = async (req, res) => {
+  try {
+    const { doctorId, availabilityId } = req.params;
+
+    // Find all schedules for the doctor
+    const schedules = await DoctorSchedule.find({ doctorId });
+    if (!schedules.length) {
+      return res.status(404).json({ message: 'Doctor schedule not found' });
+    }
+
+    // Find which schedule contains the availability
+    let targetSchedule = null;
+    let availability = null;
+    
+    for (const schedule of schedules) {
+      availability = schedule.availability.id(availabilityId);
+      if (availability) {
+        targetSchedule = schedule;
+        break;
+      }
+    }
+
+    if (!targetSchedule || !availability) {
+      return res.status(404).json({ message: 'Availability period not found' });
+    }
+
+    // Get the start and end times of the availability period
+    const startTime = new Date(availability.startTime);
+    const endTime = new Date(availability.endTime);
+    const availabilityDay = new Date(availability.day);
+
+    // Check if any slots in this availability period are already booked
+    const slotsInPeriod = targetSchedule.slots.filter(slot => {
+      const slotTime = new Date(slot.slotTime);
+      const slotDay = new Date(slot.day);
+      
+      return (slotDay.getTime() === availabilityDay.getTime() &&
+              slotTime >= startTime &&
+              slotTime <= endTime);
+    });
+
+    // If any slot is booked, prevent update
+    const anySlotBooked = slotsInPeriod.some(slot => slot.isBooked);
+    
+    res.json({ 
+      updatable: !anySlotBooked,
+      message: anySlotBooked ? 
+        'Cannot update this availability because it contains booked appointments' : 
+        'Availability can be updated'
+    });
+  } catch (error) {
+    console.error('Error in checkAvailabilityUpdatable:', error);
+    res.status(500).json({ message: 'Error checking availability updateable status', error: error.message });
+  }
+};
+
+// Update availability and recreate slots
+const updateAvailability = async (req, res) => {
+  try {
+    const { doctorId, availabilityId } = req.params;
+    const { availability, consultationFee } = req.body;
+
+    if (!availability || !availability.length) {
+      return res.status(400).json({ message: 'No availability data provided' });
+    }
+
+    const availabilityData = availability[0]; // We only update one availability at a time
+
+    // Find all schedules for the doctor
+    const schedules = await DoctorSchedule.find({ doctorId });
+    if (!schedules.length) {
+      return res.status(404).json({ message: 'Doctor schedule not found' });
+    }
+
+    // Find which schedule contains the availability
+    let targetSchedule = null;
+    let oldAvailability = null;
+    
+    for (const schedule of schedules) {
+      oldAvailability = schedule.availability.id(availabilityId);
+      if (oldAvailability) {
+        targetSchedule = schedule;
+        break;
+      }
+    }
+
+    if (!targetSchedule || !oldAvailability) {
+      return res.status(404).json({ message: 'Availability period not found' });
+    }
+
+    // Get the old start and end times
+    const oldStartTime = new Date(oldAvailability.startTime);
+    const oldEndTime = new Date(oldAvailability.endTime);
+    const oldDay = new Date(oldAvailability.day);
+    oldDay.setHours(0, 0, 0, 0);
+
+    // Verify that no booked slots exist in this availability
+    const oldSlotsInPeriod = targetSchedule.slots.filter(slot => {
+      const slotTime = new Date(slot.slotTime);
+      const slotDay = new Date(slot.day);
+      slotDay.setHours(0, 0, 0, 0);
+      
+      return (slotDay.getTime() === oldDay.getTime() &&
+              slotTime >= oldStartTime &&
+              slotTime <= oldEndTime);
+    });
+
+    if (oldSlotsInPeriod.some(slot => slot.isBooked)) {
+      return res.status(400).json({ 
+        message: 'Cannot update this availability because it contains booked appointments'
+      });
+    }
+
+    // Remove old slots from this availability period
+    targetSchedule.slots = targetSchedule.slots.filter(slot => {
+      const slotTime = new Date(slot.slotTime);
+      const slotDay = new Date(slot.day);
+      slotDay.setHours(0, 0, 0, 0);
+      
+      return !(slotDay.getTime() === oldDay.getTime() &&
+               slotTime >= oldStartTime &&
+               slotTime <= oldEndTime);
+    });
+
+    // Update the availability details
+    oldAvailability.day = new Date(availabilityData.day);
+    oldAvailability.startTime = new Date(availabilityData.startTime);
+    oldAvailability.endTime = new Date(availabilityData.endTime);
+    oldAvailability.appointmentDuration = availabilityData.appointmentDuration;
+    
+    // Update consultation fee if provided
+    if (consultationFee) {
+      targetSchedule.consultationFee = Number(consultationFee);
+    }
+
+    // Create new slots based on the updated availability
+    const day = oldAvailability;
+    const startTime = new Date(day.startTime);
+    const endTime = new Date(day.endTime);
+    const duration = day.appointmentDuration;
+    const dayDate = new Date(day.day);
+    dayDate.setHours(0, 0, 0, 0);
+
+    let slotTime = new Date(startTime);
+    while (slotTime < endTime) {
+      targetSchedule.slots.push({ 
+        day: dayDate, 
+        slotTime: new Date(slotTime), 
+        isBooked: false 
+      });
+      slotTime = new Date(slotTime.getTime() + duration * 60000); // Increment by duration
+    }
+
+    // Save the updated schedule
+    await targetSchedule.save();
+
+    res.status(200).json({
+      message: 'Availability updated successfully',
+      schedule: targetSchedule
+    });
+  } catch (error) {
+    console.error('Error in updateAvailability:', error);
+    res.status(500).json({ message: 'Error updating availability', error: error.message });
+  }
+};
+
 module.exports = {
     getAllDoctors,
     createSchedule,
@@ -676,4 +862,6 @@ module.exports = {
     updateAppointmentStatus,
     getDoctorSlotsByDate,
     checkSlotAvailability,
+    checkAvailabilityUpdatable,
+    updateAvailability,
 };

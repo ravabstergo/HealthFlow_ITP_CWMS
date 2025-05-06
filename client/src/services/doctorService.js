@@ -16,12 +16,62 @@ const deleteAvailability = async (doctorId, availabilityId) => {
         const response = await fetch(`/api/appointments/availability/${doctorId}/${availabilityId}`, {
             method: 'DELETE'
         });
+        
+        // Get the response data
+        const data = await response.json();
+        
+        // If response is not OK, throw an error with the response data
         if (!response.ok) {
-            throw new Error('Failed to delete availability');
+            const error = new Error(data.message || 'Failed to delete availability');
+            error.response = { data };
+            throw error;
         }
+        
+        return data;
+    } catch (error) {
+        console.error('Error deleting availability:', error);
+        throw error;
+    }
+};
+
+const checkAvailabilityUpdatable = async (doctorId, availabilityId) => {
+    try {
+        const response = await fetch(`/api/appointments/availability/${doctorId}/${availabilityId}/check-updatable`);
+        
+        if (!response.ok) {
+            const data = await response.json();
+            const error = new Error(data.message || 'Failed to check availability');
+            error.response = { data };
+            throw error;
+        }
+        
         return await response.json();
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error checking availability:', error);
+        throw error;
+    }
+};
+
+const updateAvailability = async (doctorId, availabilityId, data) => {
+    try {
+        const response = await fetch(`/api/appointments/availability/${doctorId}/${availabilityId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+        
+        if (!response.ok) {
+            const responseData = await response.json();
+            const error = new Error(responseData.message || 'Failed to update availability');
+            error.response = { data: responseData };
+            throw error;
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error updating availability:', error);
         throw error;
     }
 };
@@ -106,5 +156,7 @@ module.exports = {
     createSchedule,
     getAllDoctors,
     getAppointmentsByDoctor,
-    getDoctorSlotsByDate
+    getDoctorSlotsByDate,
+    checkAvailabilityUpdatable,
+    updateAvailability
 };

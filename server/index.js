@@ -16,7 +16,8 @@ const recordRoutes = require("./routes/recordRoutes");
 
 const DocRoutes = require("./routes/DocumentRoutes");
 const feedbackRoutes = require("./routes/feedbackRoutes"); // Add this line to import feedbackRoutes
-
+const chatRoutes = require('./routes/chatRoutes');
+const patientRoutes = require('./routes/patientRoutes');
 
 
 const app = express();
@@ -38,6 +39,10 @@ app.use("/api/records", recordRoutes);
 app.use("/api/feedback", feedbackRoutes);
 
 app.use('/api/prescriptions', prescriptionRoutes);
+
+app.use("/api/chat", chatRoutes);
+
+app.use("/api/patients", patientRoutes);
 
 require('./aiModel');
 app.use("/api/ai", aiModelRoute);

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { protect } = require("../middleware/authMiddleware");
-const { login, getMe } = require("../controllers/authController");
+const { login, getMe, getAllDoctors } = require("../controllers/authController");
 
 router.post(
   "/login",
@@ -26,6 +26,17 @@ router.get(
     next();
   },
   getMe
+);
+
+// Route to get all doctors
+router.get(
+  "/doctors",
+  protect,
+  (req, res, next) => {
+    console.log("[AuthRoutes] Accessing get all doctors route");
+    next();
+  },
+  getAllDoctors
 );
 
 module.exports = router;

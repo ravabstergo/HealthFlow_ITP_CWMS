@@ -11,8 +11,10 @@ export default function AppointmentModal({
   doctorId,
   specialization,
 }) {
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [currentDate, setCurrentDate] = useState(new Date());
+  // Initialize with current date, ensuring we start at midnight (00:00:00)
+  const today = new Date(new Date().setHours(0, 0, 0, 0));
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [currentDate, setCurrentDate] = useState(today);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -143,8 +145,20 @@ export default function AppointmentModal({
           <div className="p-4">
             <div className="border rounded-lg p-4">            <div className="flex justify-between items-center mb-4">
                 <button 
-                  onClick={() => setCurrentDate(subMonths(currentDate, 1))}
-                  className="text-gray-400 hover:text-gray-600"
+                  onClick={() => {
+                    const prevMonth = subMonths(currentDate, 1);
+                    // Only allow navigating to past months if they're not before the current month
+                    if (prevMonth.getMonth() >= new Date().getMonth() || prevMonth.getFullYear() > new Date().getFullYear()) {
+                      setCurrentDate(prevMonth);
+                    }
+                  }}
+                  className={`text-gray-400 hover:text-gray-600 ${
+                    currentDate.getMonth() === new Date().getMonth() && 
+                    currentDate.getFullYear() === new Date().getFullYear() 
+                      ? "opacity-50 cursor-not-allowed" 
+                      : ""
+                  }`}
+                  disabled={currentDate.getMonth() === new Date().getMonth() && currentDate.getFullYear() === new Date().getFullYear()}
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
@@ -178,9 +192,10 @@ export default function AppointmentModal({
                           className={`w-8 h-8 rounded-full flex items-center justify-center text-sm 
                             ${!isSameMonth(day, currentDate) ? "text-gray-300" : 
                               isSameDay(day, selectedDate) ? "bg-indigo-500 text-white" : 
+                              day < new Date(new Date().setHours(0, 0, 0, 0)) ? "text-gray-300 cursor-not-allowed" :
                               "text-gray-700 hover:bg-gray-100"}`}
-                          onClick={() => setSelectedDate(day)}
-                          disabled={!isSameMonth(day, currentDate)}
+                          onClick={() => day >= new Date(new Date().setHours(0, 0, 0, 0)) ? setSelectedDate(day) : null}
+                          disabled={!isSameMonth(day, currentDate) || day < new Date(new Date().setHours(0, 0, 0, 0))}
                         >
                           {format(day, 'd')}
                         </button>

@@ -14,6 +14,8 @@ import DoctorSchedule from './components/DoctorSchedule';
 import TelemedicineMeeting from "./components/TelemedicineMeeting";
 import DoctorSearch from "./pages/doctor-search";
 import PatientAppointmentsPage from "./pages/patient-appointments-page";
+import PatientChatPage from "./pages/patient-chat-page";
+import DoctorChatPage from "./pages/doctor-chat-page"; // Import the new DoctorChatPage
 import PatientDocumentList from "./components/patient-detail/DocumentList";
 import DocumentList from "./pages/document_page";
 import PrescriptionPage from "./pages/prescription-page";
@@ -33,11 +35,6 @@ import FeedbackReportPage from "./pages/feedback-report-page";
 function App() {
   const { currentUser, loading } = useAuthContext();
 
-
-
-
-
-
   if (loading) {
     return <div className="loading-spinner">Loading...</div>;
   }
@@ -51,9 +48,7 @@ function App() {
           element={currentUser ? <Navigate to="/account" /> : <LoginPage />}
         />
 
-
         {/* Protected Routes */}
-
 
         <Route
           path="/account"
@@ -74,6 +69,8 @@ function App() {
           <Route path="search" element={<DoctorSearch />} />  
 
           <Route path="patient-appointments" element={<PatientAppointmentsPage />} />
+          <Route path="patient-chat" element={<PatientChatPage />} />
+          <Route path="doctor-chat" element={<DoctorChatPage />} /> {/* Add route for doctor chat */}
 
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="patients" element={<PatientsPage />} />
@@ -81,7 +78,6 @@ function App() {
           <Route path="prescription" element={<PrescriptionPage />} />
           <Route path="schedule" element={<DoctorSchedule />} />   
           <Route path="meeting/:appointmentId" element={<TelemedicineMeeting />} />
-
 
           {/* Patient detail and nested tabs */}
 
