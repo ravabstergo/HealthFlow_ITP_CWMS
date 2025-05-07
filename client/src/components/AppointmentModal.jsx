@@ -21,6 +21,19 @@ export default function AppointmentModal({
   const [currentStep, setCurrentStep] = useState(1);
   const [isSliding, setIsSliding] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  // Reset state when modal is closed
+  const handleClose = () => {
+    setSelectedDate(today);
+    setCurrentDate(today);
+    setAvailableSlots([]);
+    setSelectedSlot(null);
+    setCurrentStep(1);
+    setIsSliding(false);
+    setShowDetailsModal(false);
+    onClose();
+  };
+
   useEffect(() => {
     console.log('Useeffect triggered with:', { doctorId, selectedDate: selectedDate?.toISOString() });
     if (selectedDate && doctorId) {
@@ -99,7 +112,9 @@ export default function AppointmentModal({
   };
   return (
     <>
-      {/* Global overlay */}      <div className="fixed inset-0 bg-black/50 z-30" />      <div className="fixed top-[50%] right-[calc(4rem+1px)] -translate-y-1/2 z-40">
+      {/* Global overlay */}      
+      <div className="fixed inset-0 bg-black/50 z-30" />      
+      <div className="fixed top-[50%] right-[calc(4rem+1px)] -translate-y-1/2 z-40">
         <div className={`bg-white w-[450px] min-h-[600px] shadow-lg rounded-2xl max-h-[90vh] overflow-y-auto transition-transform duration-300 ${isSliding ? 'translate-x-[95%]' : 'translate-x-0'}`}>
           {/* Header */}
           <div className="flex justify-between items-center p-4 border-b">
@@ -107,7 +122,7 @@ export default function AppointmentModal({
               <span className="text-sm text-gray-600">Appointment No:</span>
               <span className="text-sm font-medium">#DOC0010</span>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -260,6 +275,7 @@ export default function AppointmentModal({
           onClose={() => {
             setShowDetailsModal(false);
             setIsSliding(false);
+            handleClose();
           }}
           appointmentData={{
             doctorName,

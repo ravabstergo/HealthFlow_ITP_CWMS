@@ -5,9 +5,9 @@ const User = require('../models/User');
 const querystring = require('querystring');
 const dotenv = require("dotenv");
 const { RtcTokenBuilder, RtcRole } = require('agora-token');
+const { sendAppointmentConfirmation } = require('../utils/emailService');
 
 require('dotenv').config();
-
 
 //search doctor by name or specialization
 const searchDoctorByName = async (req, res) => {
@@ -150,17 +150,7 @@ const getDoctorSlots = async (req, res) => {
       
       // Log the received data
       console.log('Received appointment data:', {
-        doctorId,
-        patientId,
-        slotId,
-        reason,
-        title,
-        firstName,
-        lastName,
-        phone,
-        nic,
-        email,
-        status
+        doctorId, patientId, slotId, reason, title, firstName, lastName, phone, nic, email, status
       });
   
       // Fetch the doctor's schedule
@@ -184,19 +174,24 @@ const getDoctorSlots = async (req, res) => {
         return res.status(400).json({ message: 'Slot is not available' });
       }
   
-      // Generate Agora token
-      const APP_ID = process.env.APP_ID; // Replace with your Agora App ID
-      const APP_CERTIFICATE = process.env.APP_CERTIFICATE; // Replace with your Agora App Certificate
+      // Get doctor's name for the email
+      const doctor = await User.findById(doctorId);
+      if (!doctor) {
+        return res.status(404).json({ message: 'Doctor not found' });
+      }
   
-      const channelName = `appointment-${slotId}`; // Unique channel name for the appointment
-      const uid = 0; // User ID (0 means any user)
-      const role = RtcRole.PUBLISHER; // Role: PUBLISHER or SUBSCRIBER
-      const expirationTimeInSeconds = 3600 * 24 * 30; // Token validity (e.g., 24 hours)
+      // Generate Agora token
+      const APP_ID = process.env.APP_ID;
+      const APP_CERTIFICATE = process.env.APP_CERTIFICATE;
+  
+      const channelName = `appointment-${slotId}`;
+      const uid = 0;
+      const role = RtcRole.PUBLISHER;
+      const expirationTimeInSeconds = 3600 * 24 * 30;
   
       const currentTimestamp = Math.floor(Date.now() / 1000);
       const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
   
-      // Build the token
       const agoraToken = RtcTokenBuilder.buildTokenWithUid(
         APP_ID,
         APP_CERTIFICATE,
@@ -211,7 +206,7 @@ const getDoctorSlots = async (req, res) => {
         doctorId,
         patientId,
         slotId,
-        time: new Date(slot.slotTime), // Save the slot time in the time field
+        time: new Date(slot.slotTime),
         reason,
         title,
         firstName,
@@ -220,8 +215,8 @@ const getDoctorSlots = async (req, res) => {
         nic,
         email,
         status,
-        channelName, // Save the channel name
-        agoraToken, // Save the Agora token
+        channelName,
+        agoraToken,
       });
   
       await appointment.save();
@@ -229,6 +224,21 @@ const getDoctorSlots = async (req, res) => {
       // Mark slot as booked
       slot.isBooked = true;
       await schedule.save();
+  
+      // Send confirmation email
+      try {
+        await sendAppointmentConfirmation({
+          email,
+          firstName,
+          lastName,
+          time: slot.slotTime,
+          doctorName: doctor.name,
+          reason
+        });
+      } catch (emailError) {
+        console.error('Failed to send confirmation email:', emailError);
+        // Don't return here, we still want to return the appointment data even if email fails
+      }
   
       res.status(201).json(appointment);
     } catch (error) {
