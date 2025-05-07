@@ -32,83 +32,6 @@ export default function Sidebar() {
     return location.pathname.includes(path);
   };
 
-
-    const commonTelemedicine = [
-      { name: "Appointments", icon: <Calendar className="w-4 h-4" />, path: "schedule" },
-    ];
-
-    const commonFeedback = [
-      { name: "Feedback", icon: <MessageSquare className="w-4 h-4" />, path: "feedback" },
-    ];
-
-    let menu = [];
-
-    if (role === 'doctor') {
-      menu = [
-        {
-          category: "CLINICAL",
-          items: commonClinical,
-        },
-        {
-          category: "TELEMEDICINE",
-          items: [
-            ...commonTelemedicine,
-            { name: "Doctor Chat", icon: <MessageSquare className="w-4 h-4" />, path: "doctor-chat" }, // Doctor Chat link
-            { name: "Finance", icon: <DollarSign className="w-4 h-4" />, path: "finance" },
-          ],
-        },
-        {
-          category: "FEEDBACK",
-          items: [
-            ...commonFeedback,
-            { name: "View Feedback", icon: <FileText className="w-4 h-4" />, path: "feedback/doctor" },
-          ],
-        }
-      ];
-    } else if (role === 'patient') {
-      menu = [
-        {
-          category: "MY HEALTH",
-          items: [
-            { name: "Appointments", icon: <Calendar className="w-4 h-4" />, path: "patient-appointments" },
-            { name: "Chat with Doctor", icon: <MessageSquare className="w-4 h-4" />, path: "patient-chat" },
-            { name: "Search Doctors", icon: <Users className="w-4 h-4" />, path: "search" },
-          ],
-        },
-        {
-          category: "FEEDBACK",
-          items: commonFeedback,
-        }
-      ];
-    } else { // Default/Admin view
-      menu = [
-        {
-          category: "CLINICAL",
-          items: commonClinical,
-        },
-        {
-          category: "TELEMEDICINE",
-          items: [
-            ...commonTelemedicine,
-            { name: "Patient Appointments", icon: <Calendar className="w-4 h-4" />, path: "patient-appointments" },
-            { name: "PatientDash", icon: <BarChart2 className="w-4 h-4" />, path: "search" },
-            { name: "Finance", icon: <DollarSign className="w-4 h-4" />, path: "finance" },
-            { name: "Patient Chat", icon: <MessageSquare className="w-4 h-4" />, path: "patient-chat" },
-            { name: "Doctor Chat", icon: <MessageSquare className="w-4 h-4" />, path: "doctor-chat" }, // Doctor Chat link for admin
-          ],
-        },
-        {
-          category: "STAFF",
-          items: [{ name: "Roles", icon: <UserCheck className="w-4 h-4" />, path: "roles" }],
-        },
-        {
-          category: "FEEDBACK",
-          items: [
-            ...commonFeedback,
-            { name: "View Feedback", icon: <FileText className="w-4 h-4" />, path: "feedback/doctor" },
-          ],
-        }
-      ];
   const handleRoleSwitch = async (roleId) => {
     try {
       await switchRole(roleId);
@@ -200,15 +123,14 @@ export default function Sidebar() {
           name: "PatientDash", 
           icon: <BarChart2 className="w-4 h-4" />, 
           path: "search",
-          requiredPerm: "patient:read"
+          requiredPerm: "appointment:view:own"
         },
         { 
           name: "Finance", 
           icon: <DollarSign className="w-4 h-4" />, 
           path: "finance",
-          requiredPerm: "finance:read"
+          requiredPerm: "appointment:view:linked"
         },
-        { name: "Appointments", icon: <Calendar className="w-4 h-4" />, path: "schedule", requiredPerm: "doctorSchedule:view:own" },
         { name: "Doctor Chat", icon: <MessageSquare className="w-4 h-4" />, path: "doctor-chat" },
         { name: "Chat with Doctor", icon: <MessageSquare className="w-4 h-4" />, path: "patient-chat" },
       ],
@@ -420,5 +342,4 @@ export default function Sidebar() {
       </div>
     </aside>
   );
-}
 }
