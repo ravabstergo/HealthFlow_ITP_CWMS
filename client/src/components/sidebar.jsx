@@ -153,13 +153,13 @@ export default function Sidebar() {
           name: "Feedback", 
           icon: <MessageSquare className="w-4 h-4" />, 
           path: "feedback",
-          requiredPerm: "feedback:create"
+          requiredPerm: "feedback:view:own"
         },
         { 
           name: "View Feedback", 
           icon: <FileText className="w-4 h-4" />, 
           path: "feedback/doctor",
-          requiredPerm: "feedback:view"
+          requiredPerm: "feedback:view:own"
         },
       ],
     },
