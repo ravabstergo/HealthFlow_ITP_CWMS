@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuthContext } from '../context/AuthContext';
 import { Line, Bar } from 'react-chartjs-2';
-import { Calendar, TrendingUp, Users, DollarSign } from 'lucide-react';
+import { Calendar, TrendingUp, Users, DollarSign, Download } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -34,6 +35,11 @@ export default function FinancialReportPage() {
     startDate: '',
     endDate: ''
   });
+
+  // Create refs for charts at the top level
+  const incomeChartRef = useRef(null);
+  const appointmentsChartRef = useRef(null);
+  const growthChartRef = useRef(null);
 
   const fetchFinancialReport = async () => {
     try {
@@ -139,11 +145,132 @@ export default function FinancialReportPage() {
     ]
   } : null;
 
+  const downloadPDF = async () => {
+    if (!reportData) return;
+
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    let yPos = margin;
+
+    // Helper function to add text and increment y position
+    const addText = (text, fontSize = 12, isBold = false) => {
+      doc.setFontSize(fontSize);
+      doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+      doc.text(text, margin, yPos);
+      yPos += fontSize / 2 + 2;
+    };
+
+    // Title
+    addText('Financial Report', 24, true);
+    yPos += 5;
+
+    // Date Range
+    if (dateRange.startDate && dateRange.endDate) {
+      addText(`Period: ${new Date(dateRange.startDate).toLocaleDateString()} - ${new Date(dateRange.endDate).toLocaleDateString()}`, 12);
+      yPos += 5;
+    }
+
+    // Summary Section
+    addText('Summary', 16, true);
+    yPos += 5;
+    addText(`Total Appointments: ${reportData.summary.totalAppointments}`, 12);
+    addText(`Total Income: LKR ${reportData.summary.totalIncome.toFixed(2)}`, 12);
+    addText(`Average Monthly Income: LKR ${reportData.summary.averageMonthlyIncome.toFixed(2)}`, 12);
+    addText(`Average Growth Rate: ${reportData.summary.averageGrowthRate.toFixed(1)}%`, 12);
+    yPos += 10;
+
+    // Monthly Details Section
+    addText('Monthly Details', 16, true);
+    yPos += 5;
+
+    // Table headers
+    const headers = ['Month', 'Income (LKR)', 'Appointments', 'Avg Daily Income (LKR)', 'Growth Rate'];
+    const columnWidths = [40, 35, 30, 40, 35];
+    let xPos = margin;
+
+    // Draw table headers
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin - 2, yPos - 5, pageWidth - (margin * 2) + 4, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    headers.forEach((header, i) => {
+      doc.text(header, xPos, yPos);
+      xPos += columnWidths[i];
+    });
+    yPos += 8;
+
+    // Table rows
+    doc.setFont('helvetica', 'normal');
+    Object.entries(reportData.monthlyData).forEach(([month, data]) => {
+      if (yPos > pageHeight - margin) {
+        doc.addPage();
+        yPos = margin;
+      }
+
+      xPos = margin;
+      doc.text(month, xPos, yPos);
+      xPos += columnWidths[0];
+      
+      doc.text(data.totalIncome.toFixed(2).toString(), xPos, yPos);
+      xPos += columnWidths[1];
+      
+      doc.text(data.appointmentCount.toString(), xPos, yPos);
+      xPos += columnWidths[2];
+      
+      doc.text(data.averageDailyIncome.toFixed(2).toString(), xPos, yPos);
+      xPos += columnWidths[3];
+      
+      doc.text(data.growthRate.toFixed(1) + '%', xPos, yPos);
+      
+      yPos += 6;
+    });
+
+    // Add charts as images
+    const addChartImage = async (chartRef, title) => {
+      if (yPos > pageHeight - 80) {
+        doc.addPage();
+        yPos = margin;
+      }
+
+      yPos += 10;
+      addText(title, 14, true);
+      yPos += 5;
+
+      const canvas = chartRef.current?.canvas;
+      if (canvas) {
+        const imgData = canvas.toDataURL('image/png');
+        const imgWidth = pageWidth - (margin * 2);
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
+        yPos += imgHeight + 10;
+      }
+    };
+
+    // Save charts as images in the PDF
+    if (incomeChartRef.current) await addChartImage(incomeChartRef, 'Income Trend');
+    if (appointmentsChartRef.current) await addChartImage(appointmentsChartRef, 'Monthly Appointments');
+    if (growthChartRef.current) await addChartImage(growthChartRef, 'Growth Rate Trend');
+
+    // Footer
+    doc.setFontSize(10);
+    doc.setTextColor(128, 128, 128);
+    doc.text(
+      `Generated on ${new Date().toLocaleString()}`,
+      margin,
+      pageHeight - 10
+    );
+
+    // Save the PDF
+    doc.save('financial-report.pdf');
+  };
+
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Financial Report</h1>
-        <div className="flex gap-4">
+        <div className="flex items-center gap-4">
           <input
             type="date"
             value={dateRange.startDate}
@@ -156,6 +283,13 @@ export default function FinancialReportPage() {
             onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
             className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
+          <button
+            onClick={downloadPDF}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download Report</span>
+          </button>
         </div>
       </div>
 
@@ -214,13 +348,13 @@ export default function FinancialReportPage() {
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-6">Income Trend</h3>
               <div className="h-[300px]">
-                {incomeChartData && <Line data={incomeChartData} options={chartOptions} />}
+                {incomeChartData && <Line ref={incomeChartRef} data={incomeChartData} options={chartOptions} />}
               </div>
             </div>
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-6">Appointments</h3>
               <div className="h-[300px]">
-                {appointmentsChartData && <Bar data={appointmentsChartData} options={chartOptions} />}
+                {appointmentsChartData && <Bar ref={appointmentsChartRef} data={appointmentsChartData} options={chartOptions} />}
               </div>
             </div>
           </div>
@@ -228,7 +362,7 @@ export default function FinancialReportPage() {
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Growth Rate</h3>
             <div className="h-[300px]">
-              {growthChartData && <Line data={growthChartData} options={chartOptions} />}
+              {growthChartData && <Line ref={growthChartRef} data={growthChartData} options={chartOptions} />}
             </div>
           </div>
 

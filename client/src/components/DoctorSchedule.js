@@ -95,6 +95,42 @@ export default function HealthFlowDashboard() {
     setAvailability(newAvailability);
   };
 
+  const checkForOverlap = (newAvailability, existingAvailabilities, excludeAvailabilityId = null) => {
+    for (const slot of newAvailability) {
+      const slotDay = new Date(slot.day);
+      slotDay.setHours(0, 0, 0, 0);
+      const slotStart = new Date(slot.startTime);
+      const slotEnd = new Date(slot.endTime);
+
+      // Check against all existing availabilities
+      for (const existing of existingAvailabilities) {
+        // Skip if this is the availability being updated
+        if (excludeAvailabilityId && existing._id === excludeAvailabilityId) {
+          continue;
+        }
+
+        const existingDay = new Date(existing.day);
+        existingDay.setHours(0, 0, 0, 0);
+
+        // Only check availabilities on the same day
+        if (slotDay.getTime() === existingDay.getTime()) {
+          const existingStart = new Date(existing.startTime);
+          const existingEnd = new Date(existing.endTime);
+
+          // Check for overlap
+          if (
+            (slotStart >= existingStart && slotStart < existingEnd) || // New slot starts during existing slot
+            (slotEnd > existingStart && slotEnd <= existingEnd) || // New slot ends during existing slot
+            (slotStart <= existingStart && slotEnd >= existingEnd) // New slot completely contains existing slot
+          ) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
@@ -126,6 +162,11 @@ export default function HealthFlowDashboard() {
         newErrors[`availability_duration_${index}`] = "Please enter a valid duration";
       }
     });
+
+    // Check for overlapping slots
+    if (checkForOverlap(availability, availabilities)) {
+      newErrors.overlap = "New availability overlaps with existing availability slots";
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -249,6 +290,11 @@ export default function HealthFlowDashboard() {
       }
     });
 
+    // Check for overlapping slots, excluding the current availability being updated
+    if (checkForOverlap(availability, availabilities, currentAvailability._id)) {
+      newErrors.overlap = "Updated availability overlaps with existing availability slots";
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -289,30 +335,6 @@ export default function HealthFlowDashboard() {
     }
   };
 
-  useEffect(() => {
-    const fetchSchedules = async () => {
-      try {
-        const doctorId = currentUser?.id;
-        console.log("Doctor ID:", doctorId); // Replace with actual doctor ID
-        const data = await getDoctorSchedules(doctorId);
-        if (Array.isArray(data)) {
-          // Flatten all availabilities from all schedules into a single array
-          const allAvailabilities = data.reduce((acc, schedule) => {
-            return acc.concat(schedule.availability || []);
-          }, []);
-          setAvailabilities(allAvailabilities);
-          setAvailabilityCount(allAvailabilities.length);
-          filterAvailabilities(allAvailabilities, selectedDate);
-        }
-      } catch (error) {
-        console.error('Error fetching schedules:', error);
-        setAvailabilityCount(0);
-      }
-    };
-
-    fetchSchedules();
-  }, [selectedDate]);
-
   const filterAvailabilities = (availabilities, date) => {
     const startDate = new Date(date);
     const endDate = new Date(date);
@@ -325,7 +347,31 @@ export default function HealthFlowDashboard() {
     .slice(0, 14); // Limit to 14 entries
 
     setFilteredAvailabilities(filtered);
+    setAvailabilityCount(filtered.length); // Update count to show only filtered availabilities
   };
+
+  useEffect(() => {
+    const fetchSchedules = async () => {
+      try {
+        const doctorId = currentUser?.id;
+        console.log("Doctor ID:", doctorId);
+        const data = await getDoctorSchedules(doctorId);
+        if (Array.isArray(data)) {
+          // Flatten all availabilities from all schedules into a single array
+          const allAvailabilities = data.reduce((acc, schedule) => {
+            return acc.concat(schedule.availability || []);
+          }, []);
+          setAvailabilities(allAvailabilities);
+          filterAvailabilities(allAvailabilities, selectedDate); // Only set count through filterAvailabilities
+        }
+      } catch (error) {
+        console.error('Error fetching schedules:', error);
+        setAvailabilityCount(0);
+      }
+    };
+
+    fetchSchedules();
+  }, [selectedDate]);
 
   const handleDateChange = (e) => {
     const selectedValue = e.target.value;
