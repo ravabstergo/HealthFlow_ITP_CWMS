@@ -18,6 +18,7 @@ const DocRoutes = require("./routes/DocumentRoutes");
 const feedbackRoutes = require("./routes/feedbackRoutes"); // Add this line to import feedbackRoutes
 const chatRoutes = require('./routes/chatRoutes');
 const patientRoutes = require('./routes/patientRoutes');
+const financialRoutes = require('./routes/financialRoutes'); // Import financial routes
 
 
 const app = express();
@@ -52,11 +53,14 @@ app.use("/api/document", DocRoutes);
 app.use("/api/encounters", encounterRoutes);
 
 
+app.use('/api/appointments',appointmentRoutes);
+
+app.use('/api/finance', financialRoutes); // Use financial routes
+
+
 // DB Connection
 connectDB();
 
-
-app.use('/api/appointments',appointmentRoutes);
 
 // Start server
 app.listen(PORT, () => {

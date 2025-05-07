@@ -58,6 +58,7 @@ export default function Sidebar({ selectedItem, onSelectItem }) {
           items: [
             ...commonTelemedicine,
             { name: "Doctor Chat", icon: <MessageSquare className="w-4 h-4" />, path: "doctor-chat" }, // Doctor Chat link
+            { name: "Finance", icon: <DollarSign className="w-4 h-4" />, path: "finance" },
           ],
         },
         {
@@ -76,7 +77,6 @@ export default function Sidebar({ selectedItem, onSelectItem }) {
             { name: "Appointments", icon: <Calendar className="w-4 h-4" />, path: "patient-appointments" },
             { name: "Chat with Doctor", icon: <MessageSquare className="w-4 h-4" />, path: "patient-chat" },
             { name: "Search Doctors", icon: <Users className="w-4 h-4" />, path: "search" },
-            // Add other patient-specific links here
           ],
         },
         {
@@ -84,7 +84,7 @@ export default function Sidebar({ selectedItem, onSelectItem }) {
           items: commonFeedback,
         }
       ];
-    } else { // Default/Admin view (can adjust as needed)
+    } else { // Default/Admin view
       menu = [
         {
           category: "CLINICAL",

@@ -30,6 +30,7 @@ import FeedbackUpdatePage from "./pages/feedback-update-page";
 import FeedbackDeletePage from "./pages/feedback-delete-page";
 import DoctorFeedbackPage from "./pages/doctor-feedback-page";
 import FeedbackReportPage from "./pages/feedback-report-page";
+import FinancialReportPage from "./pages/finance-page";
 
 
 function App() {
@@ -74,6 +75,7 @@ function App() {
 
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="patients" element={<PatientsPage />} />
+          <Route path="finance" element={<FinancialReportPage />} />
           <Route path="documents" element={<DocumentList />} />
           <Route path="prescription" element={<PrescriptionPage />} />
           <Route path="schedule" element={<DoctorSchedule />} />   
