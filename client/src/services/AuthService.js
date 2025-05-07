@@ -1,4 +1,5 @@
 import TokenService from "./TokenService";
+import api from './api';
 
 const AuthService = {
   async login(identifier, password) {
@@ -52,6 +53,32 @@ const AuthService = {
       return userData;
     } catch (error) {
       console.error("[AuthService] getMe error:", error);
+      throw error;
+    }
+  },
+
+  async getAllDoctors() {
+    console.log('[AuthService] getAllDoctors called');
+    try {
+      // Use the same URL pattern as login and getMe
+      console.log('[AuthService] Making API call to auth/doctors');
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/auth/doctors`, {
+        headers: {
+          Authorization: `Bearer ${TokenService.getAccessToken()}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[AuthService] Error response:', response.status, errorText);
+        throw new Error(`Failed to fetch doctors: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('[AuthService] Doctors fetched successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('[AuthService] Error fetching doctors:', error);
       throw error;
     }
   },

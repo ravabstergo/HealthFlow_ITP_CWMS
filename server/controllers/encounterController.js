@@ -47,9 +47,10 @@ exports.getEncountersByRecordId = async (req, res) => {
       return res.status(400).json({ message: "Invalid record ID" });
     }
 
-    const encounters = await Encounter.find({ recordId }).sort({
-      visitDate: -1,
-    });
+    const encounters = await Encounter.find({ recordId })
+      .populate("provider", "name") // Populate provider name from User model
+      .sort({ dateTime: -1 }); // Sort by dateTime in descending order (newest first)
+
     console.log("[API] Found", encounters.length, "encounters");
 
     res.json(encounters);

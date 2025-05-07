@@ -18,10 +18,11 @@ const {
     deleteAvailability,
     updateAppointmentStatus,
     checkSlotAvailability,
-    getDoctorSlotsByDate // Add this new controller
+    getDoctorSlotsByDate,
+    checkAvailabilityUpdatable,
+    updateAvailability // Add these new controllers
 } = require('../controllers/appointmentController')
 const { create } = require('../models/Appointment')
-
 
 //get all doctors
 router.get('/doctors', getAllDoctors)
@@ -43,7 +44,6 @@ router.get('/doctors/:id/slots', getDoctorSlots) // date will be passed as query
 
 //book appointment
 router.post('/doctors/:id/slots/:slotId/appointments', bookAppointment) // simplified route for booking
-
 
 //get appointment by id
 router.get('/appointments/:appointmentId', getAppointmentById)
@@ -77,5 +77,12 @@ router.get('/doctors/:id/slots/:slotId/availability', checkSlotAvailability)
 
 //get doctor slots by availability
 router.get('/doctors/:id/slots/:date', getDoctorSlotsByDate)
+
+// New routes for availability update
+//check if availability is updatable
+router.get('/availability/:doctorId/:availabilityId/check-updatable', checkAvailabilityUpdatable)
+
+//update availability
+router.put('/availability/:doctorId/:availabilityId', updateAvailability)
 
 module.exports = router

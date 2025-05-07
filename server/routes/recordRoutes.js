@@ -7,12 +7,11 @@ const {
   getRecordById,
   deleteRecord,
   updateRecord,
-  // createEncounter,
-  // getPatientRecords,
-  // getRecordByPatientId,
-  // deleteEncounter,
-  // searchPatientRecord,
+  getLinkRecord,
 } = require("../controllers/recordController");
+
+// Protected routes - require authentication
+router.use(protect);
 
 // create a patient record
 router.post(
@@ -27,7 +26,6 @@ router.post(
 
 router.get(
   "/doctor",
-  protect,
   (req, res, next) => {
     console.log("GET request for records by doctor received");
     next();
@@ -35,9 +33,11 @@ router.get(
   getRecordsByDoctor
 );
 
+// Role-specific routes - must come before general recordId route
+router.get("/link", getLinkRecord);
+
 router.get(
   "/:recordId",
-  protect,
   (req, res, next) => {
     console.log(
       "GET request for record details received, recordId:",
@@ -51,7 +51,6 @@ router.get(
 // delete a patient record
 router.delete(
   "/:recordId",
-  protect,
   (req, res, next) => {
     console.log("DELETE request to delete patient record received");
     next();
@@ -59,27 +58,14 @@ router.delete(
   deleteRecord
 );
 
-// delete a patient record
+// update a patient record
 router.patch(
   "/:recordId",
-  protect,
   (req, res, next) => {
-    console.log("PATCH request to delete patient record received");
+    console.log("PATCH request to update patient record received");
     next();
   },
   updateRecord
 );
-
-// // create an encounter
-// router.post("/encounters", createEncounter);
-
-// // update a patient record
-// router.patch("/:recordId", updatePatientRecord);
-
-// // delete an encounter
-// router.delete("/encounters/:encounterId", deleteEncounter);
-
-// // search for records by name
-// router.get("/search/patient-record", searchPatientRecord);
 
 module.exports = router;
