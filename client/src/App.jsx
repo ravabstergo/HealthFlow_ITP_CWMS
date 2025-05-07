@@ -29,7 +29,7 @@ import FeedbackUpdatePage from "./pages/feedback-update-page";
 import FeedbackDeletePage from "./pages/feedback-delete-page";
 import DoctorFeedbackPage from "./pages/doctor-feedback-page";
 import FeedbackReportPage from "./pages/feedback-report-page";
-
+import PatientPrescriptionPage from "./pages/patient-prescription";
 
 function App() {
   const { currentUser, loading } = useAuthContext();
@@ -75,6 +75,7 @@ function App() {
           <Route path="search" element={<DoctorSearch />} />  
 
           <Route path="patient-appointments" element={<PatientAppointmentsPage />} />
+          <Route path="patient-prescription" element={<PatientPrescriptionPage />} />
 
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="patients" element={<PatientsPage />} />
