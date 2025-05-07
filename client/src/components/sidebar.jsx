@@ -131,8 +131,8 @@ export default function Sidebar() {
           path: "finance",
           requiredPerm: "appointment:view:linked"
         },
-        { name: "Doctor Chat", icon: <MessageSquare className="w-4 h-4" />, path: "doctor-chat" },
-        { name: "Chat with Doctor", icon: <MessageSquare className="w-4 h-4" />, path: "patient-chat" },
+        { name: "Doctor Chat", icon: <MessageSquare className="w-4 h-4" />, path: "doctor-chat", requiredPerm: "appointment:view:linked" },
+        { name: "Chat with Doctor", icon: <MessageSquare className="w-4 h-4" />, path: "patient-chat", requiredPerm: "appointment:create:own" },
       ],
     },
     {
@@ -153,13 +153,13 @@ export default function Sidebar() {
           name: "Feedback", 
           icon: <MessageSquare className="w-4 h-4" />, 
           path: "feedback",
-          requiredPerm: "feedback:create"
+          requiredPerm: "feedback:view:own"
         },
         { 
           name: "View Feedback", 
           icon: <FileText className="w-4 h-4" />, 
           path: "feedback/doctor",
-          requiredPerm: "feedback:view"
+          requiredPerm: "feedback:view:own"
         },
       ],
     },
