@@ -76,63 +76,76 @@ export default function EncountersByRecordPage() {
     : encounters;
 
   return (
-    <>
-      <div className="p-6 space-y-6">
-        <div className="space-y-4">
-          <h1 className="text-2xl font-bold">Encounters</h1>
-
-          <div className="flex items-center justify-between h-10">
-            <div className="flex items-center gap-4">
-              <div className="h-full flex items-center [&>*]:mb-0">
-                <Input
-                  placeholder="Search encounters..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-full w-96"
-                />
-              </div>
-              <Button variant="secondary" icon={<Filter className="w-4 h-4" />} className="h-full">
-                Filter
-              </Button>
-            </div>
-            <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={handleAddEncounter} className="h-full">
-              New Encounter
-            </Button>
-          </div>
+    <div className="max-w-5xl mx-auto p-6 space-y-8">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">Encounters</h1>
+          <Button
+            variant="primary"
+            onClick={handleAddEncounter}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors duration-200"
+          >
+            <Plus className="w-4 h-4" />
+            New Encounter
+          </Button>
         </div>
-        {filteredEncounters.length === 0 ? (
-          <div className="text-center py-6 bg-gray-100 rounded">No encounters found.</div>
-        ) : (
-          <div className="flex flex-col gap-6 items-center">
-            {filteredEncounters.map((encounter) => (
-              <div
-                key={encounter._id}
-                className="w-full max-w-3xl border rounded-lg p-4 hover:bg-gray-50 cursor-pointer"
-                onClick={() => handleEncounterClick(encounter)}
-              >
-                <div className="flex justify-between items-center">
-                  <h3 className="font-semibold text-lg">{encounter.reasonForEncounter}</h3>
-                  <div>{getStatusBadge(encounter.status)}</div>
-                </div>
-                <p className="text-gray-500 text-sm">{new Date(encounter.dateTime).toLocaleString()}</p>
-                <p className="text-gray-500">{encounter.diagnosis}</p>
-                <div className="mt-4 text-right">
-                  <Button
-                    variant="link"
-                    className="text-red-500"
-                    onClick={(e) => handleDelete(encounter._id, e)}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </div>
-            ))}
+
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1 max-w-xl">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Input
+              placeholder="Search encounters..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2.5 w-full rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+            />
           </div>
-        )}
+          <Button
+            variant="secondary"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50"
+          >
+            <Filter className="w-4 h-4" />
+            Filter
+          </Button>
+        </div>
       </div>
 
-      {/* Make sure the HoverPanel is always rendered */}
-      <HoverPanel />
-    </>
+      {filteredEncounters.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+          <p className="text-gray-500">No encounters found</p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {filteredEncounters.map((encounter) => (
+            <div
+              key={encounter._id}
+              onClick={() => handleEncounterClick(encounter)}
+              className="group p-4 rounded-xl border border-gray-200 bg-white hover:shadow-lg hover:border-primary-100 transition-all duration-200 cursor-pointer"
+            >
+              <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                  <h3 className="font-semibold text-lg text-gray-900 group-hover:text-primary-600">
+                    {encounter.reasonForEncounter}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {new Date(encounter.dateTime).toLocaleString()}
+                  </p>
+                </div>
+                {getStatusBadge(encounter.status)}
+              </div>
+              <p className="mt-2 text-gray-600">{encounter.diagnosis}</p>
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={(e) => handleDelete(encounter._id, e)}
+                  className="text-sm text-red-500 hover:text-red-700 transition-colors duration-200"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
