@@ -9,10 +9,13 @@ import PatientInformationTab from "./components/patient-detail/PatientInformatio
 import AppointmentHistoryTab from "./components/patient-detail/AppointmentHistoryTab";
 import NextTreatmentTab from "./components/patient-detail/NextTreatmentTab";
 import MedicalRecordTab from "./components/patient-detail/MedicalRecordTab";
+import {EncounterContextProvider} from "./context/EncounterContext";
 import DoctorSchedule from './components/DoctorSchedule';
 import TelemedicineMeeting from "./components/TelemedicineMeeting";
 import DoctorSearch from "./pages/doctor-search";
 import PatientAppointmentsPage from "./pages/patient-appointments-page";
+import PatientChatPage from "./pages/patient-chat-page";
+import DoctorChatPage from "./pages/doctor-chat-page"; // Import the new DoctorChatPage
 import PatientDocumentList from "./components/patient-detail/DocumentList";
 import DocumentList from "./pages/document_page";
 import PrescriptionPage from "./pages/prescription-page";
@@ -61,7 +64,6 @@ function App() {
           element={currentUser ? <Navigate to="/account" /> : <LoginPage />}
         />
 
-
         {/* Protected Routes */}
         <Route
           path="/account"
@@ -85,6 +87,8 @@ function App() {
 
           <Route path="search" element={<DoctorSearch />} />  
           <Route path="patient-appointments" element={<PatientAppointmentsPage />} />
+          <Route path="patient-chat" element={<PatientChatPage />} />
+          <Route path="doctor-chat" element={<DoctorChatPage />} /> {/* Add route for doctor chat */}
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="patients" element={<PatientsPage />} />
           <Route path="documents" element={<DocumentList />} />
@@ -101,7 +105,6 @@ function App() {
           <Route path="feedback/delete/:id" element={<FeedbackDeletePage />} />
           <Route path="feedback/doctor" element={<DoctorFeedbackPage />} />
           <Route path="account/feedback/report" element={<FeedbackReportPage />} />
-
 
           {/* Patient detail and nested tabs */}
 

@@ -32,6 +32,7 @@ export default function Sidebar() {
     return location.pathname.includes(path);
   };
 
+
   const handleRoleSwitch = async (roleId) => {
     try {
       await switchRole(roleId);
@@ -131,6 +132,9 @@ export default function Sidebar() {
           path: "finance",
           requiredPerm: "finance:read"
         },
+        { name: "Appointments", icon: <Calendar className="w-4 h-4" />, path: "schedule", requiredPerm: "doctorSchedule:view:own" },
+        { name: "Doctor Chat", icon: <MessageSquare className="w-4 h-4" />, path: "doctor-chat" },
+        { name: "Chat with Doctor", icon: <MessageSquare className="w-4 h-4" />, path: "patient-chat" },
       ],
     },
     {
@@ -173,6 +177,7 @@ export default function Sidebar() {
       ],
     },
   ];
+
 
   const bottomItems = [
     { 
@@ -279,6 +284,7 @@ export default function Sidebar() {
                 )}
               </div>
             </div>
+
           </div>
         </div>
       </div>

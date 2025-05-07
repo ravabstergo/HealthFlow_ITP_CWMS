@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Card from "../components/ui/card";
 import Button from "../components/ui/button";
 import { toast } from "react-toastify";
+import TokenService from "../services/TokenService"; // Import TokenService
 
 export default function FeedbackDeletePage() {
   const { id } = useParams();
@@ -18,7 +19,17 @@ export default function FeedbackDeletePage() {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/feedback/${id}`);
+        const token = TokenService.getAccessToken(); // Use TokenService to get token
+        if (!token) {
+          throw new Error("No access token found. Please log in again.");
+        }
+
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/feedback/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`, // Set Authorization header
+          },
+        });
+
         if (!response.ok) {
           throw new Error(`Failed to fetch feedback: ${response.statusText}`);
         }
@@ -48,7 +59,7 @@ export default function FeedbackDeletePage() {
       setTimeRemaining(diffInSeconds);
 
       const timer = setInterval(() => {
-        setTimeRemaining(prev => {
+        setTimeRemaining((prev) => {
           if (prev <= 0) {
             clearInterval(timer);
             return 0;
@@ -63,9 +74,18 @@ export default function FeedbackDeletePage() {
 
   const handleDelete = async () => {
     try {
+      const token = TokenService.getAccessToken(); // Use TokenService to get token
+      if (!token) {
+        throw new Error("No access token found. Please log in again.");
+      }
+
       const response = await fetch(`${process.env.REACT_APP_API_URL}/feedback/${id}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`, // Set Authorization header
+        },
       });
+
       const data = await response.json();
       if (response.ok) {
         toast.success("Feedback deleted successfully!");
@@ -109,7 +129,10 @@ export default function FeedbackDeletePage() {
         <h1 className="text-2xl font-bold mb-6">Delete Feedback</h1>
         <Card>
           <p className="text-red-500">The delete window has expired (10 minutes).</p>
-          <Button className="mt-4" onClick={() => navigate(`/account/feedback/summary/${id}`, { state: { feedback } })}>
+          <Button
+            className="mt-4"
+            onClick={() => navigate(`/account/feedback/summary/${id}`, { state: { feedback } })}
+          >
             Back to Summary
           </Button>
         </Card>
@@ -132,7 +155,10 @@ export default function FeedbackDeletePage() {
           <Button variant="danger" onClick={handleDelete}>
             Delete Feedback
           </Button>
-          <Button variant="secondary" onClick={() => navigate(`/account/feedback/summary/${id}`, { state: { feedback } })}>
+          <Button
+            variant="secondary"
+            onClick={() => navigate(`/account/feedback/summary/${id}`, { state: { feedback } })}
+          >
             Cancel
           </Button>
         </div>

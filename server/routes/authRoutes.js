@@ -8,6 +8,7 @@ const {
   login,
   getMe,
   switchRole,
+  getAllDoctors
 } = require("../controllers/authController");
 
 // Log route accesses
@@ -38,6 +39,9 @@ router.post(
   registerOtherRoles
 );
 
+
+
+
 router.post(
   "/login",
   (req, res, next) => {
@@ -63,6 +67,7 @@ router.get(
   getMe
 );
 
+
 router.post(
   "/switch-role",
   protect,
@@ -71,6 +76,16 @@ router.post(
     next();
   },
   switchRole
+
+// Route to get all doctors
+router.get(
+  "/doctors",
+  protect,
+  (req, res, next) => {
+    console.log("[AuthRoutes] Accessing get all doctors route");
+    next();
+  },
+  getAllDoctors
 );
 
 module.exports = router;

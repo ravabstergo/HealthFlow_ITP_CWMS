@@ -10,6 +10,8 @@ const tabs = [
   { label: "Treatment history", path: "treatments" },
   { label: "Prescriptions", path: "prescriptions" },
   { label: "Medical Reports", path: "reports" },
+  { label: "Documents", path: "documents" }
+
 ];
 
 export default function PatientDetailPage() {

@@ -3,8 +3,6 @@ const cloudinary = require("../middleware/CloudinaryConfig");
 const upload = require("../middleware/MulterConfig");
 const fs = require('fs');
 
-
-
 const insertDocument = async (req, res) => {
   upload.single("document")(req, res, async (err) => {
     if (err) {
@@ -16,6 +14,22 @@ const insertDocument = async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      if (!req.body.patientId) {
+        return res.status(400).json({ message: "Patient ID is required" });
+      }
+
+      if (!req.body.doctorId) {
+        return res.status(400).json({ message: "Doctor ID is required" });
+      }
+
+      if (!req.body.documentName) {
+        return res.status(400).json({ message: "Document name is required" });
+      }
+
+      if (!req.body.documentType) {
+        return res.status(400).json({ message: "Document type is required" });
       }
 
       // Determine if the file is a PDF
@@ -35,8 +49,8 @@ const insertDocument = async (req, res) => {
       });
 
       const document = new Document({
-        patentid: null,
-        doctorid: null,
+        patientid: req.body.patientId,
+        doctorid: req.body.doctorId,
         documentName: req.body.documentName,
         documentUrl: cloudinaryResult.secure_url,
         documentType: req.body.documentType.trim(),
@@ -44,14 +58,14 @@ const insertDocument = async (req, res) => {
         modifiedAt: null,
       });
 
-      await document.save();
+      const savedDocument = await document.save();
 
       res.status(201).json({
         message: "Document uploaded and inserted successfully",
-        document,
+        document: savedDocument,
       });
     } catch (error) {
-      console.error(error);
+      console.error("Document upload error:", error);
       // Clean up temporary file in case of error
       if (req.file) {
         fs.unlink(req.file.path, (err) => {
@@ -87,6 +101,7 @@ const updateDocument = async (req, res) => {
 
       if (req.body.documentName) document.documentName = req.body.documentName;
       if (req.body.documentType) document.documentType = req.body.documentType;
+      if (req.body.doctorId) document.doctorid = req.body.doctorId;
 
       document.status = "Pending";
 
@@ -135,7 +150,9 @@ const updateDocument = async (req, res) => {
 
 const getDocumentById = async (req, res) => {
   try {
-    const document = await Document.findById(req.params.id);
+    const document = await Document.findById(req.params.id)
+      .populate('patientid', 'name')
+      .populate('doctorid', 'name');
 
     if (!document) {
       return res.status(404).json({ message: "Document not found" });
@@ -152,18 +169,29 @@ const getDocumentById = async (req, res) => {
 
 const getAllDocuments = async (req, res) => {
   try {
-    const documents = await Document.find();
+    const { patientId, doctorId } = req.query;
+    let query = {};
 
-    if (!documents || documents.length === 0) {
-      return res.status(404).json({ message: "No documents found" });
+    console.log("get all doc, :",patientId, doctorId);
+
+    if (patientId) {
+      query.patientid = patientId;  // Keep as patientid to match the database field
     }
+    if (doctorId) {
+      query.doctorid = doctorId;  // Keep as doctorid to match the database field
+    }
+
+    const documents = await Document.find(query)
+      .populate('patientid', 'name')
+      .populate('doctorid', 'name')
+      .sort({ createdAt: -1 });
+
+      console.log("Documents found:", documents);
 
     res.status(200).json({ documents });
   } catch (error) {
     console.error(error);
-    res
-      .status(500)
-      .json({ message: "Failed to get documents", error: error.message });
+    res.status(500).json({ message: "Failed to get documents", error: error.message });
   }
 };
 
@@ -253,18 +281,49 @@ const downloadDocument = async (req, res) => {
     // For Cloudinary URLs, ensure we're getting a download URL
     let downloadUrl = document.documentUrl;
     if (downloadUrl.includes('cloudinary.com')) {
-      // Add fl_attachment flag for Cloudinary URLs to force download
+      // Add fl_attachment flag for Cloudinary URLs
       downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
     }
 
-    res.json({
-      url: downloadUrl,
-      filename: filename,
-      contentType: contentType
+    res.status(200).json({
+      downloadUrl,
+      filename,
+      contentType
     });
   } catch (error) {
-    console.error('[DocumentController] Download document error:', error);
-    res.status(500).json({ message: "Error downloading document", error: error.message });
+    console.error("Download document error:", error);
+    res.status(500).json({
+      message: "Failed to process document download",
+      error: error.message,
+    });
+  }
+};
+
+const getAllDocumentsByDoctor = async (req, res) => {
+  try {
+    // Use doctorId from query params if provided, otherwise use authenticated user's ID
+    const doctorId = req.query.doctorId || req.user?.id;
+
+    console.log("Doctor ID:", doctorId);
+    
+    if (!doctorId) {
+      return res.status(400).json({ message: "Doctor ID is required" });
+    }
+
+    // Find all documents where the specified doctor is assigned
+    const documents = await Document.find({ doctorid: doctorId })
+      .populate('patientid', 'name')
+      .populate('doctorid', 'name')
+      .sort({ createdAt: -1 });
+
+    console.log(`Found ${documents.length} documents for doctor ${doctorId}`);
+    res.status(200).json({ documents });
+  } catch (error) {
+    console.error("Error in getAllDocumentsByDoctor:", error);
+    res.status(500).json({ 
+      message: "Failed to get doctor's documents", 
+      error: error.message 
+    });
   }
 };
 
@@ -275,5 +334,6 @@ module.exports = {
   getAllDocuments,
   deleteDocument,
   statusUpdate,
-  downloadDocument
+  downloadDocument,
+  getAllDocumentsByDoctor
 };

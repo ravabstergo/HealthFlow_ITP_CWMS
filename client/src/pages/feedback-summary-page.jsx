@@ -3,6 +3,7 @@ import Card from "../components/ui/card";
 import Button from "../components/ui/button";
 import { toast } from "react-toastify";
 import { Link } from "react-router-dom";
+import TokenService from "../services/TokenService"; // Import TokenService for token
 
 export default function FeedbackSummaryPage() {
   const [feedbacks, setFeedbacks] = useState([]);
@@ -13,9 +14,15 @@ export default function FeedbackSummaryPage() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        const token = TokenService.getAccessToken(); // Retrieve the access token
+        if (!token) {
+          throw new Error("No access token found. Please log in again.");
+        }
+
         const response = await fetch(`${process.env.REACT_APP_API_URL}/feedback/patient/me`, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "Content-Type": "application/json", // Ensure Content-Type is set
+            Authorization: `Bearer ${token}`, // Use TokenService token
           },
         });
         if (!response.ok) {
@@ -111,10 +118,17 @@ export default function FeedbackSummaryPage() {
                         </Button>
                         {canEditOrDelete && (
                           <>
-                            <Link to={`/account/feedback/update/${f._id}`} className="mr-2">
+                            <Link
+                              to={`/account/feedback/update/${f._id}`}
+                              state={{ feedback: f }} // Pass feedback object in state
+                              className="mr-2"
+                            >
                               <Button variant="link">Edit</Button>
                             </Link>
-                            <Link to={`/account/feedback/delete/${f._id}`}>
+                            <Link
+                              to={`/account/feedback/delete/${f._id}`}
+                              state={{ feedback: f }} // Consistent with delete page
+                            >
                               <Button variant="link" className="text-red-600">
                                 Delete
                               </Button>
