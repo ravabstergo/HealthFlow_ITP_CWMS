@@ -39,6 +39,8 @@ export default function DoctorChatPage() {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [filteredConversations, setFilteredConversations] = useState([]);
+  const [conversationSearchQuery, setConversationSearchQuery] = useState('');
   const messagesEndRef = useRef(null);
 
   // Fetch conversations on component mount
@@ -87,6 +89,19 @@ export default function DoctorChatPage() {
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  useEffect(() => {
+    if (!conversationSearchQuery.trim()) {
+      setFilteredConversations(conversations);
+      return;
+    }
+    
+    const filtered = conversations.filter(conv => 
+      conv.name.toLowerCase().includes(conversationSearchQuery.toLowerCase()) ||
+      (conv.lastMessage && conv.lastMessage.toLowerCase().includes(conversationSearchQuery.toLowerCase()))
+    );
+    setFilteredConversations(filtered);
+  }, [conversationSearchQuery, conversations]);
 
   const fetchConversations = async () => {
     setLoading(true);
@@ -360,10 +375,8 @@ export default function DoctorChatPage() {
                   type="text"
                   placeholder="Search conversations..."
                   className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) => {
-                    // Local filtering of existing conversations
-                    // This is just a filter, not an API call
-                  }}
+                  value={conversationSearchQuery}
+                  onChange={(e) => setConversationSearchQuery(e.target.value)}
                 />
               )}
             </div>
@@ -385,7 +398,7 @@ export default function DoctorChatPage() {
               </div>
             ) : (
               <div>
-                {conversations.map((conv) => (
+                {filteredConversations.map((conv) => (
                   <div
                     key={conv.id}
                     className={`p-3 flex items-center hover:bg-gray-100 cursor-pointer ${

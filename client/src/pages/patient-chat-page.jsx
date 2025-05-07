@@ -21,6 +21,8 @@ export default function PatientChatPage() {
   const [showDoctorList, setShowDoctorList] = useState(false); // Renamed from showSearch
   const [allDoctors, setAllDoctors] = useState([]); // State for all doctors
   const [loadingDoctors, setLoadingDoctors] = useState(false); // State for loading doctors
+  const [filteredConversations, setFilteredConversations] = useState([]);
+  const [conversationSearchQuery, setConversationSearchQuery] = useState('');
   const messagesEndRef = useRef(null);
 
   // Fetch conversations on component mount
@@ -44,6 +46,19 @@ export default function PatientChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (!conversationSearchQuery.trim()) {
+      setFilteredConversations(conversations);
+      return;
+    }
+    
+    const filtered = conversations.filter(conv => 
+      conv.name.toLowerCase().includes(conversationSearchQuery.toLowerCase()) ||
+      (conv.lastMessage && conv.lastMessage.toLowerCase().includes(conversationSearchQuery.toLowerCase()))
+    );
+    setFilteredConversations(filtered);
+  }, [conversationSearchQuery, conversations]);
 
   const fetchConversations = async () => {
     setLoading(true);
@@ -347,9 +362,10 @@ export default function PatientChatPage() {
               ) : (
                 <input
                   type="text"
-                  placeholder="Search conversations..." // Keep local conversation filter
+                  placeholder="Search conversations..."
                   className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  // Add onChange handler for local filtering if needed
+                  value={conversationSearchQuery}
+                  onChange={(e) => setConversationSearchQuery(e.target.value)}
                 />
               )}
             </div>
@@ -371,7 +387,7 @@ export default function PatientChatPage() {
               </div>
             ) : (
               <div>
-                {conversations.map((conv) => (
+                {filteredConversations.map((conv) => (
                   <div
                     key={conv.id}
                     className={`p-3 flex items-center hover:bg-gray-100 cursor-pointer ${
