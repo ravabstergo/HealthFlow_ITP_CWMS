@@ -5,7 +5,6 @@ const connectDB = require("./config/DB");
 
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const encounterRoutes = require("./routes/encounterRoutes");
-const appointmentRoutes = require("./routes/appointmentRoutes");
 const prescriptionRoutes = require("./routes/PrescriptionRoute");
 const aiModelRoute = require("./routes/aiModelRoute");
 const authRoutes = require("./routes/authRoutes");
@@ -16,6 +15,7 @@ const roleRoutes = require("./routes/roleRoutes");
 const preRegisterRoutes = require("./routes/preRegisterRoutes");
 const chatRoutes = require('./routes/chatRoutes');
 const patientRoutes = require('./routes/patientRoutes');
+const financialRoutes = require('./routes/financialRoutes'); // Import financial routes
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -43,7 +43,8 @@ app.use("/api/appointments", appointmentRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/preregistration", preRegisterRoutes);
 app.use("/api/encounters", encounterRoutes);
-
+app.use('/api/appointments',appointmentRoutes);
+app.use('/api/finance', financialRoutes); // Use financial routes
 
 require("./aiModel");
 app.use("/api/ai", aiModelRoute);

@@ -9,7 +9,6 @@ import PatientInformationTab from "./components/patient-detail/PatientInformatio
 import AppointmentHistoryTab from "./components/patient-detail/AppointmentHistoryTab";
 import NextTreatmentTab from "./components/patient-detail/NextTreatmentTab";
 import MedicalRecordTab from "./components/patient-detail/MedicalRecordTab";
-import {EncounterContextProvider} from "./context/EncounterContext";
 import DoctorSchedule from './components/DoctorSchedule';
 import TelemedicineMeeting from "./components/TelemedicineMeeting";
 import DoctorSearch from "./pages/doctor-search";
@@ -31,6 +30,7 @@ import FeedbackUpdatePage from "./pages/feedback-update-page";
 import FeedbackDeletePage from "./pages/feedback-delete-page";
 import DoctorFeedbackPage from "./pages/doctor-feedback-page";
 import FeedbackReportPage from "./pages/feedback-report-page";
+import FinancialReportPage from "./pages/finance-page";
 import { LinkedRecordProvider } from "./context/LinkedRecordContext";
 import RoleManagementPage from "./pages/RoleManagementPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -91,6 +91,7 @@ function App() {
           <Route path="doctor-chat" element={<DoctorChatPage />} /> {/* Add route for doctor chat */}
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="patients" element={<PatientsPage />} />
+          <Route path="finance" element={<FinancialReportPage />} />
           <Route path="documents" element={<DocumentList />} />
           <Route path="prescription" element={<PrescriptionPage />} />
           <Route path="schedule" element={<DoctorSchedule />} />   

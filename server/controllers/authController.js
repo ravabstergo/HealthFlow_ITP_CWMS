@@ -425,7 +425,7 @@ exports.switchRole = async (req, res) => {
     res.status(500).json({
       message: "Internal error",
       errorDetails: error.message,
-    });
+    });}}
 
 // Get all users with the 'doctor' role
 exports.getAllDoctors = async (req, res) => {

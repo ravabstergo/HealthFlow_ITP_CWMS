@@ -76,6 +76,7 @@ router.post(
     next();
   },
   switchRole
+);
 
 // Route to get all doctors
 router.get(
