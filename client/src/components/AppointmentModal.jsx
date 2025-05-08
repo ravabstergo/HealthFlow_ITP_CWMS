@@ -115,7 +115,7 @@ export default function AppointmentModal({
       {/* Global overlay */}      
       <div className="fixed inset-0 bg-black/50 z-30" />      
       <div className="fixed top-[50%] right-[calc(4rem+1px)] -translate-y-1/2 z-40">
-        <div className={`bg-white w-[450px] min-h-[600px] shadow-lg rounded-2xl max-h-[90vh] overflow-y-auto transition-transform duration-300 ${isSliding ? 'translate-x-[95%]' : 'translate-x-0'}`}>
+        <div className={`bg-white w-[450px] min-h-[850px] shadow-lg rounded-2xl max-h-[90vh] overflow-y-auto transition-transform duration-300 ${isSliding ? 'translate-x-[95%]' : 'translate-x-0'}`}>
           {/* Header */}
           <div className="flex justify-between items-center p-4 border-b">
             <div className="flex items-center space-x-2">

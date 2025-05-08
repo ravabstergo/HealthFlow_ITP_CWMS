@@ -295,8 +295,8 @@ export default function PatientChatPage() {
   };
 
   return (
-      <div className="h-full flex flex-col">
-        <div className="p-4 border-b">
+      <div className="h-full flex flex-col bg-white">
+        <div className="p-3 border-b">
           <h1 className="text-xl font-semibold text-gray-800">Patient Chat</h1>
           <p className="text-sm text-gray-500">Connect with your healthcare providers</p>
         </div>
@@ -455,14 +455,14 @@ export default function PatientChatPage() {
                             className={`mb-4 flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                           >
                             <div
-                              className={`max-w-xs md:max-w-md rounded-lg p-3 ${
+                              className={`max-w-xs md:max-w-md rounded-2xl p-3 ${
                                 isCurrentUser
                                   ? (msg.pending 
-                                    ? 'bg-blue-300 text-white rounded-br-none'
+                                    ? 'bg-blue-300 text-white'
                                     : msg.failed 
-                                      ? 'bg-red-500 text-white rounded-br-none' 
-                                      : 'bg-blue-500 text-white rounded-br-none')
-                                  : 'bg-white border rounded-bl-none'
+                                      ? 'bg-red-500 text-white' 
+                                      : 'bg-blue-500 text-white')
+                                  : 'bg-white border'
                               }`}
                             >
                               <p className="text-sm">{msg.text}</p>
