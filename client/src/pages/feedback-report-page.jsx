@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Button from "../components/ui/button";
 import { toast } from "react-toastify";
 import { jsPDF } from "jspdf";
-import { X } from "lucide-react"; // Import X icon from lucide-react
+import { X } from "lucide-react";
 
 export default function FeedbackReportPopup({ onClose }) {
   const [aiAnalysis, setAiAnalysis] = useState("");
@@ -11,7 +11,6 @@ export default function FeedbackReportPopup({ onClose }) {
   const [chatHistory, setChatHistory] = useState([]);
   const [userInput, setUserInput] = useState("");
 
-  // Suggested questions, including the new question
   const suggestedQuestions = [
     "What is the overall patient satisfaction rate?",
     "Are there any common complaints in the feedback?",
@@ -22,7 +21,7 @@ export default function FeedbackReportPopup({ onClose }) {
     "How does the feedback vary by patient demographics?",
     "What are the common diseases?",
     "How many patients need to contact the doctor during treatment?",
-    "How many days did patients take the prescribed medication commonly?" // Added new question
+    "How many days did patients take the prescribed medication commonly?"
   ];
 
   useEffect(() => {
@@ -56,14 +55,13 @@ export default function FeedbackReportPopup({ onClose }) {
   }, []);
 
   const parseAiAnalysis = (analysis) => {
-    // Split the analysis into sections based on markdown headings (##)
-    const sections = analysis.split(/(?=## )/); // Split on ## but keep the delimiter
+    const sections = analysis.split(/(?=## )/);
     return sections.map(section => {
       const lines = section.split("\n");
       const heading = lines[0].startsWith("## ") ? lines[0].replace("## ", "") : null;
       const content = lines.slice(1).join("\n").trim();
       return { heading, content };
-    }).filter(section => section.heading && section.content); // Only include sections with both heading and content
+    }).filter(section => section.heading && section.content);
   };
 
   const downloadReport = () => {
@@ -71,27 +69,23 @@ export default function FeedbackReportPopup({ onClose }) {
       const doc = new jsPDF();
       let y = 10;
 
-      // Title
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.text("Feedback Report - AI Analysis", 10, y);
       y += 10;
 
-      // Parse and render AI analysis sections
       const sections = parseAiAnalysis(aiAnalysis);
       sections.forEach(section => {
-        // Heading
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.text(section.heading, 10, y);
         y += 5;
 
-        // Content
         doc.setFontSize(12);
         doc.setFont("helvetica", "normal");
         const splitContent = doc.splitTextToSize(section.content, 180);
         doc.text(splitContent, 10, y);
-        y += splitContent.length * 5 + 5; // Adjust y based on content length
+        y += splitContent.length * 5 + 5;
       });
 
       doc.save("feedback-report-ai-analysis.pdf");
@@ -111,7 +105,6 @@ export default function FeedbackReportPopup({ onClose }) {
   const analyzeFeedback = (question) => {
     let response = "I'm sorry, I couldn't understand that question. Please try rephrasing or select a suggested question.";
 
-    // List of common diseases for disease-related questions
     const commonDiseases = [
       "diabetes", "hypertension", "asthma", "arthritis", "cancer", "heart disease",
       "migraine", "depression", "anxiety", "flu", "pneumonia", "covid"
@@ -235,26 +228,23 @@ export default function FeedbackReportPopup({ onClose }) {
         response = "No patients indicated a need to contact the doctor during treatment based on the feedback or comments.";
       }
     } else if (question.toLowerCase().includes("days") && question.toLowerCase().includes("medication")) {
-      // Analyze feedback for medication duration
       const durations = [];
       
       reportData.forEach(data => {
-        // Check feedback answers for questions about medication duration
         const durationFeedback = data.feedback.find(f => 
           f.question.toLowerCase().includes("how many days") && 
           f.question.toLowerCase().includes("medication")
         );
         if (durationFeedback && typeof durationFeedback.answer === "string") {
-          const daysMatch = durationFeedback.answer.match(/\d+/); // Extract number of days
+          const daysMatch = durationFeedback.answer.match(/\d+/);
           if (daysMatch) {
             durations.push({ patient: data.patient.name, days: parseInt(daysMatch[0]) });
           }
         }
 
-        // Check comments for mentions of medication duration (e.g., "I took the medication for 5 days")
         if (data.comments) {
           const comment = data.comments.toLowerCase();
-          const daysMatch = comment.match(/(\d+)\s*days/); // Look for patterns like "5 days"
+          const daysMatch = comment.match(/(\d+)\s*days/);
           if (daysMatch) {
             durations.push({ patient: data.patient.name, days: parseInt(daysMatch[1]) });
           }
@@ -262,7 +252,6 @@ export default function FeedbackReportPopup({ onClose }) {
       });
 
       if (durations.length > 0) {
-        // Calculate the most common duration
         const durationCounts = durations.reduce((acc, entry) => {
           acc[entry.days] = (acc[entry.days] || 0) + 1;
           return acc;
@@ -273,7 +262,6 @@ export default function FeedbackReportPopup({ onClose }) {
         const commonDays = mostCommonDuration[0];
         const count = mostCommonDuration[1];
 
-        // List patients with this duration
         const patientsWithCommonDuration = durations
           .filter(entry => entry.days === parseInt(commonDays))
           .map(entry => entry.patient)
@@ -339,19 +327,22 @@ export default function FeedbackReportPopup({ onClose }) {
             <p className="text-gray-500">Generating report...</p>
           ) : (
             <div className="space-y-4">
-              <h3 className="text-md font-medium">AI Analysis</h3>
-              <div className="text-sm text-gray-600">
-                {parseAiAnalysis(aiAnalysis).map((section, index) => (
-                  <div key={index} className="mb-4">
-                    <h4 className="text-lg font-bold text-gray-800">{section.heading}</h4>
-                    <p className="mt-1">{section.content}</p>
-                  </div>
-                ))}
+              {/* AI Analysis Box */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+                <h3 className="text-md font-medium mb-2">AI Analysis</h3>
+                <div className="text-sm text-gray-600">
+                  {parseAiAnalysis(aiAnalysis).map((section, index) => (
+                    <div key={index} className="mb-4">
+                      <h4 className="text-lg font-bold text-gray-800">{section.heading}</h4>
+                      <p className="mt-1">{section.content}</p>
+                    </div>
+                  ))}
+                </div>
+                <Button onClick={downloadReport}>Download Report as PDF</Button>
               </div>
-              <Button onClick={downloadReport}>Download Report as PDF</Button>
 
-              {/* Chat Interface */}
-              <div className="mt-6">
+              {/* Ask AI Box */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
                 <h3 className="text-md font-medium mb-2">Ask the AI About Feedback Data</h3>
                 
                 {/* Suggested Questions */}

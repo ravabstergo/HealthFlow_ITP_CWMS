@@ -100,6 +100,7 @@ function App() {
           <Route path="meeting/:appointmentId" element={<TelemedicineMeeting />} />
           <Route path="staff" element={<RoleManagementPage />} />
           <Route path="patient/appointment-history" element={<PastAppointments />}/>
+          <Route path="/account/patient/appointment-history" element={<PastAppointments />}/>
           <Route path="appointments" element={<AppointmentsPage />} />
           <Route path="feedback" element={<FeedbackStartPage />} />
           <Route path="feedback/create/:id" element={<FeedbackCreatePage />} />
@@ -110,7 +111,8 @@ function App() {
           <Route path="account/feedback/report" element={<FeedbackReportPage />} />
           <Route path="appointment-success" element={<AppointmentSuccessPage />} />
           <Route path="appointment-cancel" element={<AppointmentCancelPage />} />
-
+          <Route path="/account/feedback/create" element={<FeedbackCreatePage />} />
+          <Route path="/account/past-appointments" element={<PastAppointments />} />
           {/* Patient detail and nested tabs */}
 
           <Route path="patients/:id" element={<PatientDetailPage />}>
