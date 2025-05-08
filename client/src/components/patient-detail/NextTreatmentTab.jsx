@@ -805,7 +805,7 @@ Please analyze and provide:
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="bg-green-700 hover:bg-green-800 text-white"
+                    className="bg-green-600 hover:bg-green-700 text-white"
                     icon={<FileText className="w-4 h-4" />}
                     onClick={() => handleDownloadPrescription(selectedPrescription)}
                   >

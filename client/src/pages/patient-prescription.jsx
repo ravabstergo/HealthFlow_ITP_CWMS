@@ -9,8 +9,6 @@ import jsPDF from 'jspdf';
 
 export default function PatientPrescriptionPage() {
   const { currentUser } = useAuthContext();
-  // Hardcode the patient ID for testing
-  const patientId = "6813613b564aba5f8109c20f";
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,23 +30,36 @@ export default function PatientPrescriptionPage() {
       try {
         const token = TokenService.getAccessToken();
         
-        // First fetch patient details
-        const patientResponse = await fetch(`/api/records/${patientId}`, {
+        // First get user details (email/NIC)
+        const userResponse = await fetch(`/api/auth/users/${currentUser.id}`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+
+        if (!userResponse.ok) {
+          throw new Error("Failed to fetch user details");
+        }
+
+        const userData = await userResponse.json();
+        
+        // Then get the patient ID using email/NIC
+        const patientResponse = await fetch(`/api/records/findByUser?${userData.email ? `email=${userData.email}` : `nic=${userData.nic}`}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
           },
         });
 
         if (!patientResponse.ok) {
-          throw new Error("Failed to fetch patient details");
+          throw new Error("Failed to find patient record");
         }
 
-        const patientData = await patientResponse.json();
-        if (patientData && patientData.record) {
-          setPatientName(`${patientData.record.name?.firstName || ''} ${patientData.record.name?.lastName || ''}`);
-        }
+        const { patientId } = await patientResponse.json();
+        
+        // Set patient name from user data
+        setPatientName(userData.name || "");
 
-        // Then fetch prescriptions
+        // Finally fetch prescriptions using the patient ID
         const response = await fetch(`/api/prescriptions/patient/${patientId}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
@@ -60,7 +71,6 @@ export default function PatientPrescriptionPage() {
         }
 
         const data = await response.json();
-        console.log("Fetched prescriptions:", data);
         setPrescriptions(data);
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -70,10 +80,10 @@ export default function PatientPrescriptionPage() {
       }
     };
 
-    if (patientId) {
+    if (currentUser) {
       fetchData();
     }
-  }, [patientId]);
+  }, [currentUser]);
 
   const handleViewPrescription = (prescription) => {
     if (!prescription) {
