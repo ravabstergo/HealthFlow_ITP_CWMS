@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Search, Plus, ChevronDown, Download, Eye, Filter } from "lucide-react";
 import Card from "../ui/card";
 import Button from "../ui/button";
@@ -8,6 +8,7 @@ import DropdownMenu, { DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import DocumentUpload from "../ui/DocumentUpload";
 import Toast from "../ui/toast";
 import ConfirmDialog from "../ui/confirm-dialog";
+import DocumentPreviewModal from "./DocumentPreviewModal";
 import { useAuthContext } from "../../context/AuthContext";
 import DocumentService from "../../services/DocumentService";
 
@@ -24,12 +25,12 @@ export default function PatientDocumentList() {
   const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
   const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
   const [bulkUpdateDocuments, setBulkUpdateDocuments] = useState(null);
-  const [previewModal, setPreviewModal] = useState(null);
+  const [previewDocument, setPreviewDocument] = useState(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-
+  const navigate = useNavigate();
 
   const statusOptions = ["All", "Pending", "Doctor Review", "Approved", "Rejected"];
 
@@ -39,7 +40,6 @@ export default function PatientDocumentList() {
 
   const fetchDocuments = async () => {
     try {
-
       console.log("Fetching documents for patient:", patientId);
       console.log("User ID:", user?.id);
       setLoading(true);
@@ -120,18 +120,63 @@ export default function PatientDocumentList() {
 
   const handleDownload = async (doc) => {
     try {
+      // First check if we already have a document URL
+      if (doc.documentUrl) {
+        console.log('Using existing document URL:', doc.documentUrl);
+        
+        // Modify Cloudinary URL for proper download
+        let downloadUrl = doc.documentUrl;
+        if (downloadUrl.includes('cloudinary.com')) {
+          // Replace /upload/ with /raw/upload/ and add fl_attachment parameter
+          downloadUrl = downloadUrl.replace('/upload/', '/raw/upload/')
+          if (!downloadUrl.includes('fl_attachment')) {
+            downloadUrl += downloadUrl.includes('?') ? '&fl_attachment=false' : '?fl_attachment=false';
+          }
+        }
+
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.setAttribute('download', doc.documentName);
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener noreferrer');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+
+      // If no direct URL, try to get it from the server
+      console.log('Fetching download URL for document:', doc._id);
       const downloadInfo = await DocumentService.downloadDocument(doc._id);
-      if (!downloadInfo || !downloadInfo.url) {
+      
+      if (!downloadInfo) {
+        throw new Error('No download information received');
+      }
+
+      if (!downloadInfo.url) {
         throw new Error('Download URL not available');
       }
       
+      // Create a temporary link element
       const link = document.createElement('a');
-      const downloadUrl = downloadInfo.url.includes('cloudinary.com') 
-        ? downloadInfo.url.replace('/upload/', '/upload/fl_attachment/') 
-        : downloadInfo.url;
-        
+      
+      // Handle different types of URLs
+      let downloadUrl = downloadInfo.url;
+      if (downloadUrl.includes('cloudinary.com')) {
+        // Add raw and attachment parameters for Cloudinary URLs
+        downloadUrl = downloadUrl.replace('/upload/', '/raw/upload/')
+        if (!downloadUrl.includes('fl_attachment')) {
+          downloadUrl += downloadUrl.includes('?') ? '&fl_attachment=false' : '?fl_attachment=false';
+        }
+      }
+      
+      // Set the link properties
       link.href = downloadUrl;
       link.setAttribute('download', downloadInfo.filename || doc.documentName);
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener noreferrer');
+      
+      // Append to body, click, and remove
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -145,33 +190,88 @@ export default function PatientDocumentList() {
       console.error('Download failed:', error);
       setToast({
         visible: true,
-        message: "Failed to download document",
+        message: error.message || "Failed to download document",
         type: "error"
       });
     }
   };
 
-  const handleViewDocument = (documentUrl) => {
-    if (!documentUrl) {
+  const handleViewDocument = async (doc) => {
+    try {
+      if (!doc.documentUrl) {
+        setToast({
+          visible: true,
+          message: "Document URL is not available",
+          type: "error"
+        });
+        return;
+      }
+
+      const extension = doc.documentUrl.split('.').pop().toLowerCase();
+
+      if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
+        // For images, show in modal
+        setPreviewDocument(doc);
+      } else if (extension === 'pdf') {
+        try {
+          // Get the preview URL from the server
+          const previewUrl = await DocumentService.getDocumentPreviewUrl(doc._id);
+          
+          // Create a fullscreen preview window
+          const newWindow = window.open('', '_blank');
+          if (newWindow) {
+            newWindow.document.write(`
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <title>${doc.documentName}</title>
+                  <style>
+                    body, html {
+                      margin: 0;
+                      padding: 0;
+                      width: 100%;
+                      height: 100%;
+                      overflow: hidden;
+                      background-color: #525659;
+                    }
+                    iframe {
+                      width: 100%;
+                      height: 100%;
+                      border: none;
+                    }
+                  </style>
+                </head>
+                <body>
+                  <iframe src="${previewUrl}" type="application/pdf" width="100%" height="100%"></iframe>
+                </body>
+              </html>
+            `);
+            newWindow.document.close();
+          }
+        } catch (error) {
+          console.error('Error getting preview URL:', error);
+          // Fallback to direct URL if preview fails
+          window.open(doc.documentUrl, '_blank', 'noopener,noreferrer');
+        }
+      } else if (extension === 'doc' || extension === 'docx') {
+        // For Office documents, use Microsoft Office Online viewer
+        const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(doc.documentUrl)}`;
+        window.open(viewerUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        // For other files, open in new tab with attachment flag disabled
+        let previewUrl = doc.documentUrl;
+        if (previewUrl.includes('cloudinary.com')) {
+          previewUrl = previewUrl.replace('/upload/', '/upload/fl_attachment:false/');
+        }
+        window.open(previewUrl, '_blank', 'noopener,noreferrer');
+      }
+    } catch (error) {
+      console.error('Error previewing document:', error);
       setToast({
         visible: true,
-        message: "Document URL is not available",
+        message: "Failed to preview document",
         type: "error"
       });
-      return;
-    }
-
-    const extension = documentUrl.split('.').pop().toLowerCase();
-    if (extension === 'pdf') {
-      window.open(documentUrl, '_blank', 'noopener,noreferrer');
-      return;
-    } else if (['jpg', 'jpeg', 'png'].includes(extension)) {
-      setPreviewModal({ isOpen: true, url: documentUrl, type: 'image' });
-    } else if (extension === 'doc' || extension === 'docx') {
-      const viewerUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(documentUrl)}`;
-      window.open(viewerUrl, '_blank', 'noopener,noreferrer');
-    } else {
-      window.location.href = documentUrl;
     }
   };
 
@@ -240,6 +340,12 @@ export default function PatientDocumentList() {
         onConfirm={handleDeleteConfirm}
         title="Confirm Delete"
         message="Are you sure you want to delete the selected documents?"
+      />
+
+      <DocumentPreviewModal
+        isOpen={!!previewDocument}
+        onClose={() => setPreviewDocument(null)}
+        document={previewDocument}
       />
 
       <h1 className="text-2xl font-bold mb-6">Documents</h1>
@@ -397,7 +503,7 @@ export default function PatientDocumentList() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleViewDocument(doc.documentUrl)}
+                          onClick={() => handleViewDocument(doc)}
                           className="text-gray-600 hover:text-gray-900"
                         >
                           <Eye className="h-4 w-4" />

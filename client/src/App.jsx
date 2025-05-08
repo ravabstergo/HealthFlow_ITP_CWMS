@@ -25,6 +25,8 @@ import FeedbackUpdatePage from "./pages/feedback-update-page";
 import FeedbackDeletePage from "./pages/feedback-delete-page";
 import DoctorFeedbackPage from "./pages/doctor-feedback-page";
 import FeedbackReportPage from "./pages/feedback-report-page";
+import DocumentViewer from './components/patient-detail/DocumentViewer';
+import PatientDocumentsPage from "./pages/patient-documents-page";
 import PatientPrescriptionPage from "./pages/patient-prescription";
 import FinancialReportPage from "./pages/finance-page";
 import { LinkedRecordProvider } from "./context/LinkedRecordContext";
@@ -100,6 +102,7 @@ function App() {
           <Route path="finance" element={<FinancialReportPage />} />
           <Route path="documents" element={<DocumentList />} />
           <Route path="prescription" element={<PrescriptionPage />} />
+          <Route path="patient-documents" element={<PatientDocumentsPage />} />
           <Route path="prescription-report" element={<PrescriptionReport />} />
           <Route path="schedule" element={<DoctorSchedule />} />   
           <Route path="meeting/:appointmentId" element={<TelemedicineMeeting />} />
@@ -113,6 +116,7 @@ function App() {
           <Route path="feedback/edit/:id" element={<FeedbackUpdatePage />} />
           <Route path="feedback/delete/:id" element={<FeedbackDeletePage />} />
           <Route path="feedback/doctor" element={<DoctorFeedbackPage />} />
+          <Route path="documents/:id" element={<DocumentViewer />} />
           <Route path="account/feedback/report" element={<FeedbackReportPage />} />
           <Route path="appointment-success" element={<AppointmentSuccessPage />} />
           <Route path="appointment-cancel" element={<AppointmentCancelPage />} />
