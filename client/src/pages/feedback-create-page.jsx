@@ -290,7 +290,7 @@ export default function FeedbackCreatePage() {
 
   const handleBackgroundClick = (e) => {
     if (e.target.id === "backdrop") {
-      navigate("/account/feedback");
+      navigate("/account/patient/appointment-history");
     }
   };
 
@@ -310,7 +310,7 @@ export default function FeedbackCreatePage() {
           <div className="flex justify-between items-center">
             <h2 id="panel-title" className="text-xl font-medium">Encounter ID #{encounterId || 'Unknown'}</h2>
             <button
-              onClick={() => navigate("/account/feedback")}
+              onClick={() => navigate("/account/patient/appointment-history")}
               className="p-2 rounded-xl hover:bg-gray-100"
               aria-label="Close panel"
             >
@@ -379,7 +379,7 @@ export default function FeedbackCreatePage() {
           <div className="flex justify-between mt-8">
             <Button
               variant="secondary"
-              onClick={currentPage === 1 ? () => navigate("/account/feedback") : handlePrevious}
+              onClick={currentPage === 1 ? () => navigate("/account/patient/appointment-history") : handlePrevious}
               className="py-3 px-6 rounded-xl"
             >
               {currentPage === 1 ? "Cancel" : "Previous"}

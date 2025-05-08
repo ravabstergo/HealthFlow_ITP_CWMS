@@ -29,7 +29,11 @@ export default function FeedbackSummaryPage() {
           throw new Error("Failed to fetch feedback");
         }
         const data = await response.json();
-        setFeedbacks(Array.isArray(data) ? data : []);
+        // Sort feedbacks by createdAt in descending order (newest first)
+        const sortedData = Array.isArray(data) 
+          ? data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          : [];
+        setFeedbacks(sortedData);
       } catch (error) {
         console.error("[FeedbackSummaryPage] Error fetching data:", error.message);
         toast.error("Failed to load feedback.");
@@ -71,88 +75,97 @@ export default function FeedbackSummaryPage() {
         </div>
       </Card>
       <Card>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Encounter ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Submitted At
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {feedbacks.length === 0 ? (
-                <tr>
-                  <td colSpan="3" className="px-6 py-4 text-center text-gray-500">
-                    No feedback submitted.
-                  </td>
-                </tr>
-              ) : (
-                feedbacks.map(f => {
-                  const now = new Date();
-                  const createdAt = new Date(f.createdAt);
-                  const diffInMinutes = (now - createdAt) / (1000 * 60);
-                  const canEditOrDelete = diffInMinutes <= 10;
-
-                  return (
-                    <tr key={f._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {f.encounterId}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(f.createdAt).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <Button
-                          variant="link"
-                          onClick={() => handleViewFeedback(f)}
-                          className="mr-2"
-                        >
-                          View
-                        </Button>
-                        {canEditOrDelete && (
-                          <>
-                            <Link
-                              to={`/account/feedback/edit/${f._id}`}
-                              state={{ feedback: f }} // Pass feedback object in state
-                              className="mr-2"
-                            >
-                              <Button variant="link">Edit</Button>
-                            </Link>
-                            <Link
-                              to={`/account/feedback/delete/${f._id}`}
-                              state={{ feedback: f }} // Consistent with delete page
-                            >
-                              <Button variant="link" className="text-red-600">
-                                Delete
-                              </Button>
-                            </Link>
-                          </>
-                        )}
+        <div className="flex justify-center px-4">
+          <div className="w-full max-w-9xl">
+            <div className="overflow-hidden rounded-xl max-h-[700px] overflow-y-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-100 sticky top-0">
+                    <th className="px-12 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      ENCOUNTER ID
+                    </th>
+                    <th className="px-12 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      SUBMITTED AT
+                    </th>
+                    <th className="px-12 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"></th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {feedbacks.length === 0 ? (
+                    <tr>
+                      <td colSpan="3" className="text-center py-4 text-gray-500">
+                        No feedback available.
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                  ) : (
+                    feedbacks.map(f => {
+                      const now = new Date();
+                      const createdAt = new Date(f.createdAt);
+                      const diffInMinutes = (now - createdAt) / (1000 * 60);
+                      const canEditOrDelete = diffInMinutes <= 10;
+
+                      return (
+                        <tr key={f._id} className="hover:bg-gray-50">
+                          <td className="px-12 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {f.encounterId}
+                            </div>
+                          </td>
+                          <td className="px-12 py-4 whitespace-nowrap">
+                            <div className="text-sm text-indigo-400">
+                              {new Date(f.createdAt).toLocaleString()}
+                            </div>
+                          </td>
+                          <td className="px-12 py-4 whitespace-nowrap text-right">
+                            <button
+                              onClick={() => handleViewFeedback(f)}
+                              className="inline-flex items-center px-4 py-2 border border-indigo-300 text-sm font-medium rounded-[10px] text-indigo-600 bg-white hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-2"
+                            >
+                              View Feedback
+                            </button>
+                            {canEditOrDelete && (
+                              <>
+                                <Link
+                                  to={`/account/feedback/edit/${f._id}`}
+                                  state={{ feedback: f }}
+                                  className="mr-2"
+                                >
+                                  <button
+                                    className="inline-flex items-center px-4 py-2 border border-indigo-300 text-sm font-medium rounded-[10px] text-indigo-600 bg-white hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                  >
+                                    Edit
+                                  </button>
+                                </Link>
+                                <Link
+                                  to={`/account/feedback/delete/${f._id}`}
+                                  state={{ feedback: f }}
+                                >
+                                  <button
+                                    className="inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-[10px] text-red-600 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                  >
+                                    Delete
+                                  </button>
+                                </Link>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </Card>
 
       {/* Right-Side Modal for Viewing Feedback */}
       {selectedFeedback && (
         <div className="fixed inset-0 z-50 flex">
-          {/* Overlay */}
-          <div className="fixed inse t-0 bg-black opacity-50" onClick={closeModal}></div>
-          {/* Modal Content */}
+          <div className="fixed inset-0 bg-black opacity-30" onClick={closeModal}></div>
           <div
-            className="relative ml-auto w-full max-w-lg bg-white shadow-xl p-6 overflow-y-auto"
+            className="relative ml-auto h-full w-96 bg-white shadow-xl p-6 overflow-y-auto"
             style={{ marginTop: '2rem', marginBottom: '2rem', marginRight: '2rem', borderRadius: '1rem' }}
           >
             <h2 className="text-xl font-bold mb-4">Feedback Details</h2>
