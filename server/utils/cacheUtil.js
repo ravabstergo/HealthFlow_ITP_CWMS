@@ -15,8 +15,22 @@ const removePermissionsFromCache = (roleId) => {
   delete permissionsCache[roleId];
 };
 
+const mongoose = require('mongoose');
+
+const getMongooseOptions = () => {
+    return {
+        // Force MongoDB to return fresh data
+        readPreference: 'primary',
+        // Add timeout to prevent hanging queries
+        maxTimeMS: 30000,
+        // Don't use MongoDB query cache
+        noCursorTimeout: true
+    };
+};
+
 module.exports = {
   getPermissionsFromCache,
   setPermissionsInCache,
   removePermissionsFromCache,
+  getMongooseOptions
 };

@@ -91,7 +91,7 @@ export default function DoctorFeedbackPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pl-6 pr-6 pt-4 pb-4">
       <h1 className="text-2xl font-bold mb-6">Doctor Feedback</h1>
       <Card>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -110,69 +110,73 @@ export default function DoctorFeedbackPage() {
         </div>
         <Button onClick={handleGenerateReport}>Generate Feedback Report</Button>
       </Card>
-      <div className="flex space-x-4 mb-6">
-        <Input
+      
+      {/* Search Bar */}
+      <div className="relative w-1/3 mx-auto mb-6">
+        <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+          <Search className="h-4 w-4 text-gray-400" />
+        </div>
+        <input
+          type="text"
           placeholder="Search patients..."
+          className="pl-8 pr-3 py-2.5 w-full bg-gray-100 rounded-[10px] text-sm focus:outline-none focus:ring-1 focus:ring-indigo-100"
           value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          icon={<Search className="w-4 h-4 text-gray-500" />}
-          className="max-w-md"
+          onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
+
       <Card>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contact
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredFeedbacks.length === 0 ? (
-                <tr>
-                  <td colSpan="3" className="px-6 py-4 text-center text-gray-500">
-                    No feedback available.
-                  </td>
-                </tr>
-              ) : (
-                filteredFeedbacks.map(f => (
-                  <tr key={f._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
-                          <img
-                            src="/placeholder.svg?height=40&width=40"
-                            alt={f.patientId?.name || "Patient"}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="font-medium text-gray-900">{f.patientId?.name || "Unknown Patient"}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {f.patientId?.email || "N/A"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Button
-                        variant="link"
-                        onClick={() => handleViewFeedback(f)}
-                      >
-                        View Feedback
-                      </Button>
-                    </td>
+        {/* Feedback List Table with Scroll */}
+        <div className="flex justify-center px-4">
+          <div className="w-full max-w-9xl">
+            <div className="overflow-hidden rounded-xl max-h-[700px] overflow-y-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-100 sticky top-0">
+                    <th className="px-12 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      NAME
+                    </th>
+                    <th className="px-12 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      CONTACT
+                    </th>
+                    <th className="px-12 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider"></th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {filteredFeedbacks.length === 0 ? (
+                    <tr>
+                      <td colSpan="3" className="text-center py-4 text-gray-500">
+                        No feedback available.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredFeedbacks.map(f => (
+                      <tr key={f._id} className="hover:bg-gray-50">
+                        <td className="px-12 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {f.patientId?.name || "Unknown Patient"}
+                          </div>
+                        </td>
+                        <td className="px-12 py-4 whitespace-nowrap">
+                          <div className="text-sm text-indigo-400">
+                            {f.patientId?.email || "N/A"}
+                          </div>
+                        </td>
+                        <td className="px-12 py-4 whitespace-nowrap text-right">
+                          <button
+                            onClick={() => handleViewFeedback(f)}
+                            className="inline-flex items-center px-4 py-2 border border-indigo-300 text-sm font-medium rounded-[10px] text-indigo-600 bg-white hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          >
+                            View Feedback
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </Card>
 

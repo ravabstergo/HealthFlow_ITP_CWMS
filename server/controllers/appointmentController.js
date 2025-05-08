@@ -5,9 +5,9 @@ const User = require('../models/User');
 const querystring = require('querystring');
 const dotenv = require("dotenv");
 const { RtcTokenBuilder, RtcRole } = require('agora-token');
+const { sendAppointmentConfirmation } = require('../utils/emailService');
 
 require('dotenv').config();
-
 
 //search doctor by name or specialization
 const searchDoctorByName = async (req, res) => {
@@ -122,9 +122,12 @@ const getDoctorSlots = async (req, res) => {
     const allSlots = schedules.reduce((acc, schedule) => {
       console.log('Controller: Processing schedule with slots count:', schedule.slots.length);
       const slotsForDay = schedule.slots.filter(slot => {
-        const slotDate = new Date(slot.day);
-        slotDate.setHours(0, 0, 0, 0);
-        return slotDate.getTime() === queryDate.getTime();
+        const slotTime = new Date(slot.slotTime);
+        return (
+          slotTime.getFullYear() === queryDate.getFullYear() &&
+          slotTime.getMonth() === queryDate.getMonth() &&
+          slotTime.getDate() === queryDate.getDate()
+        );
       });
       console.log('Controller: Found matching slots for date:', slotsForDay.length);
       return acc.concat(slotsForDay);
@@ -150,17 +153,7 @@ const getDoctorSlots = async (req, res) => {
       
       // Log the received data
       console.log('Received appointment data:', {
-        doctorId,
-        patientId,
-        slotId,
-        reason,
-        title,
-        firstName,
-        lastName,
-        phone,
-        nic,
-        email,
-        status
+        doctorId, patientId, slotId, reason, title, firstName, lastName, phone, nic, email, status
       });
   
       // Fetch the doctor's schedule
@@ -184,19 +177,24 @@ const getDoctorSlots = async (req, res) => {
         return res.status(400).json({ message: 'Slot is not available' });
       }
   
-      // Generate Agora token
-      const APP_ID = process.env.APP_ID; // Replace with your Agora App ID
-      const APP_CERTIFICATE = process.env.APP_CERTIFICATE; // Replace with your Agora App Certificate
+      // Get doctor's name for the email
+      const doctor = await User.findById(doctorId);
+      if (!doctor) {
+        return res.status(404).json({ message: 'Doctor not found' });
+      }
   
-      const channelName = `appointment-${slotId}`; // Unique channel name for the appointment
-      const uid = 0; // User ID (0 means any user)
-      const role = RtcRole.PUBLISHER; // Role: PUBLISHER or SUBSCRIBER
-      const expirationTimeInSeconds = 3600 * 24 * 30; // Token validity (e.g., 24 hours)
+      // Generate Agora token
+      const APP_ID = process.env.APP_ID;
+      const APP_CERTIFICATE = process.env.APP_CERTIFICATE;
+  
+      const channelName = `appointment-${slotId}`;
+      const uid = 0;
+      const role = RtcRole.PUBLISHER;
+      const expirationTimeInSeconds = 3600 * 24 * 30;
   
       const currentTimestamp = Math.floor(Date.now() / 1000);
       const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
   
-      // Build the token
       const agoraToken = RtcTokenBuilder.buildTokenWithUid(
         APP_ID,
         APP_CERTIFICATE,
@@ -211,7 +209,7 @@ const getDoctorSlots = async (req, res) => {
         doctorId,
         patientId,
         slotId,
-        time: new Date(slot.slotTime), // Save the slot time in the time field
+        time: new Date(slot.slotTime),
         reason,
         title,
         firstName,
@@ -220,8 +218,8 @@ const getDoctorSlots = async (req, res) => {
         nic,
         email,
         status,
-        channelName, // Save the channel name
-        agoraToken, // Save the Agora token
+        channelName,
+        agoraToken,
       });
   
       await appointment.save();
@@ -229,6 +227,21 @@ const getDoctorSlots = async (req, res) => {
       // Mark slot as booked
       slot.isBooked = true;
       await schedule.save();
+  
+      // Send confirmation email
+      try {
+        await sendAppointmentConfirmation({
+          email,
+          firstName,
+          lastName,
+          time: slot.slotTime,
+          doctorName: doctor.name,
+          reason
+        });
+      } catch (emailError) {
+        console.error('Failed to send confirmation email:', emailError);
+        // Don't return here, we still want to return the appointment data even if email fails
+      }
   
       res.status(201).json(appointment);
     } catch (error) {
@@ -275,9 +288,14 @@ const getDoctorById = async (req, res) => {
 const getDoctorSchedule = async (req, res) => {
   try {
     const doctorId = req.params.id;
-    const schedule = await DoctorSchedule.find({ doctorId });
+    // Use lean() for better performance and add options to prevent caching
+    const schedule = await DoctorSchedule.find({ doctorId })
+      .lean()
+      .select('-__v')
+      .maxTimeMS(30000)
+      .exec();
 
-    if (!schedule) {
+    if (!schedule || schedule.length === 0) {
       return res.status(404).json({ message: 'Schedule not found.' });
     }
 
@@ -359,7 +377,8 @@ const updateSchedule = async (req, res) => {
 
 const getAppointmentById = async (req, res) => {
   try {
-    const appointmentId = req.params.id;
+    const appointmentId = req.params.appointmentId;  // Changed from req.params.id to req.params.appointmentId
+    console.log('Received appointment ID:', appointmentId);
     const appointment = await Appointment.findById(appointmentId);
 
     if (!appointment) {
@@ -451,22 +470,36 @@ const getAppointmentsByPatient = async (req, res) => {
 
 const deleteAppointment = async (req, res) => {
   try {
-    const appointmentId = req.params.id;
+    const appointmentId = req.params.appointmentId;
 
     // Find the appointment
-    const appointment = await Appointment.findOneAndDelete(appointmentId);
+    const appointment = await Appointment.findById(appointmentId);
 
     if (!appointment) {
       return res.status(404).json({ message: 'Appointment not found.' });
     }
 
+    // Check if appointment was booked within last 12 hours
+    const bookedTime = new Date(appointment.createdAt);
+    const now = new Date();
+    const hoursSinceBooking = (now - bookedTime) / (1000 * 60 * 60);
+
+    if (hoursSinceBooking > 12) {
+      return res.status(400).json({ 
+        message: 'Appointments can only be cancelled within 12 hours of booking'
+      });
+    }
+
     // Find the schedule and slot
     const schedules = await DoctorSchedule.find({ doctorId: appointment.doctorId });
-    if (!schedules.length) return res.status(404).json({ message: 'Doctor schedule not found' });
+    if (!schedules.length) {
+      return res.status(404).json({ message: 'Doctor schedule not found' });
+    }
 
     let slot;
     let schedule;
 
+    // Find the specific slot in the doctor's schedule
     for (const sched of schedules) {
       slot = sched.slots.id(appointment.slotId);
       if (slot) {
@@ -479,14 +512,17 @@ const deleteAppointment = async (req, res) => {
       return res.status(404).json({ message: 'Slot not found in doctor schedule.' });
     }
 
-    // Free up the slot
+    // Release the slot by marking it as not booked
     slot.isBooked = false;
     await schedule.save();
 
-    res.status(200).json({ message: 'Appointment canceled successfully.' });
+    // Delete the appointment
+    await Appointment.findByIdAndDelete(appointmentId);
+
+    res.status(200).json({ message: 'Appointment cancelled successfully.' });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error canceling appointment.', error });
+    console.error('Error cancelling appointment:', error);
+    res.status(500).json({ message: 'Error cancelling appointment', error: error.message });
   }
 };
 
@@ -538,6 +574,24 @@ const deleteAvailability = async (req, res) => {
     const startTime = new Date(availability.startTime);
     const endTime = new Date(availability.endTime);
     const availabilityDay = new Date(availability.day);
+
+    // Check if any slots in this availability period are already booked
+    const slotsInPeriod = targetSchedule.slots.filter(slot => {
+      const slotTime = new Date(slot.slotTime);
+      const slotDay = new Date(slot.day);
+      
+      return (slotDay.getTime() === availabilityDay.getTime() &&
+              slotTime >= startTime &&
+              slotTime <= endTime);
+    });
+
+    // If any slot is booked, prevent deletion
+    const anySlotBooked = slotsInPeriod.some(slot => slot.isBooked);
+    if (anySlotBooked) {
+      return res.status(400).json({ 
+        message: 'Cannot delete availability period because it contains booked appointments'
+      });
+    }
 
     // Remove slots that fall within this availability period
     targetSchedule.slots = targetSchedule.slots.filter(slot => {
@@ -595,8 +649,8 @@ const getDoctorSlotsByDate = async (req, res) => {
     const { date } = req.query;
     const queryDate = new Date(date);
 
-    // Find all schedules for the doctor
-    const schedules = await DoctorSchedule.find({ doctorId }).lean();
+    // Ensure we get fresh data from MongoDB
+    const schedules = await DoctorSchedule.find({ doctorId }).lean().maxTimeMS(30000);
 
     if (!schedules.length) {
       return res.status(404).json({ message: 'No schedule found for this doctor' });
@@ -605,11 +659,12 @@ const getDoctorSlotsByDate = async (req, res) => {
     // Filter slots for the specific date
     const slotsForDate = schedules.reduce((acc, schedule) => {
       const matchingSlots = schedule.slots.filter(slot => {
-        const slotDate = new Date(slot.slotTime);
+        const slotTime = new Date(slot.slotTime);
+        // Compare year, month, and day only
         return (
-          slotDate.getFullYear() === queryDate.getFullYear() &&
-          slotDate.getMonth() === queryDate.getMonth() &&
-          slotDate.getDate() === queryDate.getDate()
+          slotTime.getFullYear() === queryDate.getFullYear() &&
+          slotTime.getMonth() === queryDate.getMonth() &&
+          slotTime.getDate() === queryDate.getDate()
         );
       });
       return [...acc, ...matchingSlots];
@@ -657,6 +712,173 @@ const checkSlotAvailability = async (req, res) => {
   }
 };
 
+// Check if an availability is updatable (no booked slots)
+const checkAvailabilityUpdatable = async (req, res) => {
+  try {
+    const { doctorId, availabilityId } = req.params;
+
+    // Find all schedules for the doctor
+    const schedules = await DoctorSchedule.find({ doctorId });
+    if (!schedules.length) {
+      return res.status(404).json({ message: 'Doctor schedule not found' });
+    }
+
+    // Find which schedule contains the availability
+    let targetSchedule = null;
+    let availability = null;
+    
+    for (const schedule of schedules) {
+      availability = schedule.availability.id(availabilityId);
+      if (availability) {
+        targetSchedule = schedule;
+        break;
+      }
+    }
+
+    if (!targetSchedule || !availability) {
+      return res.status(404).json({ message: 'Availability period not found' });
+    }
+
+    // Get the start and end times of the availability period
+    const startTime = new Date(availability.startTime);
+    const endTime = new Date(availability.endTime);
+    const availabilityDay = new Date(availability.day);
+
+    // Check if any slots in this availability period are already booked
+    const slotsInPeriod = targetSchedule.slots.filter(slot => {
+      const slotTime = new Date(slot.slotTime);
+      const slotDay = new Date(slot.day);
+      
+      return (slotDay.getTime() === availabilityDay.getTime() &&
+              slotTime >= startTime &&
+              slotTime <= endTime);
+    });
+
+    // If any slot is booked, prevent update
+    const anySlotBooked = slotsInPeriod.some(slot => slot.isBooked);
+    
+    res.json({ 
+      updatable: !anySlotBooked,
+      message: anySlotBooked ? 
+        'Cannot update this availability because it contains booked appointments' : 
+        'Availability can be updated'
+    });
+  } catch (error) {
+    console.error('Error in checkAvailabilityUpdatable:', error);
+    res.status(500).json({ message: 'Error checking availability updateable status', error: error.message });
+  }
+};
+
+// Update availability and recreate slots
+const updateAvailability = async (req, res) => {
+  try {
+    const { doctorId, availabilityId } = req.params;
+    const { availability, consultationFee } = req.body;
+
+    if (!availability || !availability.length) {
+      return res.status(400).json({ message: 'No availability data provided' });
+    }
+
+    const availabilityData = availability[0]; // We only update one availability at a time
+
+    // Find all schedules for the doctor
+    const schedules = await DoctorSchedule.find({ doctorId });
+    if (!schedules.length) {
+      return res.status(404).json({ message: 'Doctor schedule not found' });
+    }
+
+    // Find which schedule contains the availability
+    let targetSchedule = null;
+    let oldAvailability = null;
+    
+    for (const schedule of schedules) {
+      oldAvailability = schedule.availability.id(availabilityId);
+      if (oldAvailability) {
+        targetSchedule = schedule;
+        break;
+      }
+    }
+
+    if (!targetSchedule || !oldAvailability) {
+      return res.status(404).json({ message: 'Availability period not found' });
+    }
+
+    // Get the old start and end times
+    const oldStartTime = new Date(oldAvailability.startTime);
+    const oldEndTime = new Date(oldAvailability.endTime);
+    const oldDay = new Date(oldAvailability.day);
+    oldDay.setHours(0, 0, 0, 0);
+
+    // Verify that no booked slots exist in this availability
+    const oldSlotsInPeriod = targetSchedule.slots.filter(slot => {
+      const slotTime = new Date(slot.slotTime);
+      const slotDay = new Date(slot.day);
+      slotDay.setHours(0, 0, 0, 0);
+      
+      return (slotDay.getTime() === oldDay.getTime() &&
+              slotTime >= oldStartTime &&
+              slotTime <= oldEndTime);
+    });
+
+    if (oldSlotsInPeriod.some(slot => slot.isBooked)) {
+      return res.status(400).json({ 
+        message: 'Cannot update this availability because it contains booked appointments'
+      });
+    }
+
+    // Remove old slots from this availability period
+    targetSchedule.slots = targetSchedule.slots.filter(slot => {
+      const slotTime = new Date(slot.slotTime);
+      const slotDay = new Date(slot.day);
+      slotDay.setHours(0, 0, 0, 0);
+      
+      return !(slotDay.getTime() === oldDay.getTime() &&
+               slotTime >= oldStartTime &&
+               slotTime <= oldEndTime);
+    });
+
+    // Update the availability details
+    oldAvailability.day = new Date(availabilityData.day);
+    oldAvailability.startTime = new Date(availabilityData.startTime);
+    oldAvailability.endTime = new Date(availabilityData.endTime);
+    oldAvailability.appointmentDuration = availabilityData.appointmentDuration;
+    
+    // Update consultation fee if provided
+    if (consultationFee) {
+      targetSchedule.consultationFee = Number(consultationFee);
+    }
+
+    // Create new slots based on the updated availability
+    const day = oldAvailability;
+    const startTime = new Date(day.startTime);
+    const endTime = new Date(day.endTime);
+    const duration = day.appointmentDuration;
+    const dayDate = new Date(day.day);
+    dayDate.setHours(0, 0, 0, 0);
+
+    let slotTime = new Date(startTime);
+    while (slotTime < endTime) {
+      targetSchedule.slots.push({ 
+        day: dayDate, 
+        slotTime: new Date(slotTime), 
+        isBooked: false 
+      });
+      slotTime = new Date(slotTime.getTime() + duration * 60000); // Increment by duration
+    }
+
+    // Save the updated schedule
+    await targetSchedule.save();
+
+    res.status(200).json({
+      message: 'Availability updated successfully',
+      schedule: targetSchedule
+    });
+  } catch (error) {
+    console.error('Error in updateAvailability:', error);
+    res.status(500).json({ message: 'Error updating availability', error: error.message });
+  }
+};
+
 module.exports = {
     getAllDoctors,
     createSchedule,
@@ -676,4 +898,6 @@ module.exports = {
     updateAppointmentStatus,
     getDoctorSlotsByDate,
     checkSlotAvailability,
+    checkAvailabilityUpdatable,
+    updateAvailability,
 };

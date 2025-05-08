@@ -20,7 +20,7 @@ const RecordService = {
 
       const data = await response.json();
       console.log("[RecordService] Record created:", data);
-      return data;
+      return data.record;
     } catch (error) {
       console.error("[RecordService] Error creating record:", error);
       throw error;
@@ -80,7 +80,7 @@ const RecordService = {
       const response = await fetch(
         `${process.env.REACT_APP_API_URL}/records/${recordId}`,
         {
-          method: "PUT",
+          method: "PATCH",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${TokenService.getAccessToken()}`,
@@ -122,6 +122,31 @@ const RecordService = {
       return true;
     } catch (error) {
       console.error("[RecordService] Error deleting record:", error);
+      throw error;
+    }
+  },
+
+  async getLinkRecord() {
+    try {
+      console.log("[RecordService] Fetching linked records");
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/records/link`,
+        {
+          headers: {
+            Authorization: `Bearer ${TokenService.getAccessToken()}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to get linked records");
+      }
+
+      const data = await response.json();
+      console.log("[RecordService] Linked records fetched:", data);
+      return data;
+    } catch (error) {
+      console.error("[RecordService] Error getting linked records:", error);
       throw error;
     }
   },

@@ -39,12 +39,26 @@ export function HoverPanelProvider({ children }) {
     }
   };
 
+  // Enhanced functionality to notify panel content about operation success
+  const notifySuccess = (callback = null) => {
+    // Close the panel first
+    closePanel(true);
+
+    // Execute the callback if provided (after panel closes)
+    if (typeof callback === "function") {
+      setTimeout(() => {
+        callback();
+      }, 300); // Match the transition duration
+    }
+  };
+
   return (
     <HoverPanelContext.Provider
       value={{
         ...state,
         openPanel,
         closePanel,
+        notifySuccess,
       }}
     >
       {children}
