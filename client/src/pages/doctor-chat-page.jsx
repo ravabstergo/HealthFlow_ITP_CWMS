@@ -305,8 +305,8 @@ export default function DoctorChatPage() {
   };
 
   return (
-      <div className="h-full flex flex-col">
-        <div className="p-4 border-b">
+      <div className="h-full flex flex-col bg-white">
+        <div className="p-3 border-b">
           <h1 className="text-xl font-semibold text-gray-800">Doctor Chat</h1>
           <p className="text-sm text-gray-500">Connect with your patients</p>
         </div>
@@ -469,7 +469,7 @@ export default function DoctorChatPage() {
                               className={`max-w-xs md:max-w-md rounded-2xl p-3 ${
                                 isCurrentUser
                                   ? (msg.pending 
-                                    ? 'bg-green-300 text-white'
+                                    ? 'bg-blue-300 text-white'
                                     : msg.failed 
                                       ? 'bg-red-500 text-white' 
                                       : 'bg-green-500 text-white')

@@ -267,7 +267,7 @@ export default function FinancialReportPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div className="p-6 space-y-6 bg-gray-50 min-h-screen bg-white-600">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Financial Report</h1>
         <div className="flex items-center gap-4">

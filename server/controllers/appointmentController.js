@@ -122,9 +122,12 @@ const getDoctorSlots = async (req, res) => {
     const allSlots = schedules.reduce((acc, schedule) => {
       console.log('Controller: Processing schedule with slots count:', schedule.slots.length);
       const slotsForDay = schedule.slots.filter(slot => {
-        const slotDate = new Date(slot.day);
-        slotDate.setHours(0, 0, 0, 0);
-        return slotDate.getTime() === queryDate.getTime();
+        const slotTime = new Date(slot.slotTime);
+        return (
+          slotTime.getFullYear() === queryDate.getFullYear() &&
+          slotTime.getMonth() === queryDate.getMonth() &&
+          slotTime.getDate() === queryDate.getDate()
+        );
       });
       console.log('Controller: Found matching slots for date:', slotsForDay.length);
       return acc.concat(slotsForDay);
@@ -285,9 +288,14 @@ const getDoctorById = async (req, res) => {
 const getDoctorSchedule = async (req, res) => {
   try {
     const doctorId = req.params.id;
-    const schedule = await DoctorSchedule.find({ doctorId });
+    // Use lean() for better performance and add options to prevent caching
+    const schedule = await DoctorSchedule.find({ doctorId })
+      .lean()
+      .select('-__v')
+      .maxTimeMS(30000)
+      .exec();
 
-    if (!schedule) {
+    if (!schedule || schedule.length === 0) {
       return res.status(404).json({ message: 'Schedule not found.' });
     }
 
@@ -624,8 +632,8 @@ const getDoctorSlotsByDate = async (req, res) => {
     const { date } = req.query;
     const queryDate = new Date(date);
 
-    // Find all schedules for the doctor
-    const schedules = await DoctorSchedule.find({ doctorId }).lean();
+    // Ensure we get fresh data from MongoDB
+    const schedules = await DoctorSchedule.find({ doctorId }).lean().maxTimeMS(30000);
 
     if (!schedules.length) {
       return res.status(404).json({ message: 'No schedule found for this doctor' });
@@ -634,11 +642,12 @@ const getDoctorSlotsByDate = async (req, res) => {
     // Filter slots for the specific date
     const slotsForDate = schedules.reduce((acc, schedule) => {
       const matchingSlots = schedule.slots.filter(slot => {
-        const slotDate = new Date(slot.slotTime);
+        const slotTime = new Date(slot.slotTime);
+        // Compare year, month, and day only
         return (
-          slotDate.getFullYear() === queryDate.getFullYear() &&
-          slotDate.getMonth() === queryDate.getMonth() &&
-          slotDate.getDate() === queryDate.getDate()
+          slotTime.getFullYear() === queryDate.getFullYear() &&
+          slotTime.getMonth() === queryDate.getMonth() &&
+          slotTime.getDate() === queryDate.getDate()
         );
       });
       return [...acc, ...matchingSlots];

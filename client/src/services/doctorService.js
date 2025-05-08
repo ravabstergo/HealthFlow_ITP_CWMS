@@ -1,6 +1,14 @@
 const getDoctorSchedules = async (doctorId) => {
     try {
-        const response = await fetch(`/api/appointments/doctors/${doctorId}/getSchedule`);
+        // Add cache-busting timestamp and no-cache headers
+        const timestamp = new Date().getTime();
+        const response = await fetch(`/api/appointments/doctors/${doctorId}/getSchedule?_=${timestamp}`, {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        });
         if (!response.ok) {
             throw new Error('Failed to fetch doctor schedules');
         }
@@ -132,7 +140,17 @@ const getDoctorSlotsByDate = async (doctorId, date) => {
         const formattedDate = new Date(date);
         formattedDate.setHours(0, 0, 0, 0);
         const isoDate = formattedDate.toISOString();
-        console.log('Service: Formatted date:', isoDate);        const response = await fetch(`/api/appointments/doctors/${doctorId}/slots/slots?date=${isoDate}`);
+        console.log('Service: Formatted date:', isoDate);
+        
+        // Add cache-busting timestamp
+        const timestamp = new Date().getTime();
+        const response = await fetch(`/api/appointments/doctors/${doctorId}/slots/slots?date=${isoDate}&_=${timestamp}`, {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        });
         console.log('Service: Response status:', response.status);
         
         if (!response.ok) {

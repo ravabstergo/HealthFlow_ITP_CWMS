@@ -11,17 +11,18 @@ import Calendar from './Calendar'
 
 
 export default function HealthFlowDashboard() {
+  // At the top of the component, initialize date with hours set to 0
+  const today = new Date(new Date().setHours(0, 0, 0, 0));
   const { currentUser, activeRole, permissions } = useAuthContext();
   const [activeTab, setActiveTab] = useState("Schedule")
   const [availabilityCount, setAvailabilityCount] = useState(0)
   const [availabilities, setAvailabilities] = useState([])
-  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState(today)
   const [filteredAvailabilities, setFilteredAvailabilities] = useState([])
   const [showAddPanel, setShowAddPanel] = useState(false)
   const [showUpdatePanel, setShowUpdatePanel] = useState(false)
   const [currentAvailability, setCurrentAvailability] = useState(null)
   const [consultationFee, setConsultationFee] = useState("")
-  const [today] = useState(new Date()) // Store today's date for min date restrictions
   const [availability, setAvailability] = useState([{ 
     day: new Date(), 
     startTime: new Date(), 
@@ -355,23 +356,46 @@ export default function HealthFlowDashboard() {
       try {
         const doctorId = currentUser?.id;
         console.log("Doctor ID:", doctorId);
+        if (!doctorId) return; // Don't fetch if no doctor ID
+
+        console.log("Fetching schedules for date:", selectedDate);
         const data = await getDoctorSchedules(doctorId);
+        
         if (Array.isArray(data)) {
           // Flatten all availabilities from all schedules into a single array
           const allAvailabilities = data.reduce((acc, schedule) => {
             return acc.concat(schedule.availability || []);
           }, []);
+          
+          console.log("All availabilities:", allAvailabilities);
           setAvailabilities(allAvailabilities);
-          filterAvailabilities(allAvailabilities, selectedDate); // Only set count through filterAvailabilities
+          
+          // Immediately filter availabilities for the current date
+          const startDate = new Date(selectedDate);
+          startDate.setHours(0, 0, 0, 0);
+          const endDate = new Date(selectedDate);
+          endDate.setDate(endDate.getDate() + 14);
+          
+          const filtered = allAvailabilities.filter(avail => {
+            const availDate = new Date(avail.day);
+            availDate.setHours(0, 0, 0, 0);
+            return availDate >= startDate && availDate <= endDate;
+          }).sort((a, b) => new Date(a.day) - new Date(b.day))
+          .slice(0, 14);
+          
+          console.log("Filtered availabilities:", filtered);
+          setFilteredAvailabilities(filtered);
+          setAvailabilityCount(filtered.length);
         }
       } catch (error) {
         console.error('Error fetching schedules:', error);
         setAvailabilityCount(0);
+        setFilteredAvailabilities([]);
       }
     };
 
     fetchSchedules();
-  }, [selectedDate]);
+  }, [selectedDate, currentUser?.id]); // Add currentUser?.id to dependencies
 
   const handleDateChange = (e) => {
     const selectedValue = e.target.value;

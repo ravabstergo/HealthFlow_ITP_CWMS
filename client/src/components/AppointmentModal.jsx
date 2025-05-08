@@ -37,9 +37,18 @@ export default function AppointmentModal({
   useEffect(() => {
     console.log('Useeffect triggered with:', { doctorId, selectedDate: selectedDate?.toISOString() });
     if (selectedDate && doctorId) {
+      // Clear existing slots before fetching new ones
+      setAvailableSlots([]);
+      setSelectedSlot(null);
       console.log('Fetching slots for:', { doctorId, selectedDate: selectedDate.toISOString() });
       fetchAvailableSlots();
     }
+    
+    // Cleanup function to reset slots when component unmounts
+    return () => {
+      setAvailableSlots([]);
+      setSelectedSlot(null);
+    };
   }, [selectedDate, doctorId]);
 
   const fetchAvailableSlots = async () => {
@@ -48,13 +57,19 @@ export default function AppointmentModal({
       console.log('Making API call to fetch slots');
       const slots = await getDoctorSlotsByDate(doctorId, selectedDate);
       console.log('Received slots:', slots);
-      const sortedSlots = slots.sort((a, b) => 
-        new Date(a.slotTime).getTime() - new Date(b.slotTime).getTime()
-      );
-      console.log('Sorted slots:', sortedSlots);
-      setAvailableSlots(sortedSlots);
+      if (Array.isArray(slots)) {
+        const sortedSlots = slots.sort((a, b) => 
+          new Date(a.slotTime).getTime() - new Date(b.slotTime).getTime()
+        );
+        console.log('Sorted slots:', sortedSlots);
+        setAvailableSlots(sortedSlots);
+      } else {
+        console.error('Received invalid slots data:', slots);
+        setAvailableSlots([]);
+      }
     } catch (error) {
       console.error('Error fetching slots:', error);
+      setAvailableSlots([]);
     } finally {
       setLoading(false);
     }
