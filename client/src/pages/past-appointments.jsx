@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLinkedRecordContext } from '../context/LinkedRecordContext';
 import api from '../services/api';
 
@@ -7,6 +8,7 @@ const PastAppointments = () => {
   const [encounters, setEncounters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchEncountersForRecord = async (recordId) => {
@@ -92,6 +94,12 @@ const PastAppointments = () => {
                   <span className="font-medium">Diagnosis:</span> {encounter.diagnosis}
                 </p>
               )}
+              <button
+                className="mt-4 w bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+                onClick={() => navigate('/account/feedback/create', { state: { encounterId: encounter._id } })}
+              >
+                Give Feedback
+              </button>
             </div>
           ))
         )}

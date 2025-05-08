@@ -15,7 +15,7 @@ const {
   });
   
   const generationConfig = {
-    temperature: 0.4,
+    temperature: 0.5,
     topP: 0.90,
     topK: 50,
     maxOutputTokens: 8192,
@@ -29,7 +29,7 @@ const {
         role: "user",
         parts:[
           {
-            text: "Your are chat assistant for a clinical management system. only answer questions realted to medical and hospital.and if user ask about medical or hospital realted question give them simple and short answers.if user ask any unrelated question, then say 'I am not able to answer this question,please ask only about medical realted questions'",
+            text: "Your are chat assistant for a clinical management system. only answer questions realted to medicine.and if user ask about health and medical realted question give them simple and short answers.if user ask any unrelated question, then say 'The texts you entered cannot be recognized as a medicine!'",
           },
         ],
       },

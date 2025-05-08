@@ -9,15 +9,10 @@ import PatientInformationTab from "./components/patient-detail/PatientInformatio
 import AppointmentHistoryTab from "./components/patient-detail/AppointmentHistoryTab";
 import NextTreatmentTab from "./components/patient-detail/NextTreatmentTab";
 import MedicalRecordTab from "./components/patient-detail/MedicalRecordTab";
-import DoctorSchedule from './components/DoctorSchedule';
-import TelemedicineMeeting from "./components/TelemedicineMeeting";
-import DoctorSearch from "./pages/doctor-search";
-import PatientAppointmentsPage from "./pages/patient-appointments-page";
-import PatientChatPage from "./pages/patient-chat-page";
-import DoctorChatPage from "./pages/doctor-chat-page"; // Import the new DoctorChatPage
 import PatientDocumentList from "./components/patient-detail/DocumentList";
 import DocumentList from "./pages/document_page";
 import PrescriptionPage from "./pages/prescription-page";
+import PrescriptionReport from "./pages/prescription-report";
 import AppointmentsPage from "./pages/appointments-page";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { RecordContextProvider } from "./context/RecordContext";
@@ -30,11 +25,23 @@ import FeedbackUpdatePage from "./pages/feedback-update-page";
 import FeedbackDeletePage from "./pages/feedback-delete-page";
 import DoctorFeedbackPage from "./pages/doctor-feedback-page";
 import FeedbackReportPage from "./pages/feedback-report-page";
+import DocumentViewer from './components/patient-detail/DocumentViewer';
+import PatientDocumentsPage from "./pages/patient-documents-page";
+import PatientPrescriptionPage from "./pages/patient-prescription";
 import FinancialReportPage from "./pages/finance-page";
 import { LinkedRecordProvider } from "./context/LinkedRecordContext";
+import DoctorSearch from "./pages/doctor-search";
+import PatientAppointmentsPage from "./pages/patient-appointments-page";
+import PatientChatPage from "./pages/patient-chat-page";
+import DoctorChatPage from "./pages/doctor-chat-page";
+import DoctorSchedule from './components/DoctorSchedule';
+import TelemedicineMeeting from "./components/TelemedicineMeeting";
 import RoleManagementPage from "./pages/RoleManagementPage";
 import RegisterPage from "./pages/RegisterPage";
-import PastAppointments from "./pages/past-appointments"; // adjust the path as needed
+import PastAppointments from "./pages/past-appointments";
+import AppointmentSuccessPage from "./pages/appointment-success";
+import AppointmentCancelPage from "./pages/appointment-cancel";
+
 
 
 function App() {
@@ -87,17 +94,21 @@ function App() {
 
           <Route path="search" element={<DoctorSearch />} />  
           <Route path="patient-appointments" element={<PatientAppointmentsPage />} />
+          <Route path="patient-prescription" element={<PatientPrescriptionPage />} />
           <Route path="patient-chat" element={<PatientChatPage />} />
-          <Route path="doctor-chat" element={<DoctorChatPage />} /> {/* Add route for doctor chat */}
+          <Route path="doctor-chat" element={<DoctorChatPage />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="patients" element={<PatientsPage />} />
           <Route path="finance" element={<FinancialReportPage />} />
           <Route path="documents" element={<DocumentList />} />
           <Route path="prescription" element={<PrescriptionPage />} />
+          <Route path="patient-documents" element={<PatientDocumentsPage />} />
+          <Route path="prescription-report" element={<PrescriptionReport />} />
           <Route path="schedule" element={<DoctorSchedule />} />   
           <Route path="meeting/:appointmentId" element={<TelemedicineMeeting />} />
           <Route path="staff" element={<RoleManagementPage />} />
           <Route path="patient/appointment-history" element={<PastAppointments />}/>
+          <Route path="/account/patient/appointment-history" element={<PastAppointments />}/>
           <Route path="appointments" element={<AppointmentsPage />} />
           <Route path="feedback" element={<FeedbackStartPage />} />
           <Route path="feedback/create/:id" element={<FeedbackCreatePage />} />
@@ -105,8 +116,12 @@ function App() {
           <Route path="feedback/edit/:id" element={<FeedbackUpdatePage />} />
           <Route path="feedback/delete/:id" element={<FeedbackDeletePage />} />
           <Route path="feedback/doctor" element={<DoctorFeedbackPage />} />
+          <Route path="documents/:id" element={<DocumentViewer />} />
           <Route path="account/feedback/report" element={<FeedbackReportPage />} />
-
+          <Route path="appointment-success" element={<AppointmentSuccessPage />} />
+          <Route path="appointment-cancel" element={<AppointmentCancelPage />} />
+          <Route path="/account/feedback/create" element={<FeedbackCreatePage />} />
+          <Route path="/account/past-appointments" element={<PastAppointments />} />
           {/* Patient detail and nested tabs */}
 
           <Route path="patients/:id" element={<PatientDetailPage />}>

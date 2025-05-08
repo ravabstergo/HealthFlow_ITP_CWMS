@@ -21,6 +21,8 @@ export default function PatientChatPage() {
   const [showDoctorList, setShowDoctorList] = useState(false); // Renamed from showSearch
   const [allDoctors, setAllDoctors] = useState([]); // State for all doctors
   const [loadingDoctors, setLoadingDoctors] = useState(false); // State for loading doctors
+  const [filteredConversations, setFilteredConversations] = useState([]);
+  const [conversationSearchQuery, setConversationSearchQuery] = useState('');
   const messagesEndRef = useRef(null);
 
   // Fetch conversations on component mount
@@ -44,6 +46,19 @@ export default function PatientChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (!conversationSearchQuery.trim()) {
+      setFilteredConversations(conversations);
+      return;
+    }
+    
+    const filtered = conversations.filter(conv => 
+      conv.name.toLowerCase().includes(conversationSearchQuery.toLowerCase()) ||
+      (conv.lastMessage && conv.lastMessage.toLowerCase().includes(conversationSearchQuery.toLowerCase()))
+    );
+    setFilteredConversations(filtered);
+  }, [conversationSearchQuery, conversations]);
 
   const fetchConversations = async () => {
     setLoading(true);
@@ -172,8 +187,18 @@ export default function PatientChatPage() {
         )
       );
       
-      // Refresh the conversation list to show updated last message
-      fetchConversations();
+      // Update only the current conversation in the list
+      setConversations(prevConversations => 
+        prevConversations.map(conv => 
+          conv.id === selectedConversation.id 
+            ? {
+                ...conv,
+                lastMessage: messageText,
+                timestamp: formatTimestamp(new Date())
+              }
+            : conv
+        )
+      );
     } catch (error) {
       console.error('Error sending message:', error);
       
@@ -280,8 +305,8 @@ export default function PatientChatPage() {
   };
 
   return (
-      <div className="h-full flex flex-col">
-        <div className="p-4 border-b">
+      <div className="h-full flex flex-col bg-white">
+        <div className="p-3 border-b">
           <h1 className="text-xl font-semibold text-gray-800">Patient Chat</h1>
           <p className="text-sm text-gray-500">Connect with your healthcare providers</p>
         </div>
@@ -347,9 +372,10 @@ export default function PatientChatPage() {
               ) : (
                 <input
                   type="text"
-                  placeholder="Search conversations..." // Keep local conversation filter
+                  placeholder="Search conversations..."
                   className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  // Add onChange handler for local filtering if needed
+                  value={conversationSearchQuery}
+                  onChange={(e) => setConversationSearchQuery(e.target.value)}
                 />
               )}
             </div>
@@ -371,7 +397,7 @@ export default function PatientChatPage() {
               </div>
             ) : (
               <div>
-                {conversations.map((conv) => (
+                {filteredConversations.map((conv) => (
                   <div
                     key={conv.id}
                     className={`p-3 flex items-center hover:bg-gray-100 cursor-pointer ${
@@ -439,14 +465,14 @@ export default function PatientChatPage() {
                             className={`mb-4 flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                           >
                             <div
-                              className={`max-w-xs md:max-w-md rounded-lg p-3 ${
+                              className={`max-w-xs md:max-w-md rounded-2xl p-3 ${
                                 isCurrentUser
                                   ? (msg.pending 
-                                    ? 'bg-blue-300 text-white rounded-br-none'
+                                    ? 'bg-blue-300 text-white'
                                     : msg.failed 
-                                      ? 'bg-red-500 text-white rounded-br-none' 
-                                      : 'bg-blue-500 text-white rounded-br-none')
-                                  : 'bg-white border rounded-bl-none'
+                                      ? 'bg-red-500 text-white' 
+                                      : 'bg-blue-500 text-white')
+                                  : 'bg-white border'
                               }`}
                             >
                               <p className="text-sm">{msg.text}</p>

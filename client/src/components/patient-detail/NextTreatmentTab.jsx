@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { useAuthContext } from "../../context/AuthContext";
 import TokenService from "../../services/TokenService";
 import Card from "../ui/card";
@@ -8,49 +9,10 @@ import Modal from "../ui/modal";
 import { Plus, Trash2, FileText, Calendar, User, Clock, Eye, Edit, Save, Bot } from "lucide-react";
 import jsPDF from 'jspdf';
 
-// Sample patient history data for testing
-const samplePatientHistory = {
-  medicalHistory: [
-    {
-      condition: "Type 2 Diabetes",
-      diagnosedDate: "2020-03-15",
-      status: "Ongoing",
-      severity: "Moderate",
-      notes: "Regular monitoring required"
-    },
-    {
-      condition: "Hypertension",
-      diagnosedDate: "2019-06-22",
-      status: "Managed",
-      severity: "Mild",
-      notes: "Controlled with medication"
-    }
-  ],
-  allergies: ["Penicillin", "Sulfa drugs"],
-  familyHistory: [
-    {
-      condition: "Diabetes",
-      relationship: "Father"
-    },
-    {
-      condition: "Heart Disease",
-      relationship: "Mother"
-    }
-  ],
-  vitals: {
-    lastRecorded: "2025-04-26",
-    bloodPressure: "130/85",
-    heartRate: "72",
-    temperature: "98.6°F",
-    weight: "75 kg"
-  }
-};
-
 export default function NextTreatmentTab() {
-  const patientId = "6804c179ef580968b447f2c1"; // Replace with actual patient ID from context or props
+  const { id: patientId } = useParams();
   const { currentUser } = useAuthContext();
   const doctorId = currentUser?.id;
-
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -71,6 +33,10 @@ export default function NextTreatmentTab() {
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [editButtonsVisible, setEditButtonsVisible] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [inputStates, setInputStates] = useState([{ value: "", cursorPosition: 0 }]);
+  const [patientData, setPatientData] = useState(null);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -81,21 +47,36 @@ export default function NextTreatmentTab() {
   };
 
   useEffect(() => {
+    if (!patientId || !doctorId) {
+      setError("Missing patient or doctor information");
+      setLoading(false);
+    }
+  }, [patientId, doctorId]);
+
+  useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
         const token = TokenService.getAccessToken();
         
-        const patientResponse = await fetch(`/api/auth/users/${patientId}`, {
+        // First fetch patient data using the correct endpoint
+        const patientResponse = await fetch(`/api/records/${patientId}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
           },
         });
 
-        if (patientResponse.ok) {
-          const patientData = await patientResponse.json();
-          setPatientName(patientData.name);
+        if (!patientResponse.ok) {
+          throw new Error("Failed to fetch patient data");
         }
 
+        const patientData = await patientResponse.json();
+        if (patientData && patientData.record) {
+          setPatientName(patientData.record.name?.firstName + " " + patientData.record.name?.lastName);
+          setPatientData(patientData.record);
+        }
+
+        // Then fetch prescriptions
         const prescriptionResponse = await fetch(`/api/prescriptions/patient/${patientId}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
@@ -106,8 +87,8 @@ export default function NextTreatmentTab() {
           throw new Error("Failed to fetch prescriptions");
         }
 
-        const data = await prescriptionResponse.json();
-        setPrescriptions(data);
+        const prescriptionData = await prescriptionResponse.json();
+        setPrescriptions(prescriptionData);
       } catch (err) {
         console.error("Error fetching data:", err);
         setError(err.message);
@@ -116,13 +97,75 @@ export default function NextTreatmentTab() {
       }
     };
 
-    fetchData();
+    if (patientId) {
+      fetchData();
+    }
   }, [patientId]);
+
+  const fetchDrugSuggestions = async (query) => {
+    if (!query) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      const token = TokenService.getAccessToken();
+      const response = await fetch(`/api/drugs/search?q=${encodeURIComponent(query)}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch drug suggestions");
+      }
+
+      const data = await response.json();
+      setSuggestions(data);
+      setShowSuggestions(true);
+    } catch (err) {
+      console.error("Error fetching drug suggestions:", err);
+    }
+  };
 
   const handleMedicineChange = (index, field, value) => {
     const updatedMedicines = [...medicines];
     updatedMedicines[index][field] = value;
     setMedicines(updatedMedicines);
+  };
+
+  const handleMedicineInputChange = async (index, field, value) => {
+    if (field === "medicineName") {
+      const cursorPos = document.activeElement.selectionStart;
+      setInputStates(prev => {
+        const newStates = [...prev];
+        newStates[index] = { 
+          value,
+          cursorPosition: cursorPos
+        };
+        return newStates;
+      });
+
+      const currentWord = value.split(' ')[0];
+      
+      if (currentWord) {
+        fetchDrugSuggestions(currentWord);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }
+    handleMedicineChange(index, field, value);
+  };
+
+  const handleSuggestionSelect = (index, suggestion) => {
+    const currentInput = inputStates[index]?.value || "";
+    const words = currentInput.split(' ');
+    
+    const newValue = [suggestion.name, ...words.slice(1)].join(' ');
+    handleMedicineChange(index, "medicineName", newValue);
+    setShowSuggestions(false);
   };
 
   const addMedicine = () => {
@@ -142,8 +185,17 @@ export default function NextTreatmentTab() {
     setIsSubmitting(true);
     setError(null);
 
+
+    if (!patientId || !doctorId) {
+      setError("Missing patient or doctor information. Please try refreshing the page.");
+      setIsSubmitting(false);
+      return;
+    }
+
+
     try {
       const token = TokenService.getAccessToken();
+      console.log("patiid", patientId, "docid", doctorId)
       const response = await fetch("/api/prescriptions", {
         method: "POST",
         headers: {
@@ -155,10 +207,10 @@ export default function NextTreatmentTab() {
           doctorId,
           medicines: medicines.map(med => ({
             ...med,
-            quantity: Number(med.quantity)
+            quantity: Number(med.quantity) || 0
           })),
           validUntil: new Date(validUntil).toISOString(),
-          notes,
+          notes: notes || "No additional notes",
         }),
       });
 
@@ -191,11 +243,7 @@ export default function NextTreatmentTab() {
   };
 
   const isEditable = (prescription) => {
-    console.log("========= Checking Prescription Editability =========");
-    console.log("Full prescription object:", prescription);
-    
     if (!prescription?.dateIssued) {
-      console.log("No dateIssued found in prescription!");
       return false;
     }
     
@@ -204,24 +252,16 @@ export default function NextTreatmentTab() {
     const oneHourInMilliseconds = 60 * 60 * 1000;
     const timeLeft = oneHourInMilliseconds - (currentTime - creationTime);
     
-    console.log("Creation time:", new Date(creationTime).toLocaleString());
-    console.log("Current time:", new Date(currentTime).toLocaleString());
-    console.log("Time left for editing:", Math.floor(timeLeft / 1000 / 60), "minutes");
-    console.log("Is editable:", timeLeft > 0);
-    console.log("=============================================");
-    
     return timeLeft > 0;
   };
 
   const handleViewPrescription = (prescription) => {
-    console.log("View button clicked for prescription:", prescription);
-    if (!prescription) {
-      console.log("No prescription data received");
+    if (!prescription?._id) {
+      console.error("Invalid prescription data");
       return;
     }
     
     const canEdit = isEditable(prescription);
-    console.log("Can edit prescription?", canEdit);
     
     setSelectedPrescription(prescription);
     setEditButtonsVisible(canEdit);
@@ -230,7 +270,6 @@ export default function NextTreatmentTab() {
 
   const handleDeletePrescription = async (prescriptionToDelete) => {
     if (!prescriptionToDelete || !prescriptionToDelete._id) {
-      console.error("Invalid prescription object");
       setError("Cannot delete prescription: Invalid prescription data");
       return;
     }
@@ -254,18 +293,15 @@ export default function NextTreatmentTab() {
         throw new Error("Failed to delete prescription");
       }
 
-      // Remove the deleted prescription from the state
       setPrescriptions(prescriptions.filter(p => p._id !== prescriptionToDelete._id));
       setViewModalOpen(false);
     } catch (err) {
-      console.error("Error deleting prescription:", err);
       setError(err.message);
     }
   };
 
   const handleDeleteClick = (prescription) => {
     if (!prescription) {
-      console.error("No prescription provided to delete");
       return;
     }
     handleDeletePrescription(prescription);
@@ -283,6 +319,9 @@ export default function NextTreatmentTab() {
     setIsSubmitting(true);
     try {
       const token = TokenService.getAccessToken();
+      if (!editedPrescription?._id) {
+        throw new Error("Invalid prescription data");
+      }
       const response = await fetch(`/api/prescriptions/${editedPrescription._id}`, {
         method: 'PUT',
         headers: {
@@ -290,11 +329,11 @@ export default function NextTreatmentTab() {
           "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
-          patientId: editedPrescription.patientId._id,
-          doctorId: editedPrescription.doctorId._id,
-          medicines: editedPrescription.medicines,
+          patientId: editedPrescription.patientId?._id || patientId,
+          doctorId: editedPrescription.doctorId?._id || doctorId,
+          medicines: editedPrescription.medicines || [],
           validUntil: new Date(editedPrescription.validUntil).toISOString(),
-          notes: editedPrescription.notes,
+          notes: editedPrescription.notes || "",
         }),
       });
 
@@ -302,7 +341,6 @@ export default function NextTreatmentTab() {
         throw new Error("Failed to update prescription");
       }
 
-      // Refresh prescriptions list
       const updatedResponse = await fetch(`/api/prescriptions/patient/${patientId}`, {
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -319,7 +357,6 @@ export default function NextTreatmentTab() {
       setSelectedPrescription(null);
       setEditedPrescription(null);
     } catch (err) {
-      console.error("Error updating prescription:", err);
       setError(err.message);
     } finally {
       setIsSubmitting(false);
@@ -340,7 +377,6 @@ export default function NextTreatmentTab() {
       setIsLoadingAi(true);
       setError(null);
       
-      // Get current medicines from the form
       const currentMedicines = medicines.map(med => ({
         name: med.medicineName,
         dosage: med.dosage,
@@ -353,29 +389,13 @@ export default function NextTreatmentTab() {
         return;
       }
 
-      // Create the prompt for AI model
-      const prompt = `As a medical AI assistant, please analyze this patient's current prescription and medical history:
+      if (!patientData) {
+        setError("Patient data not available. Please try refreshing the page.");
+        return;
+      }
 
-Patient Medical History:
-${samplePatientHistory.medicalHistory.map(history => 
-  `- ${history.condition}
-   Status: ${history.status}
-   Severity: ${history.severity}
-   Notes: ${history.notes}`
-).join('\n\n')}
-
-Known Allergies: ${samplePatientHistory.allergies.join(', ')}
-
-Family History:
-${samplePatientHistory.familyHistory.map(history => 
-  `- ${history.condition} (${history.relationship})`
-).join('\n')}
-
-Current Vital Signs:
-- Blood Pressure: ${samplePatientHistory.vitals.bloodPressure}
-- Heart Rate: ${samplePatientHistory.vitals.heartRate}
-- Temperature: ${samplePatientHistory.vitals.temperature}
-- Weight: ${samplePatientHistory.vitals.weight}
+      // Create the prompt for AI model using patient data
+      const prompt = `As a medical AI assistant, please analyze if the prescribed medicines are suitable for this patient based on their medical history:
 
 Current Prescribed Medicines:
 ${currentMedicines.map(med => 
@@ -385,16 +405,52 @@ ${currentMedicines.map(med =>
    Instructions: ${med.instructions || 'None'}`
 ).join('\n\n')}
 
+Patient's Medical Information:
+
+1. Known Allergies:
+${patientData.allergies && patientData.allergies.length > 0 
+  ? patientData.allergies.map(allergy => 
+    `- Allergen: ${allergy.allergenName}
+     Reaction: ${allergy.manifestation}`
+  ).join('\n')
+  : 'No known allergies'}
+
+2. Current Regular Medications:
+${patientData.regularMedications && patientData.regularMedications.length > 0
+  ? patientData.regularMedications.map(med => 
+    `- ${med.medicationName}
+     Form: ${med.form}
+     Dosage: ${med.dosage}
+     Route: ${med.route}
+     Status: ${med.status}`
+  ).join('\n\n')
+  : 'No regular medications'}
+
+3. Past Medical History:
+${patientData.pastMedicalHistory && patientData.pastMedicalHistory.length > 0
+  ? patientData.pastMedicalHistory.map(history => 
+    `- Condition: ${history.condition}
+     Status: ${history.clinicalStatus}
+     Onset: ${history.onset}`
+  ).join('\n\n')
+  : 'No past medical history recorded'}
+
+4. Risk Factors:
+${patientData.behavioralRiskFactors && patientData.behavioralRiskFactors.length > 0
+  ? patientData.behavioralRiskFactors.map(risk => 
+    `- Risk Factor: ${risk.riskFactorName}
+     Status: ${risk.status}
+     Duration: ${risk.duration}`
+  ).join('\n\n')
+  : 'No behavioral risk factors recorded'}
+
 Please analyze and provide:
-1. Potential drug interactions or concerns
-2. Allergy risk assessment
-3. Monitoring recommendations
-4. Treatment effectiveness analysis
-5. Any suggested adjustments`;
+1. Are there any potential allergic reactions to the prescribed medicines?
+2. Are there any contraindications with current medications?
+3. Are there any concerns based on the patient's medical history?
+4. What monitoring recommendations should be considered?
+5. Are any dosage adjustments needed based on patient's conditions?`;
 
-      console.log('Sending AI request...'); // Debug log
-
-      // Call the AI endpoint with the full URL
       const token = TokenService.getAccessToken();
       const response = await fetch('http://localhost:5000/api/ai/prompt', {
         method: 'POST',
@@ -405,17 +461,13 @@ Please analyze and provide:
         body: JSON.stringify({ prompt })
       });
 
-      console.log('Response status:', response.status); // Debug log
-
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Error response:', errorText); // Debug log
         throw new Error(`AI request failed: ${response.status} ${errorText}`);
       }
 
       const data = await response.json();
-      console.log('AI Response data:', data); // Debug log
-
+      
       if (!data.response) {
         throw new Error('AI response is empty or invalid');
       }
@@ -426,7 +478,7 @@ Please analyze and provide:
       });
       setShowAiNotification(true);
     } catch (err) {
-      console.error('Error details:', err); // Debug log
+      console.error('Error details:', err);
       setError(`AI Analysis Error: ${err.message}. Please try again.`);
     } finally {
       setIsLoadingAi(false);
@@ -434,9 +486,13 @@ Please analyze and provide:
   };
 
   const handleDownloadPrescription = (prescription) => {
+    if (!prescription?._id) {
+      console.error("Invalid prescription data");
+      return;
+    }
+
     const doc = new jsPDF();
     
-    // Set initial y position
     let y = 20;
     const lineHeight = 7;
     
@@ -479,14 +535,12 @@ Please analyze and provide:
       doc.text(`  Instructions: ${medicine.instructions}`, 25, y);
       y += lineHeight * 1.5;
 
-      // Add a new page if we're running out of space
       if (y > 250) {
         doc.addPage();
         y = 20;
       }
     });
 
-    // Add notes section
     doc.setFont('helvetica', 'bold');
     doc.text('Additional Notes:', 20, y);
     y += lineHeight;
@@ -494,7 +548,6 @@ Please analyze and provide:
     doc.text(prescription.notes || 'None', 20, y);
     y += lineHeight * 2;
 
-    // Add footer
     doc.line(20, y, 190, y);
     y += lineHeight;
     doc.setFontSize(9);
@@ -548,14 +601,35 @@ Please analyze and provide:
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Medicine Name"
-                value={medicine.medicineName}
-                onChange={(e) =>
-                  handleMedicineChange(index, "medicineName", e.target.value)
-                }
-                required
-              />
+              <div className="relative">
+                <Input
+                  label="Medicine Name"
+                  value={medicine.medicineName}
+                  onChange={(e) => handleMedicineInputChange(index, "medicineName", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab' && showSuggestions && suggestions.length > 0) {
+                      e.preventDefault();
+                      handleSuggestionSelect(index, suggestions[0]);
+                    }
+                  }}
+                  required
+                />
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute z-10 w-full bg-white mt-1 border border-gray-300 rounded-md shadow-lg">
+                    <ul className="max-h-60 overflow-auto py-1">
+                      {suggestions.map((suggestion, i) => (
+                        <li
+                          key={i}
+                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                          onClick={() => handleSuggestionSelect(index, suggestion)}
+                        >
+                          {suggestion.name}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
               <Input
                 label="Dosage"
                 value={medicine.dosage}
@@ -659,7 +733,8 @@ Please analyze and provide:
                       className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full p-1"
                     >
                       <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+
                       </svg>
                     </button>
                   </div>
@@ -734,7 +809,7 @@ Please analyze and provide:
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="bg-green-700 hover:bg-green-700 text-white"
+                    className="bg-green-600 hover:bg-green-700 text-white"
                     icon={<FileText className="w-4 h-4" />}
                     onClick={() => handleDownloadPrescription(selectedPrescription)}
                   >
@@ -914,36 +989,31 @@ Please analyze and provide:
           ) : (
             <div className="w-full">
               <div className="bg-gray-50">
-                <div className="grid grid-cols-6 gap-4 px-6 py-3 text-sm font-medium text-gray-500">
+                <div className="grid grid-cols-5 gap-4 px-6 py-3 text-sm font-medium text-gray-500">
                   <div>Date Issued</div>
                   <div>Valid Until</div>
-                  <div>Doctor</div>
                   <div>Status</div>
                   <div>Notes</div>
-                  <div className="text-right">Actions</div>
+                  <div></div>
                 </div>
               </div>
 
               <div className="divide-y divide-gray-100">
-                {prescriptions.map((prescription) => (
+                {prescriptions?.map((prescription) => prescription && (
                   <div
                     key={prescription._id}
-                    className="grid grid-cols-6 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors"
+                    className="grid grid-cols-5 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-center text-sm text-gray-900">
                       <Calendar className="w-4 h-4 text-blue-600 mr-2" />
-                      {formatDate(prescription.dateIssued)}
+                      {prescription?.dateIssued ? formatDate(prescription.dateIssued) : 'N/A'}
                     </div>
                     <div className="flex items-center text-sm text-gray-900">
                       <Clock className="w-4 h-4 text-orange-600 mr-2" />
-                      {formatDate(prescription.validUntil)}
-                    </div>
-                    <div className="flex items-center text-sm text-gray-900">
-                      <User className="w-4 h-4 text-gray-400 mr-2" />
-                      {prescription.doctorId?.name || "Unknown"}
+                      {prescription?.validUntil ? formatDate(prescription.validUntil) : 'N/A'}
                     </div>
                     <div>
-                      {new Date(prescription.validUntil) > new Date() ? (
+                      {prescription?.validUntil && new Date(prescription.validUntil) > new Date() ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                           Active
                         </span>
@@ -954,7 +1024,7 @@ Please analyze and provide:
                       )}
                     </div>
                     <div className="text-sm text-gray-500 truncate">
-                      {prescription.notes}
+                      {prescription?.notes || 'No notes'}
                     </div>
                     <div className="text-right">
                       <Button
@@ -972,7 +1042,7 @@ Please analyze and provide:
             </div>
           )}
         </div>
-      )}
+      )}  
     </>
   );
 }

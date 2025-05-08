@@ -21,10 +21,10 @@ const getDoctorFinancialReport = async (req, res) => {
 
         const appointments = await Appointment.find(query);
         
-        // Get doctor's schedule to access consultation fees
-        const doctorSchedule = await DoctorSchedule.findOne({ doctorId });
-        if (!doctorSchedule) {
-            return res.status(404).json({ message: 'Doctor schedule not found' });
+        // Get all doctor's schedules to access consultation fees
+        const doctorSchedules = await DoctorSchedule.find({ doctorId });
+        if (!doctorSchedules.length) {
+            return res.status(404).json({ message: 'Doctor schedules not found' });
         }
 
         // Group appointments by month
@@ -58,11 +58,21 @@ const getDoctorFinancialReport = async (req, res) => {
                 };
             }
 
-            // Update counts and income
+            // Find the specific schedule and slot for this appointment
+            let consultationFee = 0;
+            for (const schedule of doctorSchedules) {
+                const slot = schedule.slots.id(appointment.slotId);
+                if (slot) {
+                    consultationFee = schedule.consultationFee;
+                    break;
+                }
+            }
+
+            // Update counts and income with schedule-specific fee
             monthlyData[monthKey].appointmentCount++;
-            monthlyData[monthKey].totalIncome += doctorSchedule.consultationFee;
+            monthlyData[monthKey].totalIncome += consultationFee;
             dailyAppointments[monthKey][dayKey].count++;
-            dailyAppointments[monthKey][dayKey].income += doctorSchedule.consultationFee;
+            dailyAppointments[monthKey][dayKey].income += consultationFee;
         }
 
         // Calculate additional metrics for each month

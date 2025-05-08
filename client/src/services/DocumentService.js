@@ -83,9 +83,20 @@ const DocumentService = {
 
   async updateDocument(id, formData) {
     try {
+      // Create a new FormData only if any data is provided
+      let data = formData;
+      if (!(formData instanceof FormData)) {
+        data = new FormData();
+        // Only append fields that are provided
+        if (formData.documentName) data.append("documentName", formData.documentName);
+        if (formData.documentType) data.append("documentType", formData.documentType);
+        if (formData.doctorId) data.append("doctorId", formData.doctorId);
+        if (formData.file) data.append("document", formData.file);
+      }
+
       const response = await fetch(`${process.env.REACT_APP_API_URL}/document/${id}`, {
         method: 'PUT',
-        body: formData,
+        body: data,
       });
 
       if (!response.ok) {
@@ -93,8 +104,8 @@ const DocumentService = {
         throw new Error(errorData.message || 'Failed to update document');
       }
 
-      const data = await response.json();
-      return data.document;
+      const result = await response.json();
+      return result.document;
     } catch (error) {
       console.error('Error updating document:', error);
       throw error;
@@ -139,26 +150,52 @@ const DocumentService = {
   async downloadDocument(id) {
     try {
       console.log('Downloading document with ID:', id);
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/document/${id}/download`);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/document/${id}/download`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Download response not OK:', errorData);
         throw new Error(errorData.message || 'Failed to download document');
       }
       
       const data = await response.json();
+      console.log('Download response data:', data);
       
-      if (!data.downloadUrl) {
-        throw new Error('Download URL not available');
-      }
-      
-      return {
-        url: data.downloadUrl,
-        filename: data.filename,
-        contentType: data.contentType
-      };
+      // Return data as is - it will contain url, filename, and contentType
+      return data;
+
     } catch (error) {
       console.error('[DocumentService] Download document error:', error);
+      throw error;
+    }
+  },
+
+  async getDocumentPreviewUrl(id) {
+    try {
+
+      console.log('Fetching document preview URL for ID:', id);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/document/${id}/preview`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get document preview URL');
+      }
+
+      const data = await response.json();
+      return data.previewUrl;
+    } catch (error) {
+      console.error('[DocumentService] Get preview URL error:', error);
       throw error;
     }
   }

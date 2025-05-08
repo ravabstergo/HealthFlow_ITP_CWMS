@@ -78,6 +78,8 @@ export default function Sidebar() {
     {
       category: "CLINICAL",
       items: [
+        { name: "Patient Documents", icon: <File className="w-4 h-4" />, path: "patient-documents" },
+        { name: "Patient Prescriptions", icon: <FileText className="w-4 h-4" />, path: "patient-prescription" },
         { 
           name: "Patients", 
           icon: <Users className="w-4 h-4" />, 
@@ -102,6 +104,7 @@ export default function Sidebar() {
           path: "documents",
           requiredPerm: "document:view:own"
         },
+
       ],
     },
     {
@@ -152,7 +155,7 @@ export default function Sidebar() {
         { 
           name: "Feedback", 
           icon: <MessageSquare className="w-4 h-4" />, 
-          path: "feedback",
+          path: "feedback/summary/:id",
           requiredPerm: "feedback:view:own"
         },
         { 

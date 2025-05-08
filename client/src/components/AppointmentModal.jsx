@@ -21,31 +21,93 @@ export default function AppointmentModal({
   const [currentStep, setCurrentStep] = useState(1);
   const [isSliding, setIsSliding] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  useEffect(() => {
-    console.log('Useeffect triggered with:', { doctorId, selectedDate: selectedDate?.toISOString() });
-    if (selectedDate && doctorId) {
-      console.log('Fetching slots for:', { doctorId, selectedDate: selectedDate.toISOString() });
-      fetchAvailableSlots();
-    }
-  }, [selectedDate, doctorId]);
+  const [datesWithSlots, setDatesWithSlots] = useState(new Set());
 
-  const fetchAvailableSlots = async () => {
+  // Reset state when modal is closed
+  const handleClose = () => {
+    setSelectedDate(today);
+    setCurrentDate(today);
+    setAvailableSlots([]);
+    setSelectedSlot(null);
+    setCurrentStep(1);
+    setIsSliding(false);
+    setShowDetailsModal(false);
+    setDatesWithSlots(new Set());
+    onClose();
+  };
+
+  // Fetch all slots for the current month
+  const fetchMonthSlots = async (date) => {
     try {
       setLoading(true);
-      console.log('Making API call to fetch slots');
-      const slots = await getDoctorSlotsByDate(doctorId, selectedDate);
-      console.log('Received slots:', slots);
-      const sortedSlots = slots.sort((a, b) => 
-        new Date(a.slotTime).getTime() - new Date(b.slotTime).getTime()
-      );
-      console.log('Sorted slots:', sortedSlots);
-      setAvailableSlots(sortedSlots);
+      const start = startOfMonth(date);
+      const end = endOfMonth(date);
+      const days = eachDayOfInterval({ start, end });
+      
+      const availableDates = new Set();
+      
+      // Fetch slots for each day in parallel
+      const slotsPromises = days.map(day => getDoctorSlotsByDate(doctorId, day));
+      const slotsResults = await Promise.all(slotsPromises);
+      
+      // Process results to find dates with available slots
+      slotsResults.forEach((slots, index) => {
+        if (Array.isArray(slots) && slots.some(slot => !slot.isBooked)) {
+          availableDates.add(days[index].getTime());
+        }
+      });
+      
+      setDatesWithSlots(availableDates);
     } catch (error) {
-      console.error('Error fetching slots:', error);
+      console.error('Error fetching month slots:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  // Fetch slots for a specific date
+  const fetchAvailableSlots = async () => {
+    try {
+      setLoading(true);
+      const slots = await getDoctorSlotsByDate(doctorId, selectedDate);
+      if (Array.isArray(slots)) {
+        const sortedSlots = slots
+          .filter(slot => !slot.isBooked)
+          .sort((a, b) => new Date(a.slotTime).getTime() - new Date(b.slotTime).getTime());
+        setAvailableSlots(sortedSlots);
+      } else {
+        setAvailableSlots([]);
+      }
+    } catch (error) {
+      console.error('Error fetching slots:', error);
+      setAvailableSlots([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (doctorId) {
+      fetchMonthSlots(currentDate);
+    }
+  }, [doctorId, currentDate]);
+
+  useEffect(() => {
+    console.log('Useeffect triggered with:', { doctorId, selectedDate: selectedDate?.toISOString() });
+    if (selectedDate && doctorId) {
+      // Clear existing slots before fetching new ones
+      setAvailableSlots([]);
+      setSelectedSlot(null);
+      console.log('Fetching slots for:', { doctorId, selectedDate: selectedDate.toISOString() });
+      fetchAvailableSlots();
+    }
+    
+    // Cleanup function to reset slots when component unmounts
+    return () => {
+      setAvailableSlots([]);
+      setSelectedSlot(null);
+    };
+  }, [selectedDate, doctorId]);
 
   const handleProceed = () => {
     if (!selectedSlot) {
@@ -99,15 +161,17 @@ export default function AppointmentModal({
   };
   return (
     <>
-      {/* Global overlay */}      <div className="fixed inset-0 bg-black/50 z-30" />      <div className="fixed top-[50%] right-[calc(4rem+1px)] -translate-y-1/2 z-40">
-        <div className={`bg-white w-[450px] min-h-[600px] shadow-lg rounded-2xl max-h-[90vh] overflow-y-auto transition-transform duration-300 ${isSliding ? 'translate-x-[95%]' : 'translate-x-0'}`}>
+      {/* Global overlay */}      
+      <div className="fixed inset-0 bg-black/50 z-30" />      
+      <div className="fixed top-[50%] right-[calc(4rem+1px)] -translate-y-1/2 z-40">
+        <div className={`bg-white w-[450px] min-h-[850px] shadow-lg rounded-2xl max-h-[90vh] overflow-y-auto transition-transform duration-300 ${isSliding ? 'translate-x-[95%]' : 'translate-x-0'}`}>
           {/* Header */}
           <div className="flex justify-between items-center p-4 border-b">
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-600">Appointment No:</span>
               <span className="text-sm font-medium">#DOC0010</span>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -189,15 +253,19 @@ export default function AppointmentModal({
                     <div key={dayIndex} className="text-center">
                       {day && (
                         <button
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm 
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm relative
                             ${!isSameMonth(day, currentDate) ? "text-gray-300" : 
                               isSameDay(day, selectedDate) ? "bg-indigo-500 text-white" : 
                               day < new Date(new Date().setHours(0, 0, 0, 0)) ? "text-gray-300 cursor-not-allowed" :
-                              "text-gray-700 hover:bg-gray-100"}`}
-                          onClick={() => day >= new Date(new Date().setHours(0, 0, 0, 0)) ? setSelectedDate(day) : null}
-                          disabled={!isSameMonth(day, currentDate) || day < new Date(new Date().setHours(0, 0, 0, 0))}
+                              datesWithSlots.has(day.getTime()) ? "text-gray-700 hover:bg-gray-100 ring-2 ring-indigo-200" :
+                              "text-gray-400 hover:bg-gray-50"}`}
+                          onClick={() => day >= new Date(new Date().setHours(0, 0, 0, 0)) && datesWithSlots.has(day.getTime()) ? setSelectedDate(day) : null}
+                          disabled={!isSameMonth(day, currentDate) || day < new Date(new Date().setHours(0, 0, 0, 0)) || !datesWithSlots.has(day.getTime())}
                         >
                           {format(day, 'd')}
+                          {datesWithSlots.has(day.getTime()) && (
+                            <span className="absolute bottom-0.5 w-1 h-1 bg-indigo-500 rounded-full"></span>
+                          )}
                         </button>
                       )}
                     </div>
@@ -260,6 +328,7 @@ export default function AppointmentModal({
           onClose={() => {
             setShowDetailsModal(false);
             setIsSliding(false);
+            handleClose();
           }}
           appointmentData={{
             doctorName,

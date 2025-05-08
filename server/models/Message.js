@@ -13,7 +13,8 @@ const messageSchema = new mongoose.Schema({
   },
   content: {
     type: String,
-    required: true
+    required: true,
+    encrypted: true // Flag to indicate content is encrypted
   },
   read: {
     type: Boolean,
