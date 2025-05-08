@@ -12,6 +12,7 @@ import MedicalRecordTab from "./components/patient-detail/MedicalRecordTab";
 import PatientDocumentList from "./components/patient-detail/DocumentList";
 import DocumentList from "./pages/document_page";
 import PrescriptionPage from "./pages/prescription-page";
+import PrescriptionReport from "./pages/prescription-report";
 import AppointmentsPage from "./pages/appointments-page";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { RecordContextProvider } from "./context/RecordContext";
@@ -24,6 +25,7 @@ import FeedbackUpdatePage from "./pages/feedback-update-page";
 import FeedbackDeletePage from "./pages/feedback-delete-page";
 import DoctorFeedbackPage from "./pages/doctor-feedback-page";
 import FeedbackReportPage from "./pages/feedback-report-page";
+import PatientPrescriptionPage from "./pages/patient-prescription";
 import FinancialReportPage from "./pages/finance-page";
 import { LinkedRecordProvider } from "./context/LinkedRecordContext";
 import DoctorSearch from "./pages/doctor-search";
@@ -37,6 +39,7 @@ import RegisterPage from "./pages/RegisterPage";
 import PastAppointments from "./pages/past-appointments";
 import AppointmentSuccessPage from "./pages/appointment-success";
 import AppointmentCancelPage from "./pages/appointment-cancel";
+
 
 
 function App() {
@@ -89,6 +92,7 @@ function App() {
 
           <Route path="search" element={<DoctorSearch />} />  
           <Route path="patient-appointments" element={<PatientAppointmentsPage />} />
+          <Route path="patient-prescription" element={<PatientPrescriptionPage />} />
           <Route path="patient-chat" element={<PatientChatPage />} />
           <Route path="doctor-chat" element={<DoctorChatPage />} />
           <Route path="dashboard" element={<Dashboard />} />
@@ -96,6 +100,7 @@ function App() {
           <Route path="finance" element={<FinancialReportPage />} />
           <Route path="documents" element={<DocumentList />} />
           <Route path="prescription" element={<PrescriptionPage />} />
+          <Route path="prescription-report" element={<PrescriptionReport />} />
           <Route path="schedule" element={<DoctorSchedule />} />   
           <Route path="meeting/:appointmentId" element={<TelemedicineMeeting />} />
           <Route path="staff" element={<RoleManagementPage />} />

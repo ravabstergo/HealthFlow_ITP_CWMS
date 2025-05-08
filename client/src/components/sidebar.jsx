@@ -78,6 +78,7 @@ export default function Sidebar() {
     {
       category: "CLINICAL",
       items: [
+        { name: "Patient Prescriptions", icon: <FileText className="w-4 h-4" />, path: "patient-prescription" },
         { 
           name: "Patients", 
           icon: <Users className="w-4 h-4" />, 
@@ -102,6 +103,7 @@ export default function Sidebar() {
           path: "documents",
           requiredPerm: "document:view:own"
         },
+
       ],
     },
     {

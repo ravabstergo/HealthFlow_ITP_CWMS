@@ -5,8 +5,9 @@ const connectDB = require("./config/DB");
 
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const encounterRoutes = require("./routes/encounterRoutes");
-const prescriptionRoutes = require("./routes/PrescriptionRoute");
-const aiModelRoute = require("./routes/aiModelRoute");
+const prescriptionRoutes = require('./routes/PrescriptionRoute');
+const aiModelRoute = require('./routes/aiModelRoute');
+const drugsRoute = require('./routes/drugsdb');
 const authRoutes = require("./routes/authRoutes");
 const recordRoutes = require("./routes/recordRoutes");
 const DocRoutes = require("./routes/DocumentRoutes");
@@ -17,6 +18,7 @@ const chatRoutes = require('./routes/chatRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 const financialRoutes = require('./routes/financialRoutes'); // Import financial routes
 const paymentRoutes = require('./routes/paymentRoutes'); // Import payment routes
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -51,6 +53,7 @@ console.log("Setting up routes...");
 app.use("/api/auth", authRoutes);
 app.use("/api/records", recordRoutes);
 app.use("/api/feedback", feedbackRoutes);
+app.use("/api/drugs", drugsRoute);
 app.use("/api/prescriptions", prescriptionRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/patients", patientRoutes);
@@ -61,7 +64,6 @@ app.use("/api/preregistration", preRegisterRoutes);
 app.use("/api/encounters", encounterRoutes);
 app.use('/api/finance', financialRoutes); // Use financial routes
 app.use('/api/payments', paymentRoutes); // Use payment routes
-
 require("./aiModel");
 app.use("/api/ai", aiModelRoute);
 
