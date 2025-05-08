@@ -28,6 +28,8 @@ import FeedbackUpdatePage from "./pages/feedback-update-page";
 import FeedbackDeletePage from "./pages/feedback-delete-page";
 import DoctorFeedbackPage from "./pages/doctor-feedback-page";
 import FeedbackReportPage from "./pages/feedback-report-page";
+import DocumentViewer from './components/patient-detail/DocumentViewer';
+import PatientDocumentsPage from "./pages/patient-documents-page";
 
 
 function App() {
@@ -77,6 +79,7 @@ function App() {
           <Route path="patients" element={<PatientsPage />} />
           <Route path="documents" element={<DocumentList />} />
           <Route path="prescription" element={<PrescriptionPage />} />
+          <Route path="patient-documents" element={<PatientDocumentsPage />} />
           <Route path="schedule" element={<DoctorSchedule />} />   
           <Route path="meeting/:appointmentId" element={<TelemedicineMeeting />} />
 
@@ -101,6 +104,7 @@ function App() {
           <Route path="feedback/delete/:id" element={<FeedbackDeletePage />} />
           <Route path="feedback/doctor" element={<DoctorFeedbackPage />} />
           <Route path="/account/feedback/report" element={<FeedbackReportPage />} />
+          <Route path="documents/:id" element={<DocumentViewer />} />
         </Route>
       </Routes>
     </div>

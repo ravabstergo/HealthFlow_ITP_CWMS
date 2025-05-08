@@ -83,30 +83,30 @@ const insertDocument = async (req, res) => {
 const updateDocument = async (req, res) => {
   upload.single("document")(req, res, async (err) => {
     if (err) {
-      return res
-        .status(500)
-        .json({ message: "File upload failed", error: err.message });
+      return res.status(500).json({ message: "File upload failed", error: err.message });
     }
 
     try {
       const { id } = req.params;
-
       const document = await Document.findById(id);
 
       if (!document) {
-        return res
-          .status(404)
-          .json({ message: "Document not found for the given id" });
+        return res.status(404).json({ message: "Document not found for the given id" });
       }
 
-      if (req.body.documentName) document.documentName = req.body.documentName;
-      if (req.body.documentType) document.documentType = req.body.documentType;
-      if (req.body.doctorId) document.doctorid = req.body.doctorId;
+      // Only update fields that are provided
+      if (req.body.documentName) {
+        document.documentName = req.body.documentName;
+      }
+      if (req.body.documentType) {
+        document.documentType = req.body.documentType;
+      }
+      if (req.body.doctorId) {
+        document.doctorid = req.body.doctorId;
+      }
 
-      document.status = "Pending";
-
+      // Only update the file if one was uploaded
       if (req.file) {
-        // Determine if the file is a PDF
         const isPdf = req.file.mimetype === 'application/pdf';
         
         const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
@@ -124,8 +124,12 @@ const updateDocument = async (req, res) => {
         });
       }
 
-      document.modifiedAt = new Date();
+      // Only reset status if any changes were made
+      if (req.body.documentName || req.body.documentType || req.file) {
+        document.status = "Pending";
+      }
 
+      document.modifiedAt = new Date();
       await document.save();
 
       res.status(200).json({
@@ -279,13 +283,13 @@ const downloadDocument = async (req, res) => {
     const filename = `${document.documentName}${fileExtension ? '.' + fileExtension : ''}`;
 
     // For Cloudinary URLs, ensure we're getting a download URL
-    let downloadUrl = document.documentUrl;
-    if (downloadUrl.includes('cloudinary.com')) {
-      downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
+    let url = document.documentUrl;
+    if (url.includes('cloudinary.com')) {
+      url = url.replace('/upload/', '/upload/fl_attachment/');
     }
 
     res.status(200).json({
-      downloadUrl,
+      url,
       filename,
       contentType
     });
@@ -326,6 +330,44 @@ const getAllDocumentsByDoctor = async (req, res) => {
   }
 };
 
+const getDocumentPreview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('Fetching document preview for ID:', id);
+    
+    // Find the document
+    const document = await Document.findById(id);
+    if (!document) {
+      return res.status(404).json({ message: 'Document not found' });
+    }
+
+    // Get the document URL
+    const documentUrl = document.documentUrl;
+    if (!documentUrl) {
+      return res.status(404).json({ message: 'Document URL not found' });
+    }
+
+    // For Cloudinary URLs, modify based on file type
+    let previewUrl = documentUrl;
+    if (documentUrl.includes('cloudinary.com')) {
+      const fileExtension = document.documentName.split('.').pop().toLowerCase();
+      
+      if (fileExtension === 'pdf') {
+        // For PDFs, use raw format to prevent download
+        previewUrl = documentUrl.replace('/upload/', '/upload/fl_attachment:false,fl_raw:true/');
+      } else {
+        // For images and other files, use the existing preview format
+        previewUrl = documentUrl.replace('/upload/', '/upload/fl_attachment:false,fl_force_strip:true/');
+      }
+    }
+
+    res.json({ previewUrl });
+  } catch (error) {
+    console.error('Error getting document preview:', error);
+    res.status(500).json({ message: 'Error getting document preview' });
+  }
+};
+
 module.exports = {
   insertDocument,
   updateDocument,
@@ -334,5 +376,6 @@ module.exports = {
   deleteDocument,
   statusUpdate,
   downloadDocument,
-  getAllDocumentsByDoctor
+  getAllDocumentsByDoctor,
+  getDocumentPreview,
 };

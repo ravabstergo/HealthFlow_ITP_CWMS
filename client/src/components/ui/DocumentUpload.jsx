@@ -143,34 +143,31 @@ export default function DocumentUpload({
     try {
       setUploading(true);
 
-      console.log("Patient ID:", patientId);
-      console.log("Doctor ID:", doctorId || doctorIdFromContext);
-
-      if (!documentName.trim()) {
-        throw new Error("Document name is required");
-      }
-
-      if (!patientId) {
-        throw new Error("Patient ID is required");
-      }
-
-      // Ensure doctorId is either passed as prop or fetched from context
-      const actualDoctorId = doctorId || doctorIdFromContext;
-      if (!actualDoctorId) {
-        throw new Error("Doctor ID is required");
-      }
-
       if (mode === "create") {
-        const formData = new FormData();
-        if (attachments[0]) {
-          formData.append("document", attachments[0].file);
-        } else {
+        // For create, all fields are required
+        if (!documentName.trim()) {
+          throw new Error("Document name is required");
+        }
+
+        if (!patientId) {
+          throw new Error("Patient ID is required");
+        }
+
+        const actualDoctorId = doctorId || doctorIdFromContext;
+        if (!actualDoctorId) {
+          throw new Error("Doctor ID is required");
+        }
+
+        if (attachments.length === 0) {
           throw new Error("Please select a file to upload");
         }
+
+        const formData = new FormData();
+        formData.append("document", attachments[0].file);
         formData.append("documentName", documentName.trim());
         formData.append("documentType", documentType);
         formData.append("patientId", patientId);
-        formData.append("doctorId", actualDoctorId); // Ensure doctorId is passed here
+        formData.append("doctorId", actualDoctorId);
         formData.append("status", status);
 
         const uploadedDoc = await DocumentService.uploadDocument(formData);
@@ -178,10 +175,36 @@ export default function DocumentUpload({
           onUploadSuccess(uploadedDoc);
           handleCleanup();
         }
+      } else {
+        // For edit mode, only send changed fields
+        const id = documentData._id;
+        const updates = {};
+        
+        // Only include changed fields
+        if (documentName !== documentData.documentName) {
+          updates.documentName = documentName;
+        }
+        if (documentType !== documentData.documentType) {
+          updates.documentType = documentType;
+        }
+        if (attachments.length > 0) {
+          updates.file = attachments[0].file;
+        }
+
+        // Only proceed if there are changes
+        if (Object.keys(updates).length > 0) {
+          const updatedDoc = await DocumentService.updateDocument(id, updates);
+          if (updatedDoc) {
+            onUpdateSuccess(updatedDoc);
+            handleCleanup();
+          }
+        } else {
+          onClose();
+        }
       }
-      // Similar handling for other modes...
     } catch (error) {
       console.error("Document operation failed:", error);
+      throw error;
     } finally {
       setUploading(false);
     }

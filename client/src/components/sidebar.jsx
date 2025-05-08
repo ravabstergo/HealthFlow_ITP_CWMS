@@ -35,6 +35,7 @@ export default function Sidebar({ selectedItem, onSelectItem }) {
       items: [
         { name: "Patients", icon: <Users className="w-4 h-4" />, path: "patients" },
         { name: "Prescriptions", icon: <FileText className="w-4 h-4" />, path: "prescription" },
+        { name: "Patient Documents", icon: <File className="w-4 h-4" />, path: "patient-documents" },
         { name: "Documents", icon: <File className="w-4 h-4" />, path: "documents" },
       ],
     },
