@@ -9,7 +9,7 @@ const generateAccessToken = (userId, activeRoleId) => {
   );
 
   const token = jwt.sign({ userId, activeRoleId }, process.env.JWT_SECRET, {
-    expiresIn: "30m", // Access token valid for 30 minutes
+    expiresIn: "120m", // Access token valid for 30 minutes
   });
 
   console.log("[JWT] Access token generated successfully for userId:", userId);
