@@ -27,10 +27,11 @@ export default function DocumentList() {
 
   const fetchDocuments = async () => {
     try {
+
       const doctorId = currentUser.id;
       console.log("Fetching documents for doctor ID:", doctorId);
       setLoading(true);
-      const data = await DocumentService.getAllDocumentsByDoctor(doctorId);
+      const data = await DocumentService.getAllDocumentsByDoctor();
       if (!data || !Array.isArray(data)) {
         throw new Error('Invalid document data received');
       }

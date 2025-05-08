@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { useAuthContext } from "../../context/AuthContext";
 import TokenService from "../../services/TokenService";
 import Card from "../ui/card";
@@ -47,10 +48,11 @@ const samplePatientHistory = {
 };
 
 export default function NextTreatmentTab() {
-  const patientId = "6804c179ef580968b447f2c1"; // Replace with actual patient ID from context or props
+  const { id: patientId } = useParams();
+  console.log("patientID",patientId)
   const { currentUser } = useAuthContext();
   const doctorId = currentUser?.id;
-
+  console.log("DoctoryID",doctorId)
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -142,8 +144,18 @@ export default function NextTreatmentTab() {
     setIsSubmitting(true);
     setError(null);
 
+
+    if (!patientId || !doctorId) {
+      console.log("patiid", patientId, "docid", doctorId)
+      setError("Patient ID or Doctor ID not found");
+      setIsSubmitting(false);
+      return;
+    }
+
+
     try {
       const token = TokenService.getAccessToken();
+      console.log("patiid", patientId, "docid", doctorId)
       const response = await fetch("/api/prescriptions", {
         method: "POST",
         headers: {
@@ -158,7 +170,7 @@ export default function NextTreatmentTab() {
             quantity: Number(med.quantity)
           })),
           validUntil: new Date(validUntil).toISOString(),
-          notes,
+          notes: notes || "No additional notes",
         }),
       });
 
@@ -659,7 +671,7 @@ Please analyze and provide:
                       className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full p-1"
                     >
                       <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414-1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                       </svg>
                     </button>
                   </div>
