@@ -106,7 +106,8 @@ function App() {
           <Route path="feedback/delete/:id" element={<FeedbackDeletePage />} />
           <Route path="feedback/doctor" element={<DoctorFeedbackPage />} />
           <Route path="account/feedback/report" element={<FeedbackReportPage />} />
-
+          <Route path="/account/feedback/create" element={<FeedbackCreatePage />} />
+          
           {/* Patient detail and nested tabs */}
 
           <Route path="patients/:id" element={<PatientDetailPage />}>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Button from "../components/ui/button";
 import { toast } from "react-toastify";
 import TokenService from "../services/TokenService";
@@ -7,6 +7,8 @@ import { X, User, Calendar, Stethoscope } from "lucide-react";
 
 export default function FeedbackCreatePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const encounterId = location.state?.encounterId; // Retrieve encounterId from state
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [comments, setComments] = useState("");
@@ -136,6 +138,11 @@ export default function FeedbackCreatePage() {
   };
 
   const handleSubmit = async () => {
+    if (!encounterId) {
+      toast.error("No encounter ID provided. Please try again.");
+      return;
+    }
+
     if (checkForBadWords(comments)) {
       toast.error("Comments contain inappropriate language. Please remove bad words.");
       return;
@@ -159,7 +166,7 @@ export default function FeedbackCreatePage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          encounterId: "PE123",
+          encounterId,
           answers: formattedAnswers,
           comments,
           doctorId: "671d7f5e9d8e2b4c5f6a7b8c",
@@ -301,7 +308,7 @@ export default function FeedbackCreatePage() {
       >
         <div className="p-6 border-b sticky top-0 rounded-t-2xl z-10 bg-white">
           <div className="flex justify-between items-center">
-            <h2 id="panel-title" className="text-xl font-medium">Encounter ID #PE123</h2>
+            <h2 id="panel-title" className="text-xl font-medium">Encounter ID #{encounterId || 'Unknown'}</h2>
             <button
               onClick={() => navigate("/account/feedback")}
               className="p-2 rounded-xl hover:bg-gray-100"

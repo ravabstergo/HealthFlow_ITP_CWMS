@@ -57,7 +57,7 @@ exports.protect = async (req, res, next) => {
 
     // Set base user info
     req.user = {
-      id: user._id,
+      id: user._id, // Ensure ID is a string
       name: user.name,
       activeRole: {
         id: activeRole.role._id,
