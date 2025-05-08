@@ -1,5 +1,6 @@
 const prescription= require('../models/PrescriptionModel');
 const user= require('../models/User');
+// const record= require('../models/patient');
 
 //GetAllPrescriptionsByDoctorId
 const getAllPrescriptionsByDoctor = async (req, res) => {
@@ -62,10 +63,12 @@ const CreatePrescription = async (req, res) => {
             notes
         } = req.body;
 
+        console.log("patient id in the backend",patientId);
+        console.log("doctor id in the backend",doctorId);
         const patient = await user.findById(patientId);
         const doctor = await user.findById(doctorId);
         console.log(doctor);
-        if (!patient || !doctor) {
+        if (!patientId || !doctorId) {
             return res.status(404).json({ message: 'Patient or Doctor not found' });
         }
 
@@ -99,7 +102,7 @@ const UpdatePrescription = async (req, res) => {
         const patient = await user.findById(patientId);
         const doctor = await user.findById(doctorId);
 
-        if (!patient || !doctor) {
+        if (!patientId || !doctorId) {
             return res.status(404).json({ message: 'Patient or Doctor not found' });
         }
 
@@ -166,7 +169,9 @@ const SearchPrescription = async (req, res) => {
     }
 }
 
-//Exporting all the functions
+
+
+//GetAllagiceByIl the functions
 module.exports= {
     getAllPrescriptions,
     getAllPrescriptionsByDoctor,

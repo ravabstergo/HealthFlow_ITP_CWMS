@@ -76,23 +76,33 @@ const patientSchema = new Schema(
 );
 
 patientSchema.pre("save", function (next) {
-  const fullName = [
-    this.name.firstName,
-    ...this.name.middleNames,
-    this.name.lastName,
-  ]
-    .join(" ")
-    .toLowerCase();
+  // Check if any name field has been modified
+  if (
+    this.isModified("name.firstName") ||
+    this.isModified("name.middleNames") ||
+    this.isModified("name.lastName")
+  ) {
+    // Ensure middleNames is an array, in case it's undefined or null
+    const middleNames = Array.isArray(this.name.middleNames)
+      ? this.name.middleNames
+      : [];
 
-  const initials = [
-    this.name.firstName[0],
-    ...this.name.middleNames.map((name) => name[0]),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
+    // Update searchName
+    const fullName = [this.name.firstName, ...middleNames, this.name.lastName]
+      .join(" ")
+      .toLowerCase();
 
-  this.searchName = `${fullName} ${initials}`;
+    const initials = [
+      this.name.firstName[0],
+      ...middleNames.map((name) => name[0]),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    this.searchName = `${fullName} ${initials}`;
+  }
+
   next();
 });
 

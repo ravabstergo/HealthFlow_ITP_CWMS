@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Button from "../components/ui/button";
 import { toast } from "react-toastify";
 import { jsPDF } from "jspdf";
+import { X } from "lucide-react";
 
 export default function FeedbackReportPopup({ onClose }) {
   const [aiAnalysis, setAiAnalysis] = useState("");
@@ -10,7 +11,6 @@ export default function FeedbackReportPopup({ onClose }) {
   const [chatHistory, setChatHistory] = useState([]);
   const [userInput, setUserInput] = useState("");
 
-  // Suggested questions, including the new question
   const suggestedQuestions = [
     "What is the overall patient satisfaction rate?",
     "Are there any common complaints in the feedback?",
@@ -21,7 +21,7 @@ export default function FeedbackReportPopup({ onClose }) {
     "How does the feedback vary by patient demographics?",
     "What are the common diseases?",
     "How many patients need to contact the doctor during treatment?",
-    "How many days did patients take the prescribed medication commonly?" // Added new question
+    "How many days did patients take the prescribed medication commonly?"
   ];
 
   useEffect(() => {
@@ -54,21 +54,39 @@ export default function FeedbackReportPopup({ onClose }) {
     fetchReport();
   }, []);
 
+  const parseAiAnalysis = (analysis) => {
+    const sections = analysis.split(/(?=## )/);
+    return sections.map(section => {
+      const lines = section.split("\n");
+      const heading = lines[0].startsWith("## ") ? lines[0].replace("## ", "") : null;
+      const content = lines.slice(1).join("\n").trim();
+      return { heading, content };
+    }).filter(section => section.heading && section.content);
+  };
+
   const downloadReport = () => {
     try {
       const doc = new jsPDF();
       let y = 10;
 
       doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
       doc.text("Feedback Report - AI Analysis", 10, y);
       y += 10;
 
-      doc.setFontSize(14);
-      doc.text("AI Analysis:", 10, y);
-      y += 5;
-      doc.setFontSize(12);
-      const splitAnalysis = doc.splitTextToSize(aiAnalysis, 180);
-      doc.text(splitAnalysis, 10, y);
+      const sections = parseAiAnalysis(aiAnalysis);
+      sections.forEach(section => {
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text(section.heading, 10, y);
+        y += 5;
+
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        const splitContent = doc.splitTextToSize(section.content, 180);
+        doc.text(splitContent, 10, y);
+        y += splitContent.length * 5 + 5;
+      });
 
       doc.save("feedback-report-ai-analysis.pdf");
       toast.success("AI analysis report downloaded successfully!");
@@ -87,7 +105,6 @@ export default function FeedbackReportPopup({ onClose }) {
   const analyzeFeedback = (question) => {
     let response = "I'm sorry, I couldn't understand that question. Please try rephrasing or select a suggested question.";
 
-    // List of common diseases for disease-related questions
     const commonDiseases = [
       "diabetes", "hypertension", "asthma", "arthritis", "cancer", "heart disease",
       "migraine", "depression", "anxiety", "flu", "pneumonia", "covid"
@@ -211,26 +228,23 @@ export default function FeedbackReportPopup({ onClose }) {
         response = "No patients indicated a need to contact the doctor during treatment based on the feedback or comments.";
       }
     } else if (question.toLowerCase().includes("days") && question.toLowerCase().includes("medication")) {
-      // Analyze feedback for medication duration
       const durations = [];
       
       reportData.forEach(data => {
-        // Check feedback answers for questions about medication duration
         const durationFeedback = data.feedback.find(f => 
           f.question.toLowerCase().includes("how many days") && 
           f.question.toLowerCase().includes("medication")
         );
         if (durationFeedback && typeof durationFeedback.answer === "string") {
-          const daysMatch = durationFeedback.answer.match(/\d+/); // Extract number of days
+          const daysMatch = durationFeedback.answer.match(/\d+/);
           if (daysMatch) {
             durations.push({ patient: data.patient.name, days: parseInt(daysMatch[0]) });
           }
         }
 
-        // Check comments for mentions of medication duration (e.g., "I took the medication for 5 days")
         if (data.comments) {
           const comment = data.comments.toLowerCase();
-          const daysMatch = comment.match(/(\d+)\s*days/); // Look for patterns like "5 days"
+          const daysMatch = comment.match(/(\d+)\s*days/);
           if (daysMatch) {
             durations.push({ patient: data.patient.name, days: parseInt(daysMatch[1]) });
           }
@@ -238,7 +252,6 @@ export default function FeedbackReportPopup({ onClose }) {
       });
 
       if (durations.length > 0) {
-        // Calculate the most common duration
         const durationCounts = durations.reduce((acc, entry) => {
           acc[entry.days] = (acc[entry.days] || 0) + 1;
           return acc;
@@ -249,7 +262,6 @@ export default function FeedbackReportPopup({ onClose }) {
         const commonDays = mostCommonDuration[0];
         const count = mostCommonDuration[1];
 
-        // List patients with this duration
         const patientsWithCommonDuration = durations
           .filter(entry => entry.days === parseInt(commonDays))
           .map(entry => entry.patient)
@@ -281,79 +293,108 @@ export default function FeedbackReportPopup({ onClose }) {
     handleAskQuestion(question);
   };
 
+  const handleBackgroundClick = (e) => {
+    if (e.target.id === "backdrop") {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-end z-50">
+    <div
+      id="backdrop"
+      onClick={handleBackgroundClick}
+      className="fixed inset-0 z-50 bg-black/50 transition-opacity duration-300 flex justify-end m-0"
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby="panel-title"
+    >
       <div
-        className="bg-white w-full md:w-1/3 h-full p-6 rounded-lg shadow-lg transform transition-transform duration-300 ease-in-out translate-x-0"
-        style={{ marginTop: '2rem', marginBottom: '2rem', marginRight: '2rem', borderRadius: '1rem' }}
+        className="relative m-4 h-[calc(100%-2rem)] w-[90vw] max-w-xl bg-white rounded-2xl shadow-xl transition-transform duration-30 flex flex-col"
       >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">AI Analysis Report</h2>
-          <button onClick={handleClose} className="text-gray-500 hover:text-gray-700">
-            Close
+        <div className="flex justify-between items-center p-4 border-b sticky top-0 rounded-t-lg z-10">
+          <h2 id="panel-title" className="text-lg font-semibold">AI Analysis Report</h2>
+          <button
+            onClick={handleClose}
+            className="p-1 rounded-full hover:bg-gray-100"
+            aria-label="Close panel"
+          >
+            <X className="w-5 h-5 text-gray-500 hover:text-black" />
           </button>
         </div>
-        {loading ? (
-          <p className="text-gray-500">Generating report...</p>
-        ) : (
-          <div className="space-y-4">
-            <h3 className="text-md font-medium">AI Analysis</h3>
-            <p className="text-sm text-gray-600">{aiAnalysis}</p>
-            <Button onClick={downloadReport}>Download Report as PDF</Button>
 
-            {/* Chat Interface */}
-            <div className="mt-6">
-              <h3 className="text-md font-medium mb-2">Ask the AI About Feedback Data</h3>
-              
-              {/* Suggested Questions */}
-              <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-2">Suggested Questions:</p>
-                <div className="flex flex-wrap gap-2">
-                  {suggestedQuestions.map((question, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleSuggestedQuestion(question)}
-                      className="text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full hover:bg-blue-100"
-                    >
-                      {question}
-                    </button>
+        <div className="p-4 overflow-y-auto flex-grow">
+          {loading ? (
+            <p className="text-gray-500">Generating report...</p>
+          ) : (
+            <div className="space-y-4">
+              {/* AI Analysis Box */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+                <h3 className="text-md font-medium mb-2">AI Analysis</h3>
+                <div className="text-sm text-gray-600">
+                  {parseAiAnalysis(aiAnalysis).map((section, index) => (
+                    <div key={index} className="mb-4">
+                      <h4 className="text-lg font-bold text-gray-800">{section.heading}</h4>
+                      <p className="mt-1">{section.content}</p>
+                    </div>
                   ))}
                 </div>
+                <Button onClick={downloadReport}>Download Report as PDF</Button>
               </div>
 
-              {/* Chat History */}
-              <div className="border rounded-lg p-4 h-48 overflow-y-auto mb-4">
-                {chatHistory.length === 0 ? (
-                  <p className="text-sm text-gray-500">Start by asking a question or selecting a suggestion above.</p>
-                ) : (
-                  chatHistory.map((chat, index) => (
-                    <div
-                      key={index}
-                      className={`mb-2 ${chat.sender === "Doctor" ? "text-right" : "text-left"}`}
-                    >
-                      <p className={`inline-block p-2 rounded-lg ${chat.sender === "Doctor" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}`}>
-                        <span className="font-semibold">{chat.sender}:</span> {chat.message}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
+              {/* Ask AI Box */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+                <h3 className="text-md font-medium mb-2">Ask the AI About Feedback Data</h3>
+                
+                {/* Suggested Questions */}
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-2">Suggested Questions:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedQuestions.map((question, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleSuggestedQuestion(question)}
+                        className="text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full hover:bg-blue-100"
+                      >
+                        {question}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-              {/* Input Field */}
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleAskQuestion(userInput)}
-                  placeholder="Type your question here..."
-                  className="flex-1 p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
-                <Button onClick={() => handleAskQuestion(userInput)}>Ask</Button>
+                {/* Chat History */}
+                <div className="border rounded-lg p-4 h-48 overflow-y-auto mb-4">
+                  {chatHistory.length === 0 ? (
+                    <p className="text-sm text-gray-500">Start by asking a question or selecting a suggestion above.</p>
+                  ) : (
+                    chatHistory.map((chat, index) => (
+                      <div
+                        key={index}
+                        className={`mb-2 ${chat.sender === "Doctor" ? "text-right" : "text-left"}`}
+                      >
+                        <p className={`inline-block p-2 rounded-lg ${chat.sender === "Doctor" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}`}>
+                          <span className="font-semibold">{chat.sender}:</span> {chat.message}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Input Field */}
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={userInput}
+                    onChange={(e) => setUserInput(e.target.value)}
+                    onKeyPress={(e) => e.key === "Enter" && handleAskQuestion(userInput)}
+                    placeholder="Type your question here..."
+                    className="flex-1 p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <Button onClick={() => handleAskQuestion(userInput)}>Ask</Button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
