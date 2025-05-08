@@ -267,36 +267,41 @@ export default function FinancialReportPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen bg-white-600">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Financial Report</h1>
-        <div className="flex items-center gap-4">
-          <input
-            type="date"
-            value={dateRange.startDate}
-            onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <input
-            type="date"
-            value={dateRange.endDate}
-            onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <button
-            onClick={downloadPDF}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            <span>Download Report</span>
-          </button>
+    <div className="space-y-6 bg-gray-50 min-h-screen bg-white-600">
+      {/* Header */}
+      <div className="border-b border-gray-200 mb-4 bg-white">
+        <div className="p-4 pb-0 flex justify-between items-center">
+          <h1 className="text-blue-600 font-medium text-sm">Financial Report</h1>
+          <div className="flex items-center gap-4">
+            <input
+              type="date"
+              value={dateRange.startDate}
+              onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <input
+              type="date"
+              value={dateRange.endDate}
+              onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <button
+              onClick={downloadPDF}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download Report</span>
+            </button>
+          </div>
         </div>
+        <div className="h-0.5 w-44 bg-blue-600 mt-2"></div>
       </div>
 
+      {/* Rest of the content */}
       {reportData && (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6">
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-blue-50 rounded-full">
@@ -344,7 +349,7 @@ export default function FinancialReportPage() {
           </div>
 
           {/* Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-6">Income Trend</h3>
               <div className="h-[300px]">

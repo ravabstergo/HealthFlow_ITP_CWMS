@@ -187,8 +187,18 @@ export default function PatientChatPage() {
         )
       );
       
-      // Refresh the conversation list to show updated last message
-      fetchConversations();
+      // Update only the current conversation in the list
+      setConversations(prevConversations => 
+        prevConversations.map(conv => 
+          conv.id === selectedConversation.id 
+            ? {
+                ...conv,
+                lastMessage: messageText,
+                timestamp: formatTimestamp(new Date())
+              }
+            : conv
+        )
+      );
     } catch (error) {
       console.error('Error sending message:', error);
       

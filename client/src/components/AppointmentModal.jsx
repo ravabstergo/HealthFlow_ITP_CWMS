@@ -21,6 +21,7 @@ export default function AppointmentModal({
   const [currentStep, setCurrentStep] = useState(1);
   const [isSliding, setIsSliding] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [datesWithSlots, setDatesWithSlots] = useState(new Set());
 
   // Reset state when modal is closed
   const handleClose = () => {
@@ -31,8 +32,65 @@ export default function AppointmentModal({
     setCurrentStep(1);
     setIsSliding(false);
     setShowDetailsModal(false);
+    setDatesWithSlots(new Set());
     onClose();
   };
+
+  // Fetch all slots for the current month
+  const fetchMonthSlots = async (date) => {
+    try {
+      setLoading(true);
+      const start = startOfMonth(date);
+      const end = endOfMonth(date);
+      const days = eachDayOfInterval({ start, end });
+      
+      const availableDates = new Set();
+      
+      // Fetch slots for each day in parallel
+      const slotsPromises = days.map(day => getDoctorSlotsByDate(doctorId, day));
+      const slotsResults = await Promise.all(slotsPromises);
+      
+      // Process results to find dates with available slots
+      slotsResults.forEach((slots, index) => {
+        if (Array.isArray(slots) && slots.some(slot => !slot.isBooked)) {
+          availableDates.add(days[index].getTime());
+        }
+      });
+      
+      setDatesWithSlots(availableDates);
+    } catch (error) {
+      console.error('Error fetching month slots:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch slots for a specific date
+  const fetchAvailableSlots = async () => {
+    try {
+      setLoading(true);
+      const slots = await getDoctorSlotsByDate(doctorId, selectedDate);
+      if (Array.isArray(slots)) {
+        const sortedSlots = slots
+          .filter(slot => !slot.isBooked)
+          .sort((a, b) => new Date(a.slotTime).getTime() - new Date(b.slotTime).getTime());
+        setAvailableSlots(sortedSlots);
+      } else {
+        setAvailableSlots([]);
+      }
+    } catch (error) {
+      console.error('Error fetching slots:', error);
+      setAvailableSlots([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (doctorId) {
+      fetchMonthSlots(currentDate);
+    }
+  }, [doctorId, currentDate]);
 
   useEffect(() => {
     console.log('Useeffect triggered with:', { doctorId, selectedDate: selectedDate?.toISOString() });
@@ -50,30 +108,6 @@ export default function AppointmentModal({
       setSelectedSlot(null);
     };
   }, [selectedDate, doctorId]);
-
-  const fetchAvailableSlots = async () => {
-    try {
-      setLoading(true);
-      console.log('Making API call to fetch slots');
-      const slots = await getDoctorSlotsByDate(doctorId, selectedDate);
-      console.log('Received slots:', slots);
-      if (Array.isArray(slots)) {
-        const sortedSlots = slots.sort((a, b) => 
-          new Date(a.slotTime).getTime() - new Date(b.slotTime).getTime()
-        );
-        console.log('Sorted slots:', sortedSlots);
-        setAvailableSlots(sortedSlots);
-      } else {
-        console.error('Received invalid slots data:', slots);
-        setAvailableSlots([]);
-      }
-    } catch (error) {
-      console.error('Error fetching slots:', error);
-      setAvailableSlots([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleProceed = () => {
     if (!selectedSlot) {
@@ -219,15 +253,19 @@ export default function AppointmentModal({
                     <div key={dayIndex} className="text-center">
                       {day && (
                         <button
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm 
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm relative
                             ${!isSameMonth(day, currentDate) ? "text-gray-300" : 
                               isSameDay(day, selectedDate) ? "bg-indigo-500 text-white" : 
                               day < new Date(new Date().setHours(0, 0, 0, 0)) ? "text-gray-300 cursor-not-allowed" :
-                              "text-gray-700 hover:bg-gray-100"}`}
-                          onClick={() => day >= new Date(new Date().setHours(0, 0, 0, 0)) ? setSelectedDate(day) : null}
-                          disabled={!isSameMonth(day, currentDate) || day < new Date(new Date().setHours(0, 0, 0, 0))}
+                              datesWithSlots.has(day.getTime()) ? "text-gray-700 hover:bg-gray-100 ring-2 ring-indigo-200" :
+                              "text-gray-400 hover:bg-gray-50"}`}
+                          onClick={() => day >= new Date(new Date().setHours(0, 0, 0, 0)) && datesWithSlots.has(day.getTime()) ? setSelectedDate(day) : null}
+                          disabled={!isSameMonth(day, currentDate) || day < new Date(new Date().setHours(0, 0, 0, 0)) || !datesWithSlots.has(day.getTime())}
                         >
                           {format(day, 'd')}
+                          {datesWithSlots.has(day.getTime()) && (
+                            <span className="absolute bottom-0.5 w-1 h-1 bg-indigo-500 rounded-full"></span>
+                          )}
                         </button>
                       )}
                     </div>

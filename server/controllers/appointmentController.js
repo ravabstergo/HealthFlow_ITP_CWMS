@@ -470,22 +470,36 @@ const getAppointmentsByPatient = async (req, res) => {
 
 const deleteAppointment = async (req, res) => {
   try {
-    const appointmentId = req.params.id;
+    const appointmentId = req.params.appointmentId;
 
     // Find the appointment
-    const appointment = await Appointment.findOneAndDelete(appointmentId);
+    const appointment = await Appointment.findById(appointmentId);
 
     if (!appointment) {
       return res.status(404).json({ message: 'Appointment not found.' });
     }
 
+    // Check if appointment was booked within last 12 hours
+    const bookedTime = new Date(appointment.createdAt);
+    const now = new Date();
+    const hoursSinceBooking = (now - bookedTime) / (1000 * 60 * 60);
+
+    if (hoursSinceBooking > 12) {
+      return res.status(400).json({ 
+        message: 'Appointments can only be cancelled within 12 hours of booking'
+      });
+    }
+
     // Find the schedule and slot
     const schedules = await DoctorSchedule.find({ doctorId: appointment.doctorId });
-    if (!schedules.length) return res.status(404).json({ message: 'Doctor schedule not found' });
+    if (!schedules.length) {
+      return res.status(404).json({ message: 'Doctor schedule not found' });
+    }
 
     let slot;
     let schedule;
 
+    // Find the specific slot in the doctor's schedule
     for (const sched of schedules) {
       slot = sched.slots.id(appointment.slotId);
       if (slot) {
@@ -498,14 +512,17 @@ const deleteAppointment = async (req, res) => {
       return res.status(404).json({ message: 'Slot not found in doctor schedule.' });
     }
 
-    // Free up the slot
+    // Release the slot by marking it as not booked
     slot.isBooked = false;
     await schedule.save();
 
-    res.status(200).json({ message: 'Appointment canceled successfully.' });
+    // Delete the appointment
+    await Appointment.findByIdAndDelete(appointmentId);
+
+    res.status(200).json({ message: 'Appointment cancelled successfully.' });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error canceling appointment.', error });
+    console.error('Error cancelling appointment:', error);
+    res.status(500).json({ message: 'Error cancelling appointment', error: error.message });
   }
 };
 

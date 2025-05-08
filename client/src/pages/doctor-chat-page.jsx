@@ -202,7 +202,7 @@ export default function DoctorChatPage() {
     // Add message to UI immediately for better UX
     const optimisticMessage = {
       id: `temp-${Date.now()}`,
-      sender: 'doctor', // Sender is the doctor
+      sender: 'doctor',
       text: messageText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       pending: true
@@ -222,7 +222,7 @@ export default function DoctorChatPage() {
         prevMessages.map(msg => 
           msg.id === optimisticMessage.id ? {
             id: sentMessage._id,
-            sender: 'doctor', // Sender is the doctor
+            sender: 'doctor',
             text: sentMessage.content,
             timestamp: formatMessageTime(sentMessage.createdAt),
             read: false,
@@ -231,8 +231,18 @@ export default function DoctorChatPage() {
         )
       );
       
-      // Refresh the conversation list to show updated last message
-      fetchConversations();
+      // Update only the current conversation in the list
+      setConversations(prevConversations => 
+        prevConversations.map(conv => 
+          conv.id === selectedConversation.id 
+            ? {
+                ...conv,
+                lastMessage: messageText,
+                timestamp: formatTimestamp(new Date())
+              }
+            : conv
+        )
+      );
     } catch (error) {
       console.error('Error sending message:', error);
       
@@ -469,7 +479,7 @@ export default function DoctorChatPage() {
                               className={`max-w-xs md:max-w-md rounded-2xl p-3 ${
                                 isCurrentUser
                                   ? (msg.pending 
-                                    ? 'bg-blue-300 text-white'
+                                    ? 'bg-green-300 text-white'
                                     : msg.failed 
                                       ? 'bg-red-500 text-white' 
                                       : 'bg-green-500 text-white')
