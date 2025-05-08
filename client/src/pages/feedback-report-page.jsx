@@ -55,6 +55,9 @@ export default function FeedbackReportPopup({ onClose }) {
   }, []);
 
   const parseAiAnalysis = (analysis) => {
+    if (!analysis || typeof analysis !== "string") {
+      return [];
+    }
     const sections = analysis.split(/(?=## )/);
     return sections.map(section => {
       const lines = section.split("\n");
@@ -66,28 +69,114 @@ export default function FeedbackReportPopup({ onClose }) {
 
   const downloadReport = () => {
     try {
-      const doc = new jsPDF();
-      let y = 10;
-
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text("Feedback Report - AI Analysis", 10, y);
-      y += 10;
-
-      const sections = parseAiAnalysis(aiAnalysis);
-      sections.forEach(section => {
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text(section.heading, 10, y);
-        y += 5;
-
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-        const splitContent = doc.splitTextToSize(section.content, 180);
-        doc.text(splitContent, 10, y);
-        y += splitContent.length * 5 + 5;
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4"
       });
+  
+      // Add letterhead image as background layer (full page)
+      const letterheadImg = "/letterhead.png"; // Adjust path or use URL
+      const pageWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      try {
+        doc.addImage(
+          letterheadImg,
+          "PNG", // Image format
+          0, // x position (full width)
+          0, // y position (top)
+          pageWidth, // Scale to page width
+          pageHeight, // Scale to page height
+          undefined,
+          "FAST" // Compression for performance
+        );
+      } catch (imgError) {
+        console.error("[FeedbackReportPopup] Error loading letterhead image:", imgError.message);
+        toast.error("Failed to load letterhead image. Generating PDF without background.");
+      }
+  
+      // Set margins and text width for centering
+      const textWidth = 150; // Narrowed text width in mm
+      const leftMargin = (pageWidth - textWidth) / 2; // Center the text block
+      const topMargin = 60; // Start text in clear area
+      let y = topMargin;
+  
+      // Add top line above title
+      doc.setLineWidth(0.5);
+      doc.setDrawColor(119,136,153); // Light gray color for the line
+      doc.line(leftMargin, y - 5, leftMargin + textWidth, y - 5); // Line above title
+      y += 7;
 
+
+      // Add title (foreground layer, centered)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.setTextColor(0, 0, 0); // Black text for visibility
+      const title = "Feedback Report - AI Analysis";
+      const titleWidth = doc.getTextWidth(title);
+      doc.text(title, (pageWidth - titleWidth) / 2, y); // Center title
+      y += 7;
+  
+      // Add bottom line below title
+      doc.line(leftMargin, y, leftMargin + textWidth, y); // Line below title
+      y += 20; // Space after title and line
+  
+      // Add AI analysis sections (foreground layer)
+      const sections = parseAiAnalysis(aiAnalysis);
+      if (sections.length === 0) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(12);
+        const noDataText = "No AI analysis data available.";
+        const noDataWidth = doc.getTextWidth(noDataText);
+        doc.text(noDataText, (pageWidth - noDataWidth) / 2, y); // Center text
+        y += 10;
+      } else {
+        sections.forEach(section => {
+          // Check for page overflow and add new page if needed
+          if (y > 270) { // A4 height is 297mm, leave 20mm bottom margin
+            doc.addPage();
+            y = topMargin; // Reset y for new page
+            // Repeat letterhead as background on new pages
+            try {
+              doc.addImage(letterheadImg, "PNG", 0, 0, pageWidth, pageHeight, undefined, "FAST");
+            } catch (imgError) {
+              console.error("[FeedbackReportPopup] Error loading letterhead image on new page:", imgError.message);
+            }
+          }
+  
+          // Add section heading (centered)
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(14);
+          const headingWidth = doc.getTextWidth(section.heading);
+          doc.text(section.heading, (pageWidth - headingWidth) / 2, y); // Center heading
+          y += 5;
+  
+          // Add section content (justified within narrowed width)
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(12);
+          const splitContent = doc.splitTextToSize(section.content, textWidth);
+          splitContent.forEach(line => {
+            const lineWidth = doc.getTextWidth(line);
+            doc.text(line, (pageWidth - lineWidth) / 2, y); // Center each line
+            y += 5;
+          });
+          y += 15; // Increased gap after each section
+        });
+      }
+  
+      // Add footer (foreground layer, page numbers, centered)
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        const pageText = `Page ${i} of ${pageCount}`;
+        const pageTextWidth = doc.getTextWidth(pageText);
+        doc.text(pageText, (pageWidth - pageTextWidth) / 2, 290); // Center footer
+      }
+  
+      // Save the PDF
       doc.save("feedback-report-ai-analysis.pdf");
       toast.success("AI analysis report downloaded successfully!");
     } catch (error) {
