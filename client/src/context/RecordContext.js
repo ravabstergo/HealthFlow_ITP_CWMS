@@ -55,7 +55,7 @@ export const RecordContextProvider = ({ children }) => {
       );
       setRecords((prevRecords) =>
         prevRecords.map((record) =>
-          record.id === recordId ? updatedRecord : record
+          record._id === recordId ? updatedRecord : record
         )
       );
       return updatedRecord;
@@ -69,7 +69,7 @@ export const RecordContextProvider = ({ children }) => {
     try {
       await RecordService.deleteRecord(recordId);
       setRecords((prevRecords) =>
-        prevRecords.filter((record) => record.id !== recordId)
+        prevRecords.filter((record) => record._id !== recordId)
       );
     } catch (error) {
       setError(error.message);

@@ -1,9 +1,10 @@
 const mongoose = require("mongoose");
 const Patient = require("../models/Patient");
+const User = require("../models/User");
 
 exports.createPatientRecord = async (req, res) => {
   try {
-    const doctorId = req.user.id;
+    const doctorId = req.dataAccess?.doctorId;
     console.log("Inside record controller: Create patient record");
 
     // Get the doctor ID from the authenticated user
@@ -26,6 +27,94 @@ exports.createPatientRecord = async (req, res) => {
       activeStatus: true,
     };
 
+    // Clean up empty objects in arrays
+    const cleanArrayFields = (array, requiredFields) => {
+      if (!Array.isArray(array)) return undefined;
+
+      // Filter out empty objects and validate required fields
+      const cleanedArray = array.filter((item) => {
+        // First check if item is defined and is an object
+        if (
+          !item ||
+          typeof item !== "object" ||
+          Object.keys(item).length === 0
+        ) {
+          return false;
+        }
+
+        // Check if ALL required fields exist and have valid values
+        const hasAllRequiredFields = requiredFields.every((field) => {
+          const value = item[field];
+          return value !== null && value !== undefined && value !== "";
+        });
+
+        // Check if ANY field has a value - this catches objects with non-required fields populated
+        const hasAnyValue = Object.values(item).some(
+          (value) => value !== null && value !== undefined && value !== ""
+        );
+
+        return hasAllRequiredFields && hasAnyValue;
+      });
+
+      return cleanedArray.length > 0 ? cleanedArray : undefined;
+    };
+
+    // Clean up each array field and only include non-empty arrays
+    const cleanedArrays = {
+      allergies: cleanArrayFields(patientRecord.allergies, [
+        "allergenName",
+        "manifestation",
+      ]),
+      pastMedicalHistory: cleanArrayFields(patientRecord.pastMedicalHistory, [
+        "condition",
+        "onset",
+        "clinicalStatus",
+      ]),
+      regularMedications: cleanArrayFields(patientRecord.regularMedications, [
+        "medicationName",
+        "form",
+        "dosage",
+        "route",
+        "status",
+      ]),
+      pastSurgicalHistory: cleanArrayFields(patientRecord.pastSurgicalHistory, [
+        "procedureName",
+        "date",
+      ]),
+      immunizations: cleanArrayFields(patientRecord.immunizations, [
+        "vaccineName",
+        "date",
+      ]),
+      behavioralRiskFactors: cleanArrayFields(
+        patientRecord.behavioralRiskFactors,
+        ["riskFactorName", "status", "duration", "statusRecordedDate"]
+      ),
+      healthRiskAssessment: cleanArrayFields(
+        patientRecord.healthRiskAssessment,
+        ["assessmentType", "outcome", "assessmentDate"]
+      ),
+    };
+
+    // Only include non-undefined array fields in the final record
+    Object.entries(cleanedArrays).forEach(([key, value]) => {
+      if (value === undefined) {
+        delete patientRecord[key];
+      } else {
+        patientRecord[key] = value;
+      }
+    });
+
+    // Clean up passport details if both fields are empty
+    if (
+      patientRecord.passportDetails &&
+      (!patientRecord.passportDetails.number ||
+        patientRecord.passportDetails.number.trim() === "") &&
+      (!patientRecord.passportDetails.issuedCountry ||
+        patientRecord.passportDetails.issuedCountry.trim() === "")
+    ) {
+      patientRecord.passportDetails = null;
+    }
+
     console.log("Patient record prepared:", patientRecord);
 
     // Create and save new patient
@@ -33,10 +122,31 @@ exports.createPatientRecord = async (req, res) => {
     const savedPatient = await newPatient.save();
 
     console.log("Patient record created successfully:", savedPatient);
+
+    // Transform the saved patient to include fullName
+    const getFullName = (patient) => {
+      const fullNameParts = [
+        patient.name.firstName,
+        ...(patient.name.middleNames || []),
+        patient.name.lastName,
+      ];
+      return fullNameParts.filter(Boolean).join(" ");
+    };
+
+    const transformedPatient = {
+      _id: savedPatient._id,
+      fullName: getFullName(savedPatient),
+      dateOfBirth: savedPatient.dateOfBirth,
+      gender: savedPatient.gender,
+      phone: savedPatient.phone,
+      activeStatus: savedPatient.activeStatus,
+      createdAt: savedPatient.createdAt,
+    };
+
     // Respond with success
     res.status(201).json({
       message: "Patient record created successfully",
-      record: savedPatient,
+      record: transformedPatient,
     });
   } catch (error) {
     // Handle mongoose validation errors
@@ -69,7 +179,7 @@ exports.createPatientRecord = async (req, res) => {
 exports.getRecordsByDoctor = async (req, res) => {
   try {
     console.log("Inside getRecordsByDoctor controller");
-    const doctorId = req.user.id;
+    const doctorId = req.dataAccess?.doctorId;
     console.log("Doctor ID:", doctorId);
 
     // Find all patient records for this doctor
@@ -132,29 +242,148 @@ exports.deleteRecord = async (req, res) => {
 
 exports.updateRecord = async (req, res) => {
   const { recordId } = req.params;
-  const { record } = req.body;
+  const updatedData = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(recordId)) {
-    return res.status(404).json({ error: "No such ehr" });
+    return res.status(400).json({ error: "Invalid record ID" });
   }
 
   try {
-    let updatedPatient = null;
-    if (record) {
-      updatedPatient = await Patient.findByIdAndUpdate(
-        recordId,
-        { ...record },
-        { new: true }
-      );
-      if (!updatedPatient) {
-        return res.status(404).json({ error: "Patient not found" });
-      }
+    // Clean array fields before updating
+    const cleanArrayFields = (array, requiredFields) => {
+      if (!Array.isArray(array)) return undefined;
+
+      // Filter out empty objects and validate required fields
+      const cleanedArray = array.filter((item) => {
+        // First check if item is defined and is an object
+        if (
+          !item ||
+          typeof item !== "object" ||
+          Object.keys(item).length === 0
+        ) {
+          return false;
+        }
+
+        // Check if ALL required fields exist and have valid values
+        const hasAllRequiredFields = requiredFields.every((field) => {
+          const value = item[field];
+          return value !== null && value !== undefined && value !== "";
+        });
+
+        // Check if ANY field has a value - this catches objects with non-required fields populated
+        const hasAnyValue = Object.values(item).some(
+          (value) => value !== null && value !== undefined && value !== ""
+        );
+
+        return hasAllRequiredFields && hasAnyValue;
+      });
+
+      return cleanedArray.length > 0 ? cleanedArray : undefined;
+    };
+
+    // Clean each array field in the update data
+    if (updatedData.allergies) {
+      updatedData.allergies = cleanArrayFields(updatedData.allergies, [
+        "allergenName",
+        "manifestation",
+      ]);
     }
+    if (updatedData.pastMedicalHistory) {
+      updatedData.pastMedicalHistory = cleanArrayFields(
+        updatedData.pastMedicalHistory,
+        ["condition", "onset", "clinicalStatus"]
+      );
+    }
+    if (updatedData.regularMedications) {
+      updatedData.regularMedications = cleanArrayFields(
+        updatedData.regularMedications,
+        ["medicationName", "form", "dosage", "route", "status"]
+      );
+    }
+    if (updatedData.pastSurgicalHistory) {
+      updatedData.pastSurgicalHistory = cleanArrayFields(
+        updatedData.pastSurgicalHistory,
+        ["procedureName", "date"]
+      );
+    }
+    if (updatedData.immunizations) {
+      updatedData.immunizations = cleanArrayFields(updatedData.immunizations, [
+        "vaccineName",
+        "date",
+      ]);
+    }
+    if (updatedData.behavioralRiskFactors) {
+      updatedData.behavioralRiskFactors = cleanArrayFields(
+        updatedData.behavioralRiskFactors,
+        ["riskFactorName", "status", "duration", "statusRecordedDate"]
+      );
+    }
+    if (updatedData.healthRiskAssessment) {
+      updatedData.healthRiskAssessment = cleanArrayFields(
+        updatedData.healthRiskAssessment,
+        ["assessmentType", "outcome", "assessmentDate"]
+      );
+    }
+
+    // Remove any undefined array fields from the update
+    Object.keys(updatedData).forEach((key) => {
+      if (updatedData[key] === undefined) {
+        delete updatedData[key];
+      }
+    });
+
+    // Find and update the patient record
+    const updatedPatient = await Patient.findByIdAndUpdate(
+      recordId,
+      { $set: updatedData },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedPatient) {
+      return res.status(404).json({ error: "Patient record not found" });
+    }
+
+    // Transform the response to match the expected format
+    const transformedPatient = {
+      id: updatedPatient._id,
+      fullName: `${
+        updatedPatient.name.firstName
+      } ${updatedPatient.name.middleNames.join(" ")} ${
+        updatedPatient.name.lastName
+      }`,
+      firstName: updatedPatient.name.firstName,
+      middleNames: updatedPatient.name.middleNames,
+      lastName: updatedPatient.name.lastName,
+      searchName: updatedPatient.searchName,
+      dateOfBirth: updatedPatient.dateOfBirth,
+      gender: updatedPatient.gender,
+      email: updatedPatient.email,
+      phone: updatedPatient.phone,
+      nic: updatedPatient.nic,
+      activeStatus: updatedPatient.activeStatus,
+      passportInfo: updatedPatient.passportDetails || {
+        number: "",
+        issuedCountry: "",
+      },
+      allergies: updatedPatient.allergies || [],
+      pastMedicalConditions: updatedPatient.pastMedicalHistory || [],
+      regularMedications: updatedPatient.regularMedications || [],
+      surgicalHistory: updatedPatient.pastSurgicalHistory || [],
+      immunizations: updatedPatient.immunizations || [],
+      behavioralRiskFactors: updatedPatient.behavioralRiskFactors || [],
+      healthRiskAssessments: updatedPatient.healthRiskAssessment || [],
+    };
+
     res.status(200).json({
-      record: updatedPatient,
+      message: "Patient record updated successfully",
+      record: transformedPatient,
     });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error("Error updating patient record:", error);
+    res.status(500).json({
+      error: "Internal server error",
+      details: process.env.NODE_ENV === "development" ? error.message : null,
+    });
   }
 };
 
@@ -309,41 +538,5 @@ exports.searchPatients = async (req, res) => {
       message: "Internal server error during patient search",
       error: true,
     });
-  }
-};
-
-exports.findPatientByUser = async (req, res) => {
-  try {
-    const { email, nic } = req.query;
-    console.log("Finding patient by user details:", { email, nic });
-
-    if (!email && !nic) {
-      console.log("No email or NIC provided");
-      return res.status(400).json({ message: "Email or NIC is required" });
-    }
-
-    const query = {};
-    if (email) {
-      console.log("Searching by email:", email);
-      query.email = email;
-    }
-    if (nic) {
-      console.log("Searching by NIC:", nic);
-      query.nic = nic;
-    }
-
-    console.log("Final query:", query);
-    const patient = await Patient.findOne(query);
-
-    if (!patient) {
-      console.log("No patient found for query:", query);
-      return res.status(404).json({ message: "Patient record not found" });
-    }
-
-    console.log("Patient found:", patient._id);
-    res.status(200).json({ patientId: patient._id });
-  } catch (error) {
-    console.error("Error finding patient:", error);
-    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };

@@ -78,7 +78,7 @@ const encounterSchema = new Schema(
   { timestamps: true }
 );
 
-encounterSchema.index({ patientId: 1 });
+encounterSchema.index({ recordId: 1 });
 
 // Creating the model
 const Encounter = mongoose.model("Encounter", encounterSchema);

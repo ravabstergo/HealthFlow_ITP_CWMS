@@ -14,6 +14,15 @@ const {
 // New route for finding patient by user details
 router.get(
   "/findByUser",
+  getLinkRecord,
+} = require("../controllers/recordController");
+
+// Protected routes - require authentication
+router.use(protect);
+
+// create a patient record
+router.post(
+  "/",
   protect,
   (req, res, next) => {
     console.log("GET request to find patient by user details received");
@@ -24,7 +33,6 @@ router.get(
 
 router.get(
   "/doctor",
-  protect,
   (req, res, next) => {
     console.log("GET request for records by doctor received");
     next();
@@ -53,10 +61,11 @@ router.post(
   },
   createPatientRecord
 );
+// Role-specific routes - must come before general recordId route
+router.get("/link", getLinkRecord);
 
 router.get(
   "/:recordId",
-  protect,
   (req, res, next) => {
     console.log(
       "GET request for record details received, recordId:",
@@ -70,7 +79,6 @@ router.get(
 // delete a patient record
 router.delete(
   "/:recordId",
-  protect,
   (req, res, next) => {
     console.log("DELETE request to delete patient record received");
     next();
@@ -81,7 +89,6 @@ router.delete(
 // update a patient record
 router.patch(
   "/:recordId",
-  protect,
   (req, res, next) => {
     console.log("PATCH request to update patient record received");
     next();
