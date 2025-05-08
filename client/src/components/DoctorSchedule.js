@@ -11,17 +11,18 @@ import Calendar from './Calendar'
 
 
 export default function HealthFlowDashboard() {
+  // At the top of the component, initialize date with hours set to 0
+  const today = new Date(new Date().setHours(0, 0, 0, 0));
   const { currentUser, activeRole, permissions } = useAuthContext();
   const [activeTab, setActiveTab] = useState("Schedule")
   const [availabilityCount, setAvailabilityCount] = useState(0)
   const [availabilities, setAvailabilities] = useState([])
-  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState(today)
   const [filteredAvailabilities, setFilteredAvailabilities] = useState([])
   const [showAddPanel, setShowAddPanel] = useState(false)
   const [showUpdatePanel, setShowUpdatePanel] = useState(false)
   const [currentAvailability, setCurrentAvailability] = useState(null)
   const [consultationFee, setConsultationFee] = useState("")
-  const [today] = useState(new Date()) // Store today's date for min date restrictions
   const [availability, setAvailability] = useState([{ 
     day: new Date(), 
     startTime: new Date(), 
@@ -95,6 +96,42 @@ export default function HealthFlowDashboard() {
     setAvailability(newAvailability);
   };
 
+  const checkForOverlap = (newAvailability, existingAvailabilities, excludeAvailabilityId = null) => {
+    for (const slot of newAvailability) {
+      const slotDay = new Date(slot.day);
+      slotDay.setHours(0, 0, 0, 0);
+      const slotStart = new Date(slot.startTime);
+      const slotEnd = new Date(slot.endTime);
+
+      // Check against all existing availabilities
+      for (const existing of existingAvailabilities) {
+        // Skip if this is the availability being updated
+        if (excludeAvailabilityId && existing._id === excludeAvailabilityId) {
+          continue;
+        }
+
+        const existingDay = new Date(existing.day);
+        existingDay.setHours(0, 0, 0, 0);
+
+        // Only check availabilities on the same day
+        if (slotDay.getTime() === existingDay.getTime()) {
+          const existingStart = new Date(existing.startTime);
+          const existingEnd = new Date(existing.endTime);
+
+          // Check for overlap
+          if (
+            (slotStart >= existingStart && slotStart < existingEnd) || // New slot starts during existing slot
+            (slotEnd > existingStart && slotEnd <= existingEnd) || // New slot ends during existing slot
+            (slotStart <= existingStart && slotEnd >= existingEnd) // New slot completely contains existing slot
+          ) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
@@ -126,6 +163,11 @@ export default function HealthFlowDashboard() {
         newErrors[`availability_duration_${index}`] = "Please enter a valid duration";
       }
     });
+
+    // Check for overlapping slots
+    if (checkForOverlap(availability, availabilities)) {
+      newErrors.overlap = "New availability overlaps with existing availability slots";
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -249,6 +291,11 @@ export default function HealthFlowDashboard() {
       }
     });
 
+    // Check for overlapping slots, excluding the current availability being updated
+    if (checkForOverlap(availability, availabilities, currentAvailability._id)) {
+      newErrors.overlap = "Updated availability overlaps with existing availability slots";
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -289,30 +336,6 @@ export default function HealthFlowDashboard() {
     }
   };
 
-  useEffect(() => {
-    const fetchSchedules = async () => {
-      try {
-        const doctorId = currentUser?.id;
-        console.log("Doctor ID:", doctorId); // Replace with actual doctor ID
-        const data = await getDoctorSchedules(doctorId);
-        if (Array.isArray(data)) {
-          // Flatten all availabilities from all schedules into a single array
-          const allAvailabilities = data.reduce((acc, schedule) => {
-            return acc.concat(schedule.availability || []);
-          }, []);
-          setAvailabilities(allAvailabilities);
-          setAvailabilityCount(allAvailabilities.length);
-          filterAvailabilities(allAvailabilities, selectedDate);
-        }
-      } catch (error) {
-        console.error('Error fetching schedules:', error);
-        setAvailabilityCount(0);
-      }
-    };
-
-    fetchSchedules();
-  }, [selectedDate]);
-
   const filterAvailabilities = (availabilities, date) => {
     const startDate = new Date(date);
     const endDate = new Date(date);
@@ -325,7 +348,54 @@ export default function HealthFlowDashboard() {
     .slice(0, 14); // Limit to 14 entries
 
     setFilteredAvailabilities(filtered);
+    setAvailabilityCount(filtered.length); // Update count to show only filtered availabilities
   };
+
+  useEffect(() => {
+    const fetchSchedules = async () => {
+      try {
+        const doctorId = currentUser?.id;
+        console.log("Doctor ID:", doctorId);
+        if (!doctorId) return; // Don't fetch if no doctor ID
+
+        console.log("Fetching schedules for date:", selectedDate);
+        const data = await getDoctorSchedules(doctorId);
+        
+        if (Array.isArray(data)) {
+          // Flatten all availabilities from all schedules into a single array
+          const allAvailabilities = data.reduce((acc, schedule) => {
+            return acc.concat(schedule.availability || []);
+          }, []);
+          
+          console.log("All availabilities:", allAvailabilities);
+          setAvailabilities(allAvailabilities);
+          
+          // Immediately filter availabilities for the current date
+          const startDate = new Date(selectedDate);
+          startDate.setHours(0, 0, 0, 0);
+          const endDate = new Date(selectedDate);
+          endDate.setDate(endDate.getDate() + 14);
+          
+          const filtered = allAvailabilities.filter(avail => {
+            const availDate = new Date(avail.day);
+            availDate.setHours(0, 0, 0, 0);
+            return availDate >= startDate && availDate <= endDate;
+          }).sort((a, b) => new Date(a.day) - new Date(b.day))
+          .slice(0, 14);
+          
+          console.log("Filtered availabilities:", filtered);
+          setFilteredAvailabilities(filtered);
+          setAvailabilityCount(filtered.length);
+        }
+      } catch (error) {
+        console.error('Error fetching schedules:', error);
+        setAvailabilityCount(0);
+        setFilteredAvailabilities([]);
+      }
+    };
+
+    fetchSchedules();
+  }, [selectedDate, currentUser?.id]); // Add currentUser?.id to dependencies
 
   const handleDateChange = (e) => {
     const selectedValue = e.target.value;
@@ -527,12 +597,12 @@ export default function HealthFlowDashboard() {
 
       {/* Slide-out Panel */}
       {showAddPanel && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex justify-end items-start p-6">
-          <div className="bg-white w-full max-w-md rounded-xl shadow-xl flex flex-col mr-6 mt-6 max-h-[calc(100vh-3rem)] overflow-hidden">
+        <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex justify-end items-center">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-xl flex flex-col mr-6 my-auto max-h-[90vh] overflow-hidden">
             {/* Panel Header */}
             <div className="flex items-center justify-between p-4 border-b">
               <div className="flex items-center">
-                <div className="bg-gray-100 p-2 rounded-md mr-3">
+                <div className="bg-gray-100 p-2 rounded-lg mr-3">
                   <CalendarIcon />
                 </div>
                 <div>
@@ -541,7 +611,7 @@ export default function HealthFlowDashboard() {
                 </div>
               </div>
               <button
-                className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-gray-100"
+                className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-gray-100"
                 onClick={() => setShowAddPanel(false)}
               >
                 <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-gray-500">
@@ -551,33 +621,39 @@ export default function HealthFlowDashboard() {
             </div>
 
             {/* Panel Content */}
-            <div className="flex-1 p-6 mb-4 overflow-y-auto max-h-[500px]">
-              <form id="availabilityForm" onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex-1 p-6 overflow-y-auto">
+              <form id="availabilityForm" onSubmit={handleSubmit} className="space-y-8">
                 <div className="bg-white rounded-lg">
-                  <div className="mb-6">
-                    <label className="block mb-2 font-medium text-gray-800">Consultation Fee</label>
-                    <input
-                      type="number"
-                      value={consultationFee}
-                      onChange={(e) => setConsultationFee(e.target.value)}
-                      className="p-2 border border-gray-300 rounded-md w-full focus:border-blue-500 focus:outline-none"
-                      style={{ maxWidth: "200px" }}
-                      required
-                    />
-                    {errors.consultationFee && <p className="text-red-500 text-sm">{errors.consultationFee}</p>}
+                  {/* Financial Information Section */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Information</h3>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <label className="block text-sm font-medium text-gray-700">Consultation Fee (USD)</label>
+                      <div className="mt-2">
+                        <input
+                          type="number"
+                          value={consultationFee}
+                          onChange={(e) => setConsultationFee(e.target.value)}
+                          className="p-2.5 border border-gray-300 rounded-lg w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          required
+                        />
+                      </div>
+                      {errors.consultationFee && <p className="text-red-500 text-sm mt-1">{errors.consultationFee}</p>}
+                    </div>
                   </div>
 
+                  {/* Availability Section */}
                   <div className="space-y-6">
-                    <label className="block mb-2 font-medium text-gray-800">Availability</label>
+                    <h3 className="text-lg font-semibold text-gray-900">Availability Settings</h3>
                     {availability.map((slot, index) => (
-                      <div key={index} className="p-4 border border-gray-200 rounded-lg relative">
-                        <div className="flex justify-between items-center mb-4">
-                          <h4 className="text-lg font-semibold text-gray-800">Slot {index + 1}</h4>
+                      <div key={index} className="bg-gray-50 p-6 border border-gray-200 rounded-lg relative">
+                        <div className="mb-6">
+                          <h4 className="text-md font-medium text-gray-900">Time Slot {index + 1}</h4>
                           {availability.length > 1 && (
                             <button
                               type="button"
                               onClick={() => handleRemoveSlot(index)}
-                              className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50"
+                              className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition-colors duration-200"
                               title="Remove Slot"
                             >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -586,58 +662,58 @@ export default function HealthFlowDashboard() {
                             </button>
                           )}
                         </div>
-                        <div className="space-y-4">
+                        <div className="grid gap-6">
                           <div>
-                            <label className="block mb-2 font-medium text-gray-700">Day</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Select Date</label>
                             <DatePicker
                               selected={slot.day}
                               onChange={(date) => handleAvailabilityChange(index, "day", date)}
-                              dateFormat="yyyy/MM/dd"
+                              dateFormat="MMMM d, yyyy"
                               minDate={today}
-                              className="p-2 border border-gray-300 rounded-md w-full focus:border-blue-500 focus:outline-none"
+                              className="p-2.5 border border-gray-300 rounded-lg w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                               calendarClassName="custom-datepicker"
                               required
                             />
                             {errors[`availability_day_${index}`] && (
-                              <p className="text-red-500 text-sm">{errors[`availability_day_${index}`]}</p>
+                              <p className="text-red-500 text-sm mt-1">{errors[`availability_day_${index}`]}</p>
                             )}
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-2 gap-6">
                             <div>
-                              <label className="block mb-2 font-medium text-gray-700">Start Time</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
                               <DatePicker
                                 selected={slot.startTime}
                                 onChange={(date) => handleAvailabilityChange(index, "startTime", date)}
                                 showTimeSelect
                                 showTimeSelectOnly
                                 timeIntervals={15}
-                                timeCaption="Start Time"
+                                timeCaption="Start"
                                 dateFormat="h:mm aa"
-                                className="p-2 border border-gray-300 rounded-md w-full focus:border-blue-500 focus:outline-none"
+                                className="p-2.5 border border-gray-300 rounded-lg w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                                 calendarClassName="custom-datepicker"
                                 required
                               />
                               {errors[`availability_startTime_${index}`] && (
-                                <p className="text-red-500 text-sm">{errors[`availability_startTime_${index}`]}</p>
+                                <p className="text-red-500 text-sm mt-1">{errors[`availability_startTime_${index}`]}</p>
                               )}
                             </div>
                             <div>
-                              <label className="block mb-2 font-medium text-gray-700">End Time</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">End Time</label>
                               <DatePicker
                                 selected={slot.endTime}
                                 onChange={(date) => handleAvailabilityChange(index, "endTime", date)}
                                 showTimeSelect
                                 showTimeSelectOnly
                                 timeIntervals={15}
-                                timeCaption="End Time"
+                                timeCaption="End"
                                 dateFormat="h:mm aa"
-                                className="p-2 border border-gray-300 rounded-md w-full focus:border-blue-500 focus:outline-none"
+                                className="p-2.5 border border-gray-300 rounded-lg w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                                 calendarClassName="custom-datepicker"
                                 required
                               />
                               {errors[`availability_endTime_${index}`] && (
-                                <p className="text-red-500 text-sm">{errors[`availability_endTime_${index}`]}</p>
+                                <p className="text-red-500 text-sm mt-1">{errors[`availability_endTime_${index}`]}</p>
                               )}
                             </div>
                           </div>
@@ -647,18 +723,22 @@ export default function HealthFlowDashboard() {
                           )}
 
                           <div>
-                            <label className="block mb-2 font-medium text-gray-700">Appointment Duration (minutes)</label>
-                            <input
-                              type="number"
-                              placeholder="Appointment Duration (minutes)"
-                              value={slot.appointmentDuration}
-                              onChange={(e) => handleAvailabilityChange(index, "appointmentDuration", e.target.value)}
-                              className="p-2 border border-gray-300 rounded-md w-full focus:border-blue-500 focus:outline-none" 
-                              style={{ maxWidth: "150px" }}
-                              required
-                            />
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Appointment Duration</label>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                placeholder="Duration"
+                                value={slot.appointmentDuration}
+                                onChange={(e) => handleAvailabilityChange(index, "appointmentDuration", e.target.value)}
+                                className="p-2.5 border border-gray-300 rounded-lg w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none pr-16"
+                                required
+                              />
+                              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+                                minutes
+                              </span>
+                            </div>
                             {errors[`availability_duration_${index}`] && (
-                              <p className="text-red-500 text-sm">{errors[`availability_duration_${index}`]}</p>
+                              <p className="text-red-500 text-sm mt-1">{errors[`availability_duration_${index}`]}</p>
                             )}
                           </div>
                         </div>
@@ -669,9 +749,12 @@ export default function HealthFlowDashboard() {
                     <button
                       type="button"
                       onClick={handleAddAvailability}
-                      className="w-full py-2 px-4 border border-blue-500 text-blue-500 rounded-md hover:bg-blue-50 transition-colors duration-200"
+                      className="w-full py-3 px-4 border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-200 font-medium flex items-center justify-center space-x-2"
                     >
-                      + Add Another Slot
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      <span>Add Another Time Slot</span>
                     </button>
                   </div>
                 </div>
@@ -684,13 +767,13 @@ export default function HealthFlowDashboard() {
                 <button
                   type="submit"
                   form="availabilityForm"
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors duration-200"
+                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors duration-200"
                 >
                   Save Availability
                 </button>
                 <button
                   type="button"
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-200"
                   onClick={() => setShowAddPanel(false)}
                 >
                   Cancel
@@ -703,12 +786,12 @@ export default function HealthFlowDashboard() {
 
       {/* Update Panel */}
       {showUpdatePanel && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex justify-end items-start p-6">
-          <div className="bg-white w-full max-w-md rounded-xl shadow-xl flex flex-col mr-6 mt-6 max-h-[calc(100vh-3rem)] overflow-hidden">
+        <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex justify-end items-center">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-xl flex flex-col mr-6 my-auto min-h-[90vh] overflow-hidden">
             {/* Panel Header */}
             <div className="flex items-center justify-between p-4 border-b">
               <div className="flex items-center">
-                <div className="bg-gray-100 p-2 rounded-md mr-3">
+                <div className="bg-gray-100 p-2 rounded-lg mr-3">
                   <CalendarIcon />
                 </div>
                 <div>
@@ -717,7 +800,7 @@ export default function HealthFlowDashboard() {
                 </div>
               </div>
               <button
-                className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-gray-100"
+                className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-gray-100"
                 onClick={() => setShowUpdatePanel(false)}
               >
                 <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-gray-500">
@@ -727,78 +810,84 @@ export default function HealthFlowDashboard() {
             </div>
 
             {/* Panel Content */}
-            <div className="flex-1 p-6 mb-4 overflow-y-auto max-h-[500px]">
-              <form id="updateAvailabilityForm" onSubmit={handleUpdateSubmit} className="space-y-6">
+            <div className="flex-1 p-6 overflow-y-auto">
+              <form id="updateAvailabilityForm" onSubmit={handleUpdateSubmit} className="space-y-8">
                 <div className="bg-white rounded-lg">
-                  <div className="mb-6">
-                    <label className="block mb-2 font-medium text-gray-800">Consultation Fee</label>
-                    <input
-                      type="number"
-                      value={consultationFee}
-                      onChange={(e) => setConsultationFee(e.target.value)}
-                      className="p-2 border border-gray-300 rounded-md w-full focus:border-blue-500 focus:outline-none"
-                      style={{ maxWidth: "200px" }}
-                      required
-                    />
-                    {errors.consultationFee && <p className="text-red-500 text-sm">{errors.consultationFee}</p>}
+                  {/* Financial Information Section */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Information</h3>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <label className="block text-sm font-medium text-gray-700">Consultation Fee (USD)</label>
+                      <div className="mt-2">
+                        <input
+                          type="number"
+                          value={consultationFee}
+                          onChange={(e) => setConsultationFee(e.target.value)}
+                          className="p-2.5 border border-gray-300 rounded-lg w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          required
+                        />
+                      </div>
+                      {errors.consultationFee && <p className="text-red-500 text-sm mt-1">{errors.consultationFee}</p>}
+                    </div>
                   </div>
 
+                  {/* Availability Section */}
                   <div className="space-y-6">
-                    <label className="block mb-2 font-medium text-gray-800">Availability</label>
+                    <h3 className="text-lg font-semibold text-gray-900">Availability Settings</h3>
                     {availability.map((slot, index) => (
-                      <div key={index} className="p-4 border border-gray-200 rounded-lg relative">
-                        <div className="space-y-4">
+                      <div key={index} className="bg-gray-50 p-6 border border-gray-200 rounded-lg relative">
+                        <div className="grid gap-6">
                           <div>
-                            <label className="block mb-2 font-medium text-gray-700">Day</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Select Date</label>
                             <DatePicker
                               selected={slot.day}
                               onChange={(date) => handleAvailabilityChange(index, "day", date)}
-                              dateFormat="yyyy/MM/dd"
+                              dateFormat="MMMM d, yyyy"
                               minDate={today}
-                              className="p-2 border border-gray-300 rounded-md w-full focus:border-blue-500 focus:outline-none"
+                              className="p-2.5 border border-gray-300 rounded-lg w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                               calendarClassName="custom-datepicker"
                               required
                             />
                             {errors[`availability_day_${index}`] && (
-                              <p className="text-red-500 text-sm">{errors[`availability_day_${index}`]}</p>
+                              <p className="text-red-500 text-sm mt-1">{errors[`availability_day_${index}`]}</p>
                             )}
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-2 gap-6">
                             <div>
-                              <label className="block mb-2 font-medium text-gray-700">Start Time</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
                               <DatePicker
                                 selected={slot.startTime}
                                 onChange={(date) => handleAvailabilityChange(index, "startTime", date)}
                                 showTimeSelect
                                 showTimeSelectOnly
                                 timeIntervals={15}
-                                timeCaption="Start Time"
+                                timeCaption="Start"
                                 dateFormat="h:mm aa"
-                                className="p-2 border border-gray-300 rounded-md w-full focus:border-blue-500 focus:outline-none"
+                                className="p-2.5 border border-gray-300 rounded-lg w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                                 calendarClassName="custom-datepicker"
                                 required
                               />
                               {errors[`availability_startTime_${index}`] && (
-                                <p className="text-red-500 text-sm">{errors[`availability_startTime_${index}`]}</p>
+                                <p className="text-red-500 text-sm mt-1">{errors[`availability_startTime_${index}`]}</p>
                               )}
                             </div>
                             <div>
-                              <label className="block mb-2 font-medium text-gray-700">End Time</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">End Time</label>
                               <DatePicker
                                 selected={slot.endTime}
                                 onChange={(date) => handleAvailabilityChange(index, "endTime", date)}
                                 showTimeSelect
                                 showTimeSelectOnly
                                 timeIntervals={15}
-                                timeCaption="End Time"
+                                timeCaption="End"
                                 dateFormat="h:mm aa"
-                                className="p-2 border border-gray-300 rounded-md w-full focus:border-blue-500 focus:outline-none"
+                                className="p-2.5 border border-gray-300 rounded-lg w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                                 calendarClassName="custom-datepicker"
                                 required
                               />
                               {errors[`availability_endTime_${index}`] && (
-                                <p className="text-red-500 text-sm">{errors[`availability_endTime_${index}`]}</p>
+                                <p className="text-red-500 text-sm mt-1">{errors[`availability_endTime_${index}`]}</p>
                               )}
                             </div>
                           </div>
@@ -808,18 +897,22 @@ export default function HealthFlowDashboard() {
                           )}
 
                           <div>
-                            <label className="block mb-2 font-medium text-gray-700">Appointment Duration (minutes)</label>
-                            <input
-                              type="number"
-                              placeholder="Appointment Duration (minutes)"
-                              value={slot.appointmentDuration}
-                              onChange={(e) => handleAvailabilityChange(index, "appointmentDuration", e.target.value)}
-                              className="p-2 border border-gray-300 rounded-md w-full focus:border-blue-500 focus:outline-none" 
-                              style={{ maxWidth: "150px" }}
-                              required
-                            />
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Appointment Duration</label>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                placeholder="Duration"
+                                value={slot.appointmentDuration}
+                                onChange={(e) => handleAvailabilityChange(index, "appointmentDuration", e.target.value)}
+                                className="p-2.5 border border-gray-300 rounded-lg w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none pr-16"
+                                required
+                              />
+                              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+                                minutes
+                              </span>
+                            </div>
                             {errors[`availability_duration_${index}`] && (
-                              <p className="text-red-500 text-sm">{errors[`availability_duration_${index}`]}</p>
+                              <p className="text-red-500 text-sm mt-1">{errors[`availability_duration_${index}`]}</p>
                             )}
                           </div>
                         </div>
@@ -837,13 +930,13 @@ export default function HealthFlowDashboard() {
                 <button
                   type="submit"
                   form="updateAvailabilityForm"
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors duration-200"
+                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors duration-200"
                 >
                   Update Availability
                 </button>
                 <button
                   type="button"
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-200"
                   onClick={() => setShowUpdatePanel(false)}
                 >
                   Cancel

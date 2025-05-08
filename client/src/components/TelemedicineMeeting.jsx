@@ -175,6 +175,7 @@ const PatientProfileSection = ({ patientData }) => {
 
 const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, documents }) => {
   const navigate = useNavigate();
+  const { currentUser, activeRole } = useAuthContext();
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
   const [calling, setCalling] = useState(true);
@@ -221,13 +222,23 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
         console.log("Client successfully left the channel");
       }
       
-      // Update state and navigate
+      // Update state
       setCalling(false);
-      navigate('/account/schedule');
+
+      // Navigate based on user role name
+      if (activeRole?.name === 'sys_doctor') {
+        navigate('/account/schedule');
+      } else {
+        navigate('/account/patient-appointments');
+      }
     } catch (error) {
       console.error("Error leaving channel:", error);
-      // Navigate anyway as fallback
-      navigate('/account/schedule');
+      // Navigate based on user role name even in case of error
+      if (activeRole?.name === 'sys_doctor') {
+        navigate('/account/schedule');
+      } else {
+        navigate('/account/patient-appointments');
+      }
     }
   };
 
@@ -247,15 +258,17 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
   }, [localMicrophoneTrack, localCameraTrack]);
 
   return (
-    <div className="min-w-[1200px] max-w-[1550px] mx-auto p-0 h-full p-2">
+    <div className="w-full mx-auto p-0 h-full">
       {/* Header */}
-      <div className="mb-4 px-2">
-        <h1 className="text-blue-600 font-medium text-lg">Telemedicine Meeting</h1>
-        <div className="h-0.5 w-44 bg-blue-600"></div>
+      <div className="border-b border-gray-200 mb-4 bg-white">
+        <div className="p-4 pb-0">
+          <h1 className="text-blue-600 font-medium text-sm">Telemedicine Meeting</h1>
+        </div>
+        <div className="h-0.5 w-44 bg-blue-600 mt-2"></div>
       </div>
 
       {/* Main content */}
-      <div className="flex flex-col md:flex-row h-[calc(100vh-120px)] w-full">
+      <div className="flex flex-col md:flex-row h-[calc(100vh-120px)] min-w-[1200px] max-w-[1550px] mx-auto p-0 h-full p-2">
         {/* Left section - Meeting area and Documents */}
         <div className="flex-1 flex flex-col min-w-[300px]">
           {/* Meeting area */}

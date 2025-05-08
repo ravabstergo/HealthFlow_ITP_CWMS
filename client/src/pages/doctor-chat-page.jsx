@@ -39,6 +39,8 @@ export default function DoctorChatPage() {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [filteredConversations, setFilteredConversations] = useState([]);
+  const [conversationSearchQuery, setConversationSearchQuery] = useState('');
   const messagesEndRef = useRef(null);
 
   // Fetch conversations on component mount
@@ -87,6 +89,19 @@ export default function DoctorChatPage() {
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  useEffect(() => {
+    if (!conversationSearchQuery.trim()) {
+      setFilteredConversations(conversations);
+      return;
+    }
+    
+    const filtered = conversations.filter(conv => 
+      conv.name.toLowerCase().includes(conversationSearchQuery.toLowerCase()) ||
+      (conv.lastMessage && conv.lastMessage.toLowerCase().includes(conversationSearchQuery.toLowerCase()))
+    );
+    setFilteredConversations(filtered);
+  }, [conversationSearchQuery, conversations]);
 
   const fetchConversations = async () => {
     setLoading(true);
@@ -187,7 +202,7 @@ export default function DoctorChatPage() {
     // Add message to UI immediately for better UX
     const optimisticMessage = {
       id: `temp-${Date.now()}`,
-      sender: 'doctor', // Sender is the doctor
+      sender: 'doctor',
       text: messageText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       pending: true
@@ -207,7 +222,7 @@ export default function DoctorChatPage() {
         prevMessages.map(msg => 
           msg.id === optimisticMessage.id ? {
             id: sentMessage._id,
-            sender: 'doctor', // Sender is the doctor
+            sender: 'doctor',
             text: sentMessage.content,
             timestamp: formatMessageTime(sentMessage.createdAt),
             read: false,
@@ -216,8 +231,18 @@ export default function DoctorChatPage() {
         )
       );
       
-      // Refresh the conversation list to show updated last message
-      fetchConversations();
+      // Update only the current conversation in the list
+      setConversations(prevConversations => 
+        prevConversations.map(conv => 
+          conv.id === selectedConversation.id 
+            ? {
+                ...conv,
+                lastMessage: messageText,
+                timestamp: formatTimestamp(new Date())
+              }
+            : conv
+        )
+      );
     } catch (error) {
       console.error('Error sending message:', error);
       
@@ -290,8 +315,8 @@ export default function DoctorChatPage() {
   };
 
   return (
-      <div className="h-full flex flex-col">
-        <div className="p-4 border-b">
+      <div className="h-full flex flex-col bg-white">
+        <div className="p-3 border-b">
           <h1 className="text-xl font-semibold text-gray-800">Doctor Chat</h1>
           <p className="text-sm text-gray-500">Connect with your patients</p>
         </div>
@@ -360,10 +385,8 @@ export default function DoctorChatPage() {
                   type="text"
                   placeholder="Search conversations..."
                   className="w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) => {
-                    // Local filtering of existing conversations
-                    // This is just a filter, not an API call
-                  }}
+                  value={conversationSearchQuery}
+                  onChange={(e) => setConversationSearchQuery(e.target.value)}
                 />
               )}
             </div>
@@ -385,7 +408,7 @@ export default function DoctorChatPage() {
               </div>
             ) : (
               <div>
-                {conversations.map((conv) => (
+                {filteredConversations.map((conv) => (
                   <div
                     key={conv.id}
                     className={`p-3 flex items-center hover:bg-gray-100 cursor-pointer ${
@@ -453,14 +476,14 @@ export default function DoctorChatPage() {
                             className={`mb-4 flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                           >
                             <div
-                              className={`max-w-xs md:max-w-md rounded-lg p-3 ${
+                              className={`max-w-xs md:max-w-md rounded-2xl p-3 ${
                                 isCurrentUser
                                   ? (msg.pending 
-                                    ? 'bg-green-300 text-white rounded-br-none'
+                                    ? 'bg-green-300 text-white'
                                     : msg.failed 
-                                      ? 'bg-red-500 text-white rounded-br-none' 
-                                      : 'bg-green-500 text-white rounded-br-none')
-                                  : 'bg-white border rounded-bl-none'
+                                      ? 'bg-red-500 text-white' 
+                                      : 'bg-green-500 text-white')
+                                  : 'bg-white border'
                               }`}
                             >
                               <p className="text-sm">{msg.text}</p>

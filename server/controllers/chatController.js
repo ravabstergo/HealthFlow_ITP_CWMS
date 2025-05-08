@@ -2,6 +2,7 @@ const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const { encrypt, decrypt } = require('../utils/encryption');
 const { ObjectId } = mongoose.Types;
 
 // Get all conversations for a user
@@ -19,7 +20,7 @@ exports.getConversations = async (req, res) => {
     })
     .sort({ lastMessageTimestamp: -1 }); // Most recent conversations first
 
-    // Format the response
+    // Format the response and decrypt last message
     const formattedConversations = conversations.map(conv => {
       // Filter out the current user from participants
       const otherParticipant = conv.participants.find(p => p._id.toString() !== userId.toString());
@@ -27,9 +28,10 @@ exports.getConversations = async (req, res) => {
       return {
         id: conv._id,
         participant: otherParticipant,
-        lastMessage: conv.lastMessage,
+        lastMessage: conv.lastMessage ? decrypt(conv.lastMessage) : '',
         lastMessageTimestamp: conv.lastMessageTimestamp,
-        unreadCount: conv.unreadCount.get(userId.toString()) || 0
+        unreadCount: conv.unreadCount && conv.unreadCount.get ? 
+                    (conv.unreadCount.get(userId.toString()) || 0) : 0
       };
     });
 
@@ -44,9 +46,8 @@ exports.getConversations = async (req, res) => {
 exports.getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const userId = req.user.id; // Changed from req.user._id to req.user.id
+    const userId = req.user.id;
 
-    // Verify the conversation exists and user is a participant
     const conversation = await Conversation.findOne({
       _id: conversationId,
       participants: userId
@@ -56,10 +57,18 @@ exports.getMessages = async (req, res) => {
       return res.status(403).json({ message: 'You do not have access to this conversation' });
     }
 
-    // Get messages for this conversation
     const messages = await Message.find({ conversation: conversationId })
       .populate('sender', 'name email role')
-      .sort({ createdAt: 1 }); // Oldest messages first
+      .sort({ createdAt: 1 });
+
+    // Decrypt message content before sending
+    const decryptedMessages = messages.map(msg => {
+      const decrypted = decrypt(msg.content);
+      return {
+        ...msg.toObject(),
+        content: decrypted || msg.content // Fallback to original content if decryption fails
+      };
+    });
 
     // Mark messages as read
     await Message.updateMany(
@@ -71,7 +80,6 @@ exports.getMessages = async (req, res) => {
       { read: true }
     );
 
-    // Reset unread count for this user in this conversation
     const unreadCountMap = new Map(conversation.unreadCount);
     unreadCountMap.set(userId.toString(), 0);
     await Conversation.updateOne(
@@ -79,7 +87,7 @@ exports.getMessages = async (req, res) => {
       { unreadCount: unreadCountMap }
     );
 
-    res.status(200).json(messages);
+    res.status(200).json(decryptedMessages);
   } catch (error) {
     console.error('Error getting messages:', error);
     res.status(500).json({ message: 'Error retrieving messages' });
@@ -105,6 +113,9 @@ exports.sendMessage = async (req, res) => {
       return res.status(404).json({ message: 'Recipient not found' });
     }
 
+    // Encrypt the message content
+    const encryptedContent = encrypt(content);
+
     // Find existing conversation or create new one
     let conversation = await Conversation.findOne({
       participants: { $all: [senderId, recipientId] }
@@ -113,7 +124,7 @@ exports.sendMessage = async (req, res) => {
     if (!conversation) {
       conversation = await Conversation.create([{
         participants: [senderId, recipientId],
-        lastMessage: content,
+        lastMessage: encryptedContent,
         lastMessageTimestamp: new Date(),
         unreadCount: new Map([[recipientId.toString(), 1]])
       }], { session });
@@ -127,29 +138,34 @@ exports.sendMessage = async (req, res) => {
       await Conversation.updateOne(
         { _id: conversation._id },
         { 
-          lastMessage: content,
+          lastMessage: encryptedContent,
           lastMessageTimestamp: new Date(),
           unreadCount: unreadCountMap
         }
       ).session(session);
     }
 
-    // Create and save the new message
+    // Create and save the new message with encrypted content
     const newMessage = await Message.create([{
       sender: senderId,
       recipient: recipientId,
-      content,
+      content: encryptedContent,
       conversation: conversation._id,
       read: false
     }], { session });
 
     await session.commitTransaction();
     
-    // Return the newly created message with populated sender
     const populatedMessage = await Message.findById(newMessage[0]._id)
       .populate('sender', 'name email role');
 
-    res.status(201).json(populatedMessage);
+    // Decrypt the message content before sending the response
+    const messageResponse = {
+      ...populatedMessage.toObject(),
+      content: content // Send back the original unencrypted content
+    };
+
+    res.status(201).json(messageResponse);
   } catch (error) {
     await session.abortTransaction();
     console.error('Error sending message:', error);
