@@ -4,10 +4,12 @@ import Input from "../components/ui/input";
 import Button from "../components/ui/button";
 import DocumentService from "../services/DocumentService";
 import Toast from "../components/ui/toast";
+import { useAuthContext } from "../context/AuthContext";
 import DropdownMenu, { DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../components/ui/dropdown-menu";
 
 export default function DocumentList() {
   const [searchTerm, setSearchTerm] = useState("");
+  const { currentUser} = useAuthContext();
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
@@ -25,8 +27,11 @@ export default function DocumentList() {
 
   const fetchDocuments = async () => {
     try {
+
+      const doctorId = currentUser.id;
+      console.log("Fetching documents for doctor ID:", doctorId);
       setLoading(true);
-      const data = await DocumentService.getAllDocuments();
+      const data = await DocumentService.getAllDocumentsByDoctor();
       if (!data || !Array.isArray(data)) {
         throw new Error('Invalid document data received');
       }

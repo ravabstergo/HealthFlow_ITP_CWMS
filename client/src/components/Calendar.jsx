@@ -157,6 +157,27 @@ export default function Calendar() {
     }
   };
 
+  const unmarkAppointmentAsComplete = async (appointmentId) => {
+    try {
+      const response = await fetch(`/api/appointments/appointments/${appointmentId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'active' })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update appointment status');
+      }
+
+      // Refresh the appointments
+      fetchData();
+    } catch (error) {
+      console.error('Error updating appointment status:', error);
+    }
+  };
+
   return (
     <div className="w-full bg-white flex flex-col h-full">
       {/* Calendar Header - Fixed */}
@@ -248,6 +269,9 @@ export default function Calendar() {
                               {appointment.reason}
                             </span>
                           </div>
+                          <div className="mt-1 text-sm text-gray-500">
+                            Contact: {appointment.phone}
+                          </div>
                         </div>
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center gap-1">
@@ -269,6 +293,14 @@ export default function Calendar() {
                                 Mark Complete
                               </button>
                             </>
+                          )}
+                          {appointment.status === 'completed' && (
+                            <button 
+                              className="px-3 py-1 text-xs text-orange-600 border border-orange-600 rounded-full"
+                              onClick={() => unmarkAppointmentAsComplete(appointment._id)}
+                            >
+                              Unmark Complete
+                            </button>
                           )}
                         </div>
                       </div>

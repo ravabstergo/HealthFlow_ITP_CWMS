@@ -43,6 +43,14 @@ function authReducer(state, action) {
     case "SET_ERROR":
       console.error("[AuthContext] SET_ERROR:", action.payload);
       return { ...state, error: action.payload, loading: false };
+    case "SWITCH_ROLE":
+      return {
+        ...state,
+        activeRole: action.payload.role,
+        permissions: action.payload.role?.permissions || [],
+        loading: false,
+        error: null,
+      };
     default:
       return state;
   }
@@ -122,6 +130,20 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: "LOGOUT" });
   };
 
+  const switchRole = async (roleId) => {
+    dispatch({ type: "SET_LOADING" });
+    try {
+      const response = await AuthService.switchRole(roleId);
+      dispatch({
+        type: "SWITCH_ROLE",
+        payload: { role: response.activeRole },
+      });
+    } catch (err) {
+      dispatch({ type: "SET_ERROR", payload: err.message });
+      throw err;
+    }
+  };
+
   const hasPermission = useCallback(
     (entity, action, scope = "all") => {
       return state.permissions.some(
@@ -139,6 +161,7 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     hasPermission,
+    switchRole,
     isAuthenticated: !!state.currentUser,
   };
 

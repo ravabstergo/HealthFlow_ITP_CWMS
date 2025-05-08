@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { Search, Plus, ChevronDown, Download, MoreVertical, Filter } from "lucide-react";
+import { Search, Plus, ChevronDown, Download, Eye, Filter } from "lucide-react";
 import Card from "../ui/card";
 import Button from "../ui/button";
 import Input from "../ui/input";
@@ -13,7 +13,7 @@ import DocumentService from "../../services/DocumentService";
 
 export default function PatientDocumentList() {
   const { id: patientId } = useParams();
-  const { activeRole } = useAuthContext();
+  const { currentUser:user } = useAuthContext();
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,7 +30,6 @@ export default function PatientDocumentList() {
   const [selectedStatus, setSelectedStatus] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
-  const isDoctor = activeRole?.name === "sys_doctor";
 
   const statusOptions = ["All", "Pending", "Doctor Review", "Approved", "Rejected"];
 
@@ -40,8 +39,11 @@ export default function PatientDocumentList() {
 
   const fetchDocuments = async () => {
     try {
+
+      console.log("Fetching documents for patient:", patientId);
+      console.log("User ID:", user?.id);
       setLoading(true);
-      const data = await DocumentService.getAllDocuments(patientId);
+      const data = await DocumentService.getAllDocuments(patientId, user?.id);
       setDocuments(data || []);
     } catch (error) {
       setToast({
@@ -56,6 +58,15 @@ export default function PatientDocumentList() {
   };
 
   const handleUploadSuccess = (document) => {
+    if (!document) {
+      setToast({
+        visible: true,
+        message: "Failed to upload document",
+        type: "error"
+      });
+      return;
+    }
+
     setDocuments(prev => [...prev, document]);
     setToast({
       visible: true,
@@ -66,6 +77,15 @@ export default function PatientDocumentList() {
   };
 
   const handleUpdateSuccess = (updatedDoc) => {
+    if (!updatedDoc) {
+      setToast({
+        visible: true,
+        message: "Failed to update document",
+        type: "error"
+      });
+      return;
+    }
+
     setDocuments(prev => prev.map(doc => 
       doc._id === updatedDoc._id ? updatedDoc : doc
     ));
@@ -318,51 +338,54 @@ export default function PatientDocumentList() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
-                        checked={selectedDocuments.length === documents.length && documents.length > 0}
-                        onChange={toggleSelectAll}
-                      />
-                      Name
-                      <ChevronDown className="ml-1 h-4 w-4" />
-                    </div>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <input
+                      type="checkbox"
+                      checked={selectedDocuments.length === documents.length}
+                      onChange={toggleSelectAll}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Document Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredDocuments.map((doc) => (
-                  <tr key={doc._id} className="hover:bg-gray-50">
+                  <tr key={doc._id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
-                          checked={selectedDocuments.includes(doc._id)}
-                          onChange={() => toggleSelectDocument(doc._id)}
-                        />
-                        <span className="text-sm text-gray-900 hover:text-blue-600 cursor-pointer" 
-                              onClick={() => handleViewDocument(doc.documentUrl)}>
-                          {doc.documentName}
-                        </span>
-                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectedDocuments.includes(doc._id)}
+                        onChange={() => toggleSelectDocument(doc._id)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {doc.documentType}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{doc.documentName}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
-                        doc.status === 'Approved' ? 'bg-green-100 text-green-800' :
-                        doc.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                        doc.status === 'Doctor Review' ? 'bg-blue-100 text-blue-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{doc.documentType}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${doc.status === 'Approved' ? 'bg-green-100 text-green-800' : 
+                          doc.status === 'Rejected' ? 'bg-red-100 text-red-800' :
+                          doc.status === 'Doctor Review' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'}`}>
                         {doc.status}
                       </span>
                     </td>
@@ -370,37 +393,23 @@ export default function PatientDocumentList() {
                       {new Date(doc.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
-                          onClick={() => handleDownload(doc)}
-                          className="text-gray-400 hover:text-gray-500"
+                      <div className="flex justify-end space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewDocument(doc.documentUrl)}
+                          className="text-gray-600 hover:text-gray-900"
                         >
-                          <Download className="h-5 w-5" />
-                        </button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="text-gray-400 hover:text-gray-500">
-                              <MoreVertical className="h-5 w-5" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleViewDocument(doc.documentUrl)}>
-                              View
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setEditingDocument(doc);
-                              setIsUploadModalOpen(true);
-                            }}>
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedDocuments([doc._id]);
-                              setIsDeleteDialogOpen(true);
-                            }}>
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownload(doc)}
+                          className="text-gray-600 hover:text-gray-900"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -440,6 +449,7 @@ export default function PatientDocumentList() {
           mode={editingDocument ? "edit" : bulkUpdateDocuments ? "bulk-update" : "create"}
           documentData={editingDocument || bulkUpdateDocuments}
           patientId={patientId}
+          doctorId={user?._id}
           onUploadSuccess={handleUploadSuccess}
           onUpdateSuccess={(updatedDocs) => {
             if (Array.isArray(updatedDocs)) {

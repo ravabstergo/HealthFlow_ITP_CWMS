@@ -1,32 +1,39 @@
 const mongoose = require("mongoose");
 
 const documentSchema = new mongoose.Schema({
-  patentid: {
+  patientid: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Patent",
-    required: false,
+    ref: "Patient",
+    required: [true, "Patient ID is required"],
   },
   doctorid: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Doctor",
-    required: false,
+    ref: "User",
+    required: [true, "Doctor ID is required"],
   },
   documentName: {
     type: String,
-    required: true,
+    required: [true, "Document name is required"],
+    trim: true,
   },
   documentUrl: {
     type: String,
-    required: true,
+    required: [true, "Document URL is required"],
   },
   documentType: {
     type: String,
-    enum: ["Scan", "Lab Report", "Prescription", "System Generated"],
-    required: true,
+    enum: {
+      values: ["Scan", "Lab Report", "Prescription", "System Generated"],
+      message: "{VALUE} is not a valid document type",
+    },
+    required: [true, "Document type is required"],
   },
   status: {
     type: String,
-    enum: ["Pending", "Doctor Review", "Approved", "Rejected"],
+    enum: {
+      values: ["Pending", "Doctor Review", "Approved", "Rejected"],
+      message: "{VALUE} is not a valid status",
+    },
     default: "Pending",
   },
   createdAt: {
@@ -38,6 +45,10 @@ const documentSchema = new mongoose.Schema({
     default: null,
   },
 });
+
+// Add index for faster queries
+documentSchema.index({ patientid: 1, doctorid: 1 });
+documentSchema.index({ createdAt: -1 });
 
 const Document = mongoose.model("Document", documentSchema);
 
