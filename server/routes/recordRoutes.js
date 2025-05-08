@@ -7,22 +7,19 @@ const {
   getRecordById,
   deleteRecord,
   updateRecord,
-  // createEncounter,
-  // getPatientRecords,
-  // getRecordByPatientId,
-  // deleteEncounter,
-  // searchPatientRecord,
+  searchPatients,
+  findPatientByUser
 } = require("../controllers/recordController");
 
-// create a patient record
-router.post(
-  "/",
+// New route for finding patient by user details
+router.get(
+  "/findByUser",
   protect,
   (req, res, next) => {
-    console.log("POST request to create patient record received");
+    console.log("GET request to find patient by user details received");
     next();
   },
-  createPatientRecord
+  findPatientByUser
 );
 
 router.get(
@@ -33,6 +30,28 @@ router.get(
     next();
   },
   getRecordsByDoctor
+);
+
+// search for records by query
+router.get(
+  "/search/:query",
+  protect,
+  (req, res, next) => {
+    console.log("GET request to search patient records received, query:", req.params.query);
+    next();
+  },
+  searchPatients
+);
+
+// create a patient record
+router.post(
+  "/",
+  protect,
+  (req, res, next) => {
+    console.log("POST request to create patient record received");
+    next();
+  },
+  createPatientRecord
 );
 
 router.get(
@@ -59,27 +78,15 @@ router.delete(
   deleteRecord
 );
 
-// delete a patient record
+// update a patient record
 router.patch(
   "/:recordId",
   protect,
   (req, res, next) => {
-    console.log("PATCH request to delete patient record received");
+    console.log("PATCH request to update patient record received");
     next();
   },
   updateRecord
 );
-
-// // create an encounter
-// router.post("/encounters", createEncounter);
-
-// // update a patient record
-// router.patch("/:recordId", updatePatientRecord);
-
-// // delete an encounter
-// router.delete("/encounters/:encounterId", deleteEncounter);
-
-// // search for records by name
-// router.get("/search/patient-record", searchPatientRecord);
 
 module.exports = router;

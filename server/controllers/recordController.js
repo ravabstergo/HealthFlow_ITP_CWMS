@@ -311,3 +311,39 @@ exports.searchPatients = async (req, res) => {
     });
   }
 };
+
+exports.findPatientByUser = async (req, res) => {
+  try {
+    const { email, nic } = req.query;
+    console.log("Finding patient by user details:", { email, nic });
+
+    if (!email && !nic) {
+      console.log("No email or NIC provided");
+      return res.status(400).json({ message: "Email or NIC is required" });
+    }
+
+    const query = {};
+    if (email) {
+      console.log("Searching by email:", email);
+      query.email = email;
+    }
+    if (nic) {
+      console.log("Searching by NIC:", nic);
+      query.nic = nic;
+    }
+
+    console.log("Final query:", query);
+    const patient = await Patient.findOne(query);
+
+    if (!patient) {
+      console.log("No patient found for query:", query);
+      return res.status(404).json({ message: "Patient record not found" });
+    }
+
+    console.log("Patient found:", patient._id);
+    res.status(200).json({ patientId: patient._id });
+  } catch (error) {
+    console.error("Error finding patient:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
