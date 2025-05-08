@@ -152,7 +152,7 @@ export default function Sidebar() {
         { 
           name: "Feedback", 
           icon: <MessageSquare className="w-4 h-4" />, 
-          path: "feedback/summary/:id",
+          path: "feedback",
           requiredPerm: "feedback:view:own"
         },
         { 
