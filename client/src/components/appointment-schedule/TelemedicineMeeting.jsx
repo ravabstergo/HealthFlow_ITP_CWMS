@@ -178,16 +178,17 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
   const { currentUser, activeRole } = useAuthContext();
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
-  const [calling, setCalling] = useState(true);
+  const [calling, setCalling] = useState(false);
+  const [hasJoinedMeeting, setHasJoinedMeeting] = useState(false);
 
-  // Get tracks for local user
-  const { localMicrophoneTrack } = useLocalMicrophoneTrack(micOn);
-  const { localCameraTrack } = useLocalCameraTrack(cameraOn);
+  // Get tracks for local user only when joined meeting
+  const { localMicrophoneTrack } = useLocalMicrophoneTrack(hasJoinedMeeting && micOn);
+  const { localCameraTrack } = useLocalCameraTrack(hasJoinedMeeting && cameraOn);
   
   // Get reference to the RTC client
   const client = useRTCClient();
   
-  // Join the channel
+  // Join the channel only when user clicks join
   useJoin(
     {
       appid: APP_ID,
@@ -203,57 +204,32 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
   // Get remote users
   const remoteUsers = useRemoteUsers();
 
+  const handleJoinMeeting = () => {
+    setHasJoinedMeeting(true);
+    setCalling(true);
+  };
+
   const handleEndMeeting = async () => {
     try {
-      // Stop tracks first
-      if (localMicrophoneTrack) {
-        await localMicrophoneTrack.stop();
-        await localMicrophoneTrack.close();
-      }
-      
-      if (localCameraTrack) {
-        await localCameraTrack.stop();
-        await localCameraTrack.close();
-      }
-      
-      // Leave the channel
-      if (client) {
-        await client.leave();
-        console.log("Client successfully left the channel");
-      }
-      
-      // Update state
       setCalling(false);
-
-      // Navigate based on user role name
-      if (activeRole?.name === 'sys_doctor') {
-        navigate('/account/schedule');
-      } else {
-        navigate('/account/patient-appointments');
-      }
+      setHasJoinedMeeting(false);
+      navigate('/account/schedule');
     } catch (error) {
-      console.error("Error leaving channel:", error);
-      // Navigate based on user role name even in case of error
-      if (activeRole?.name === 'sys_doctor') {
-        navigate('/account/schedule');
-      } else {
-        navigate('/account/patient-appointments');
-      }
+      console.error('Error ending meeting:', error);
     }
   };
 
   // Clean up when component unmounts
   useEffect(() => {
     return () => {
-      // This ensures resources are cleaned up if user navigates away without clicking End Meeting
       if (localMicrophoneTrack) {
-        localMicrophoneTrack.stop();
         localMicrophoneTrack.close();
       }
       if (localCameraTrack) {
-        localCameraTrack.stop();
         localCameraTrack.close();
       }
+      setCalling(false);
+      setHasJoinedMeeting(false);
     };
   }, [localMicrophoneTrack, localCameraTrack]);
 
@@ -284,88 +260,102 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
               </div>
             </div>
 
-            {/* Video screens */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4 justify-center">
-              {/* Local user video */}
-              <div className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-100 relative">
-                {cameraOn ? (
-                  <LocalUser
-                    audioTrack={localMicrophoneTrack}
-                    cameraOn={cameraOn}
-                    micOn={micOn}
-                    videoTrack={localCameraTrack}
-                    className="w-full h-full object-cover rounded-2xl"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-200 rounded-2xl">
-                    <div className="flex flex-col items-center">
-                      <div className="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center">
-                        <UserIcon className="h-10 w-10 text-gray-500" />
-                      </div>
-                      <p className="mt-3 text-gray-600">Camera Off</p>
-                    </div>
-                    
-                    {/* Audio still works when camera is off */}
-                    <div className="hidden">
+            {!hasJoinedMeeting ? (
+              <div className="flex flex-col items-center justify-center h-[300px] bg-gray-50 rounded-2xl">
+                <button 
+                  onClick={handleJoinMeeting}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-full font-medium transition-colors"
+                >
+                  Join Meeting Now
+                </button>
+                <p className="mt-3 text-sm text-gray-500">Click to join the video consultation</p>
+              </div>
+            ) : (
+              <>
+                {/* Video screens */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4 justify-center">
+                  {/* Local user video */}
+                  <div className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-100 relative">
+                    {cameraOn ? (
                       <LocalUser
                         audioTrack={localMicrophoneTrack}
-                        cameraOn={false}
+                        cameraOn={cameraOn}
                         micOn={micOn}
-                        videoTrack={null}
+                        videoTrack={localCameraTrack}
+                        className="w-full h-full object-cover rounded-2xl"
                       />
-                    </div>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200 rounded-2xl">
+                        <div className="flex flex-col items-center">
+                          <div className="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center">
+                            <UserIcon className="h-10 w-10 text-gray-500" />
+                          </div>
+                          <p className="mt-3 text-gray-600">Camera Off</p>
+                        </div>
+                        
+                        {/* Audio still works when camera is off */}
+                        <div className="hidden">
+                          <LocalUser
+                            audioTrack={localMicrophoneTrack}
+                            cameraOn={false}
+                            micOn={micOn}
+                            videoTrack={null}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {!micOn && (
+                      <div className="absolute bottom-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">
+                        Muted
+                      </div>
+                    )}
                   </div>
-                )}
-                {!micOn && (
-                  <div className="absolute bottom-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">
-                    Muted
-                  </div>
-                )}
-              </div>
 
-              {/* Remote user video */}
-              {remoteUsers.map((user) => (
-                <div key={user.uid} className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-100 relative">
-                  <RemoteUser user={user} className="w-full h-full object-cover rounded-2xl">
-                    <span className="hidden">{user.uid}</span>
-                  </RemoteUser>
-                  {!user.hasAudio && (
-                    <div className="absolute bottom-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">
-                      Muted
+                  {/* Remote user video */}
+                  {remoteUsers.map((user) => (
+                    <div key={user.uid} className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-100 relative">
+                      <RemoteUser user={user} className="w-full h-full object-cover rounded-2xl">
+                        <span className="hidden">{user.uid}</span>
+                      </RemoteUser>
+                      {!user.hasAudio && (
+                        <div className="absolute bottom-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">
+                          Muted
+                        </div>
+                      )}
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            {/* Meeting controls */}
-            <div className="flex justify-center items-center gap-4">
-              <button
-                onClick={() => setMicOn(!micOn)}
-                className={`p-2 rounded-full ${micOn ? "text-gray-700" : "bg-gray-200 text-gray-500"}`}
-              >
-                <Mic className="h-5 w-5" />
-              </button>
+                {/* Meeting controls */}
+                <div className="flex justify-center items-center gap-4">
+                  <button
+                    onClick={() => setMicOn(!micOn)}
+                    className={`p-2 rounded-full ${micOn ? "text-gray-700" : "bg-gray-200 text-gray-500"}`}
+                  >
+                    <Mic className="h-5 w-5" />
+                  </button>
 
-              <button 
-                onClick={handleEndMeeting}
-                className="bg-red-400 text-white px-6 py-2 rounded-full font-medium"
-              >
-                End Meeting
-              </button>
+                  <button 
+                    onClick={handleEndMeeting}
+                    className="bg-red-400 text-white px-6 py-2 rounded-full font-medium"
+                  >
+                    End Meeting
+                  </button>
 
-              <button
-                onClick={() => setCameraOn(!cameraOn)}
-                className={`p-2 rounded-full ${cameraOn ? "text-gray-700" : "bg-gray-200 text-gray-500"}`}
-              >
-                <Video className="h-5 w-5" />
-              </button>
-            </div>
+                  <button
+                    onClick={() => setCameraOn(!cameraOn)}
+                    className={`p-2 rounded-full ${cameraOn ? "text-gray-700" : "bg-gray-200 text-gray-500"}`}
+                  >
+                    <Video className="h-5 w-5" />
+                  </button>
+                </div>
 
-            {/* White rounded box below buttons */}
-            <div class="mt-3 bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-              <p class="text-sm text-gray-500 text-center">Meeting ID: appointment-{appointmentId}</p>
-            </div>
+                {/* Meeting ID box */}
+                <div className="mt-3 bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                  <p className="text-sm text-gray-500 text-center">Meeting ID: appointment-{appointmentId}</p>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Documents section - reduced height */}
@@ -501,67 +491,70 @@ export default function TelemedicineMeeting() {
   // Create Agora client
   const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 
-  // Fetch appointment and patient data
+  // Fetch appointment and patient data only once when component mounts
   useEffect(() => {
-    async function fetchData() {
+    let isMounted = true;
+
+    const fetchData = async () => {
       try {
         setLoading(true);
+        setError(null);
+
         const data = await getAppointmentWithPatientData(appointmentId);
+        if (!isMounted) return;
+
+        // Update the data handling to match the API response structure
         setAppointmentData(data.appointment);
         setPatientProfile(data.patientData);
-        
-        // Fetch documents using patient ID and doctor ID
-        if (data.patientData?._id && currentUser?.id) {
-          console.log("Fetching documents for patient ID:", data.patientData._id, "and doctor ID:", currentUser.id);
-          const docsResponse = await DocumentService.getAllDocuments(data.patientData._id, currentUser.id);
-          setDocuments(docsResponse.documents || []);
+
+        // Only fetch documents if we have patient data
+        if (data.patientData?._id) {
+          try {
+            const docs = await DocumentService.getDocumentsByPatientId(data.patientData._id);
+            if (!isMounted) return;
+            setDocuments(docs);
+          } catch (docError) {
+            console.error('Error fetching documents:', docError);
+            // Don't set error state here, as documents are not critical
+            setDocuments([]);
+          }
         }
-        
+
         setLoading(false);
       } catch (err) {
-        console.error("Error fetching data:", err);
-        setError(err.message);
+        if (!isMounted) return;
+        console.error('Error fetching appointment data:', err);
+        setError(err.message || 'Failed to load appointment data');
         setLoading(false);
       }
-    }
-    
-    if (appointmentId) {
+    };
+
+    if (appointmentId && currentUser?.id) {
       fetchData();
     }
-  }, [appointmentId, currentUser?.id]);
 
-  console.log('13. Rendering component with loading:', loading, 'error:', error);
+    return () => {
+      isMounted = false;
+    };
+  }, [appointmentId, currentUser?.id]); // Only re-run if appointmentId or currentUser.id changes
 
-  if (loading) {
-    console.log('14. Rendering loading state');
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center h-screen">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+    </div>
+  );
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen">
-        <AlertCircle className="h-16 w-16 text-red-500 mb-4" />
-        <h2 className="text-xl font-medium text-gray-800 mb-2">Error Loading Meeting</h2>
-        <p className="text-gray-600 mb-4">{error}</p>
-        <button 
-          className="bg-blue-500 text-white px-4 py-2 rounded-md"
-          onClick={() => window.history.back()}
-        >
-          Go Back
-        </button>
-      </div>
-    );
-  }
+  if (error) return (
+    <div className="flex items-center justify-center h-screen text-red-500">
+      <p>{error}</p>
+    </div>
+  );
 
   return (
     <AgoraRTCProvider client={client}>
       <Basics 
         appointmentId={appointmentId}
-        patientName={appointmentData?.firstName ? `${appointmentData.firstName} ${appointmentData.lastName}` : 'Patient'}
+        patientName={`${patientProfile?.name?.firstName || ''} ${patientProfile?.name?.lastName || ''}`}
         appointmentDate={appointmentData?.time ? new Date(appointmentData.time).toLocaleDateString() : ''}
         patientProfile={patientProfile}
         documents={documents}
