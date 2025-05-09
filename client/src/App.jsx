@@ -49,7 +49,9 @@ import DoctorDashboard from "./pages/dashboard-page";
 import PatientDashboard from "./pages/patient-dashboard";
 
 function App() {
+
   const { currentUser, activeRole, loading } = useAuthContext();
+
 
   if (loading) {
     return <div className="loading-spinner">Loading...</div>;
