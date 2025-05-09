@@ -28,10 +28,19 @@ export default function PrescriptionPage() {
   const navigate = useNavigate();
 
   const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
+    });
+  };
+
+  const sortPrescriptions = (prescriptions) => {
+    return [...prescriptions].sort((a, b) => {
+      const dateA = new Date(a.dateIssued);
+      const dateB = new Date(b.dateIssued);
+      return dateB - dateA; // Sort in descending order (newest first)
     });
   };
 
@@ -62,10 +71,23 @@ export default function PrescriptionPage() {
       try {
         const token = TokenService.getAccessToken();
 
-        // Removed the unnecessary API call to fetch doctor details
-        // Using currentUser from AuthContext instead
 
-        const response = await fetch(`${API_URL}/prescriptions/doctor/${doctorId}`, {
+        // First get the doctor details from appointments API which properly populates doctor info
+        const doctorResponse = await fetch(`/api/appointments/doctors/${doctorId}`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+
+        if (doctorResponse.ok) {
+          const doctorData = await doctorResponse.json();
+          setDoctorDetails(doctorData);
+        } else {
+          console.error("Failed to fetch doctor details");
+        }
+
+        // Then fetch prescriptions
+        const response = await fetch(`/api/prescriptions/doctor/${doctorId}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
           },
@@ -76,8 +98,10 @@ export default function PrescriptionPage() {
         }
 
         const data = await response.json();
-        console.log("Fetched prescriptions:", data); // Added debug log
-        setPrescriptions(data);
+        console.log("Fetched prescriptions:", data);
+        // Sort prescriptions before setting state
+        const sortedPrescriptions = sortPrescriptions(data);
+        setPrescriptions(sortedPrescriptions);
       } catch (err) {
         console.error("Error fetching prescriptions:", err);
         setError(err.message);
@@ -216,74 +240,142 @@ export default function PrescriptionPage() {
   const handleDownloadPrescription = (prescription) => {
     const doc = new jsPDF();
     
-    // Set initial y position
     let y = 20;
     const lineHeight = 7;
+    const pageWidth = doc.internal.pageSize.width;
     
-    // Add title
+    // Add header with blue banner
+    doc.setFillColor(41, 128, 185);
+    doc.rect(0, 0, pageWidth, 15, 'F');
+    
+    // Add logo/hospital name in white
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('PRESCRIPTION', 105, y, { align: 'center' });
-    y += lineHeight * 2;
-
-    // Add header info
+    doc.text('HEALTHFLOW MEDICAL CENTER', pageWidth/2, 10, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+    
+    // Add prescription title
+    y += 15;
+    doc.setFontSize(14);
+    doc.text('PRESCRIPTION', pageWidth/2, y, { align: 'center' });
+    
+    // Reset font for content
     doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.line(20, y, 190, y);
-    y += lineHeight;
+    y += 20;
 
-    doc.text(`Doctor: Dr. ${prescription.doctorId?.name || "Unknown"}`, 20, y);
-    y += lineHeight;
-    doc.text(`Date Issued: ${formatDate(prescription.dateIssued)}`, 20, y);
-    y += lineHeight;
-    doc.text(`Valid Until: ${formatDate(prescription.validUntil)}`, 20, y);
-    y += lineHeight;
-    doc.text(`Patient: ${prescription.patientId?.name || "Unknown"}`, 20, y);
-    y += lineHeight * 2;
-
-    // Add medicines section
+    // Add header info in a professional table-like layout
+    doc.setDrawColor(41, 128, 185);
+    doc.setLineWidth(0.1);
+    doc.line(20, y - 5, pageWidth - 20, y - 5);
+    
+    // Left column
     doc.setFont('helvetica', 'bold');
-    doc.text('MEDICINES:', 20, y);
-    y += lineHeight;
+    doc.text('Doctor Details:', 20, y);
     doc.setFont('helvetica', 'normal');
-
-    prescription.medicines.forEach(medicine => {
-      doc.text(`• ${medicine.medicineName}`, 20, y);
+    y += lineHeight;
+    doc.text(`Name: Dr. ${prescription.doctorId?.name || "Unknown"}`, 25, y);
+    y += lineHeight;
+    doc.text(`License: ${prescription.doctorId?.doctorInfo?.licenseNumber || "N/A"}`, 25, y);
+    y += lineHeight;
+    doc.text(`Specialization: ${prescription.doctorId?.doctorInfo?.specialization || "General Practice"}`, 25, y);
+    
+    // Right column
+    const rightCol = pageWidth/2 + 10;
+    y -= lineHeight * 2;
+    doc.text(`Date: ${formatDate(prescription.dateIssued)}`, rightCol, y);
+    y += lineHeight;
+    doc.text(`Valid Until: ${formatDate(prescription.validUntil)}`, rightCol, y);
+    y += lineHeight;
+    doc.text(`Ref No: ${prescription._id.slice(-6)}`, rightCol, y);
+    
+    // Patient information
+    y += lineHeight * 2;
+    doc.line(20, y, pageWidth - 20, y);
+    y += lineHeight;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Patient Information:', 20, y);
+    doc.setFont('helvetica', 'normal');
+    y += lineHeight;
+    doc.text(`Name: ${prescription.patientId?.name || "Unknown"}`, 25, y);
+    y += lineHeight;
+    doc.text(`ID: ${prescription.patientId?._id?.slice(-6) || "N/A"}`, 25, y);
+    
+    // Medicines section with table
+    y += lineHeight * 2;
+    doc.line(20, y, pageWidth - 20, y);
+    y += lineHeight;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Prescribed Medicines:', 20, y);
+    y += lineHeight;
+    
+    // Table headers
+    const startX = 25;
+    doc.setFillColor(241, 246, 251);
+    doc.rect(startX - 5, y - 5, pageWidth - 40, 10, 'F');
+    doc.text('Medicine', startX, y);
+    doc.text('Dosage', startX + 60, y);
+    doc.text('Qty', startX + 100, y);
+    doc.text('Frequency', startX + 120, y);
+    y += lineHeight * 1.5;
+    
+    // Table content
+    doc.setFont('helvetica', 'normal');
+    prescription.medicines.forEach((medicine, index) => {
+      // Alternate row background
+      if (index % 2 === 0) {
+        doc.setFillColor(249, 250, 251);
+        doc.rect(startX - 5, y - 5, pageWidth - 40, 12, 'F');
+      }
+      
+      doc.text(medicine.medicineName, startX, y);
+      doc.text(medicine.dosage, startX + 60, y);
+      doc.text(medicine.quantity.toString(), startX + 100, y);
+      doc.text(medicine.frequency, startX + 120, y);
+      
       y += lineHeight;
-      doc.text(`  Dosage: ${medicine.dosage}`, 25, y);
-      y += lineHeight;
-      doc.text(`  Quantity: ${medicine.quantity}`, 25, y);
-      y += lineHeight;
-      doc.text(`  Frequency: ${medicine.frequency}`, 25, y);
-      y += lineHeight;
-      doc.text(`  Instructions: ${medicine.instructions}`, 25, y);
+      // Add instructions in smaller font
+      doc.setFontSize(9);
+      doc.text(`Instructions: ${medicine.instructions}`, startX + 5, y);
+      doc.setFontSize(11);
       y += lineHeight * 1.5;
-
-      // Add a new page if we're running out of space
+      
       if (y > 250) {
         doc.addPage();
         y = 20;
       }
     });
-
+    
     // Add notes section
+    y += lineHeight;
+    doc.line(20, y, pageWidth - 20, y);
+    y += lineHeight;
     doc.setFont('helvetica', 'bold');
     doc.text('Additional Notes:', 20, y);
     y += lineHeight;
     doc.setFont('helvetica', 'normal');
-    doc.text(prescription.notes || 'None', 20, y);
-    y += lineHeight * 2;
-
-    // Add footer
-    doc.line(20, y, 190, y);
-    y += lineHeight;
-    doc.setFontSize(9);
-    doc.text('HealthFlow Medical Center', 105, y, { align: 'center' });
-    y += lineHeight;
-    doc.text('This is a computer generated prescription.', 105, y, { align: 'center' });
-
-    // Save the PDF
-    doc.save(`prescription-${prescription._id}.pdf`);
+    const notes = prescription.notes || 'No additional notes';
+    const splitNotes = doc.splitTextToSize(notes, pageWidth - 40);
+    doc.text(splitNotes, 25, y);
+    y += (splitNotes.length * lineHeight) + lineHeight;
+    
+    // Add footer with verification details
+    const footerY = doc.internal.pageSize.height - 25;
+    doc.line(20, footerY, pageWidth - 20, footerY);
+    
+    // Center
+    doc.setFont('helvetica', 'italic');
+    doc.text('This is a computer generated prescription.', pageWidth/2, footerY + 5, { align: 'center' });
+    // doc.text('Valid only with authorized signature and stamp.', pageWidth/2, footerY + 10, { align: 'center' });
+    
+    // Add doctor's signature placeholder
+    doc.line(pageWidth - 80, footerY - 15, pageWidth - 20, footerY - 15);
+    doc.setFontSize(8);
+    doc.text("Doctor's Signature & Stamp", pageWidth - 50, footerY - 10, { align: 'center' });
+    
+    // Save the PDF with a proper filename
+    const filename = `prescription-${prescription._id}-${new Date().toISOString().slice(0,10)}.pdf`;
+    doc.save(filename);
   };
 
   const handleViewAnalytics = () => {
@@ -291,7 +383,8 @@ export default function PrescriptionPage() {
   };
 
   const filteredPrescriptions = prescriptions.filter((prescription) =>
-    prescription.patientId?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    !searchQuery || // Show all if no search query
+    (prescription.patientId?.name || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (

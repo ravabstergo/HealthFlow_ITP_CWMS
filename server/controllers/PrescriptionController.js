@@ -6,11 +6,15 @@ const user= require('../models/User');
 const getAllPrescriptionsByDoctor = async (req, res) => {
     try {
         const doctorId = req.params.doctorId;
+
+        console.log("Fetching prescriptions for doctor:", doctorId);
         const prescriptions = await prescription
             .find({ doctorId: doctorId })
             .populate('patientId', 'name email mobile')
             .populate('doctorId', 'name email mobile')
             .sort({ dateIssued: -1 }); // Sort by date, newest first
+
+            console.log(`Found ${prescriptions.length} prescriptions for doctor ${doctorId}`);
 
         res.status(200).json(prescriptions);
     } catch (error) {
@@ -22,18 +26,18 @@ const getAllPrescriptionsByDoctor = async (req, res) => {
 const getAllPrescriptions = async (req, res) => {
     try {
         const { patientId } = req.params;
-        const doctorId = req.user.id; // Get the logged-in doctor's ID from the auth middleware
+        console.log("Fetching prescriptions for patient:", patientId);
 
         const prescriptions = await prescription
-            .find({ 
-                patientId: patientId,
-                doctorId: doctorId 
-            })
-            .populate('patientId', 'name email mobile') 
-            .populate('doctorId', 'name email mobile');
+            .find({ patientId: patientId })
+            .populate('patientId', 'name email mobile')
+            .populate('doctorId', 'name doctorInfo')
+            .sort({ dateIssued: -1 }); // Sort by date, newest first
 
+        console.log(`Found ${prescriptions.length} prescriptions for patient ${patientId}`);
         res.status(200).json(prescriptions);
     } catch (error) {
+        console.error("Error fetching prescriptions:", error);
         res.status(500).json({ message: error.message });
     }
 };

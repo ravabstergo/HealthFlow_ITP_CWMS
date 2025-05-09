@@ -21,6 +21,7 @@ export default function PatientPrescriptionPage() {
   const [patientName, setPatientName] = useState("");
 
   const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -28,13 +29,22 @@ export default function PatientPrescriptionPage() {
     });
   };
 
+  const sortPrescriptions = (prescriptions) => {
+    return [...prescriptions].sort((a, b) => {
+      const dateA = new Date(a.dateIssued);
+      const dateB = new Date(b.dateIssued);
+      return dateB - dateA; // Sort in descending order (newest first)
+    });
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         const token = TokenService.getAccessToken();
-        
-        // First get user details (email/NIC)
-        const userResponse = await fetch(`${API_URL}/auth/users/${currentUser.id}`, {
+
+        // Get current user details
+        const userResponse = await fetch(`/api/auth/me`, {
+
           headers: {
             "Authorization": `Bearer ${token}`,
           },
@@ -45,13 +55,22 @@ export default function PatientPrescriptionPage() {
         }
 
         const userData = await userResponse.json();
+        const user = userData.user;
         
-        // Then get the patient ID using email/NIC
-        const patientResponse = await fetch(`${API_URL}/records/findByUser?${userData.email ? `email=${userData.email}` : `nic=${userData.nic}`}`, {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-          },
-        });
+
+        // Store patient name for display
+        setPatientName(user.name);
+        
+        // Find patient record using email or NIC
+        const patientResponse = await fetch(
+          `/api/records/findByUser?${user.email ? `email=${user.email}` : `nic=${user.nic}`}`,
+          {
+            headers: {
+              "Authorization": `Bearer ${token}`,
+            },
+          }
+        );
+
 
         if (!patientResponse.ok) {
           throw new Error("Failed to find patient record");
@@ -59,22 +78,22 @@ export default function PatientPrescriptionPage() {
 
         const { patientId } = await patientResponse.json();
         
-        // Set patient name from user data
-        setPatientName(userData.name || "");
+        // Fetch prescriptions using patient ID
+        const prescriptionsResponse = await fetch(`/api/prescriptions/patient/${patientId}`, {
 
-        // Finally fetch prescriptions using the patient ID
-        const response = await fetch(`${API_URL}/prescriptions/patient/${patientId}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
           },
         });
 
-        if (!response.ok) {
+        if (!prescriptionsResponse.ok) {
           throw new Error("Failed to fetch prescriptions");
         }
 
-        const data = await response.json();
-        setPrescriptions(data);
+        const prescriptionsData = await prescriptionsResponse.json();
+        // Sort prescriptions before setting state
+        const sortedPrescriptions = sortPrescriptions(prescriptionsData);
+        setPrescriptions(sortedPrescriptions);
       } catch (err) {
         console.error("Error fetching data:", err);
         setError(err.message);
@@ -101,73 +120,162 @@ export default function PatientPrescriptionPage() {
     
     let y = 20;
     const lineHeight = 7;
+    const pageWidth = doc.internal.pageSize.width;
     
-    // Add title
+    // Add header with blue banner
+    doc.setFillColor(41, 128, 185);
+    doc.rect(0, 0, pageWidth, 15, 'F');
+    
+    // Add logo/hospital name in white
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('PRESCRIPTION', 105, y, { align: 'center' });
-    y += lineHeight * 2;
-
-    // Add header info
+    doc.text('HEALTHFLOW MEDICAL CENTER', pageWidth/2, 10, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+    
+    // Add prescription title
+    y += 15;
+    doc.setFontSize(14);
+    doc.text('PRESCRIPTION', pageWidth/2, y, { align: 'center' });
+    
+    // Add watermark
+    doc.setFontSize(60);
+    doc.setTextColor(230, 230, 230);
+    doc.text('PRESCRIPTION', pageWidth/2, 140, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+    
+    // Reset font for content
     doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.line(20, y, 190, y);
-    y += lineHeight;
+    y += 20;
 
-    doc.text(`Doctor: Dr. ${prescription.doctorId?.name || "Unknown"}`, 20, y);
-    y += lineHeight;
-    doc.text(`Date Issued: ${formatDate(prescription.dateIssued)}`, 20, y);
-    y += lineHeight;
-    doc.text(`Valid Until: ${formatDate(prescription.validUntil)}`, 20, y);
-    y += lineHeight;
-    doc.text(`Patient: ${prescription.patientId?.name || "Unknown"}`, 20, y);
-    y += lineHeight * 2;
-
-    // Add medicines section
+    // Add header info in a professional table-like layout
+    doc.setDrawColor(41, 128, 185);
+    doc.setLineWidth(0.1);
+    doc.line(20, y - 5, pageWidth - 20, y - 5);
+    
+    // Left column
     doc.setFont('helvetica', 'bold');
-    doc.text('MEDICINES:', 20, y);
-    y += lineHeight;
+    doc.text('Doctor Details:', 20, y);
     doc.setFont('helvetica', 'normal');
-
-    prescription.medicines.forEach(medicine => {
-      doc.text(`• ${medicine.medicineName}`, 20, y);
+    y += lineHeight;
+    doc.text(`Name: Dr. ${prescription.doctorId?.name || "Unknown"}`, 25, y);
+    y += lineHeight;
+    doc.text(`License: ${prescription.doctorId?.doctorInfo?.licenseNumber || "N/A"}`, 25, y);
+    y += lineHeight;
+    doc.text(`Specialization: ${prescription.doctorId?.doctorInfo?.specialization || "General Practice"}`, 25, y);
+    
+    // Right column
+    const rightCol = pageWidth/2 + 10;
+    y -= lineHeight * 2;
+    doc.text(`Date: ${formatDate(prescription.dateIssued)}`, rightCol, y);
+    y += lineHeight;
+    doc.text(`Valid Until: ${formatDate(prescription.validUntil)}`, rightCol, y);
+    y += lineHeight;
+    doc.text(`Ref No: ${prescription._id.slice(-6)}`, rightCol, y);
+    
+    // Patient information
+    y += lineHeight * 2;
+    doc.line(20, y, pageWidth - 20, y);
+    y += lineHeight;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Patient Information:', 20, y);
+    doc.setFont('helvetica', 'normal');
+    y += lineHeight;
+    doc.text(`Name: ${prescription.patientId?.name || "Unknown"}`, 25, y);
+    y += lineHeight;
+    doc.text(`ID: ${prescription.patientId?._id?.slice(-6) || "N/A"}`, 25, y);
+    
+    // Medicines section with table
+    y += lineHeight * 2;
+    doc.line(20, y, pageWidth - 20, y);
+    y += lineHeight;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Prescribed Medicines:', 20, y);
+    y += lineHeight;
+    
+    // Table headers
+    const startX = 25;
+    doc.setFillColor(241, 246, 251);
+    doc.rect(startX - 5, y - 5, pageWidth - 40, 10, 'F');
+    doc.text('Medicine', startX, y);
+    doc.text('Dosage', startX + 60, y);
+    doc.text('Qty', startX + 100, y);
+    doc.text('Frequency', startX + 120, y);
+    y += lineHeight * 1.5;
+    
+    // Table content
+    doc.setFont('helvetica', 'normal');
+    prescription.medicines.forEach((medicine, index) => {
+      // Alternate row background
+      if (index % 2 === 0) {
+        doc.setFillColor(249, 250, 251);
+        doc.rect(startX - 5, y - 5, pageWidth - 40, 12, 'F');
+      }
+      
+      doc.text(medicine.medicineName, startX, y);
+      doc.text(medicine.dosage, startX + 60, y);
+      doc.text(medicine.quantity.toString(), startX + 100, y);
+      doc.text(medicine.frequency, startX + 120, y);
+      
       y += lineHeight;
-      doc.text(`  Dosage: ${medicine.dosage}`, 25, y);
-      y += lineHeight;
-      doc.text(`  Quantity: ${medicine.quantity}`, 25, y);
-      y += lineHeight;
-      doc.text(`  Frequency: ${medicine.frequency}`, 25, y);
-      y += lineHeight;
-      doc.text(`  Instructions: ${medicine.instructions}`, 25, y);
+      // Add instructions in smaller font
+      doc.setFontSize(9);
+      doc.text(`Instructions: ${medicine.instructions}`, startX + 5, y);
+      doc.setFontSize(11);
       y += lineHeight * 1.5;
-
+      
       if (y > 250) {
         doc.addPage();
         y = 20;
       }
     });
-
+    
     // Add notes section
+    y += lineHeight;
+    doc.line(20, y, pageWidth - 20, y);
+    y += lineHeight;
     doc.setFont('helvetica', 'bold');
     doc.text('Additional Notes:', 20, y);
     y += lineHeight;
     doc.setFont('helvetica', 'normal');
-    doc.text(prescription.notes || 'None', 20, y);
-    y += lineHeight * 2;
-
-    // Add footer
-    doc.line(20, y, 190, y);
-    y += lineHeight;
-    doc.setFontSize(9);
-    doc.text('HealthFlow Medical Center', 105, y, { align: 'center' });
-    y += lineHeight;
-    doc.text('This is a computer generated prescription.', 105, y, { align: 'center' });
-
-    doc.save(`prescription-${prescription._id}.pdf`);
+    const notes = prescription.notes || 'No additional notes';
+    const splitNotes = doc.splitTextToSize(notes, pageWidth - 40);
+    doc.text(splitNotes, 25, y);
+    y += (splitNotes.length * lineHeight) + lineHeight;
+    
+    // Add footer with verification details
+    const footerY = doc.internal.pageSize.height - 25;
+    doc.line(20, footerY, pageWidth - 20, footerY);
+    
+    // Left side
+    doc.setFontSize(8);
+    doc.text('HealthFlow Medical Center', 20, footerY + 5);
+    doc.text('24/7 Emergency: +94 117 675 432', 20, footerY + 10);
+    
+    // Center
+    doc.setFont('helvetica', 'italic');
+    doc.text('This is a computer generated prescription.', pageWidth/2, footerY + 5, { align: 'center' });
+    doc.text('Valid only with authorized signature and stamp.', pageWidth/2, footerY + 10, { align: 'center' });
+    
+    // Right side - Verification code
+    const verificationCode = `${prescription._id}-${new Date(prescription.dateIssued).getTime()}`;
+    doc.setFontSize(7);
+    doc.text('Verification Code:', pageWidth - 70, footerY + 5);
+    doc.text(verificationCode, pageWidth - 70, footerY + 10);
+    
+    // Add doctor's signature placeholder
+    doc.line(pageWidth - 80, footerY - 15, pageWidth - 20, footerY - 15);
+    doc.setFontSize(8);
+    doc.text("Doctor's Signature & Stamp", pageWidth - 50, footerY - 10, { align: 'center' });
+    
+    // Save the PDF with a proper filename
+    const filename = `prescription-${prescription._id}-${new Date().toISOString().slice(0,10)}.pdf`;
+    doc.save(filename);
   };
 
   const filteredPrescriptions = prescriptions.filter((prescription) =>
-    prescription.doctorId?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    !searchQuery || // Show all if no search query
+    (prescription.doctorId?.name || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (

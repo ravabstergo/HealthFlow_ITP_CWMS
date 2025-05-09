@@ -540,38 +540,3 @@ exports.searchPatients = async (req, res) => {
     });
   }
 };
-
-exports.getLinkRecord = async (req, res) => {
-  try {
-    // First get the user's NIC and email
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-        error: true,
-      });
-    }
-
-    // Find patient records that match either the NIC or email
-    const patientRecords = await Patient.find({
-      $or: [{ nic: user.nic }, { email: user.email }],
-    });
-
-    if (!patientRecords || patientRecords.length === 0) {
-      return res.status(404).json({
-        message: "No linked patient records found",
-        error: true,
-      });
-    }
-
-    res.status(200).json({
-      recordIds: patientRecords.map((record) => record._id),
-    });
-  } catch (error) {
-    console.error("Error getting linked patient records:", error);
-    res.status(500).json({
-      message: "Internal server error while getting patient records",
-      error: true,
-    });
-  }
-};

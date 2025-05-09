@@ -494,69 +494,134 @@ Please analyze and provide:
 
     const doc = new jsPDF();
     
-    let y = 20;
-    const lineHeight = 7;
+    // Add hospital header with background color
+    doc.setFillColor(0, 48, 135); // Dark blue header
+    doc.rect(0, 0, 220, 40, "F");
     
-    // Add title
-    doc.setFontSize(16);
+    // Add hospital details in white
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text('PRESCRIPTION', 105, y, { align: 'center' });
-    y += lineHeight * 2;
+    doc.setFontSize(24);
+    doc.text('HealthFlow', 105, 20, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text('Stremline Healthcare,Empower Patients', 105, 30, { align: 'center' });
+    
+    // Reset text color and add prescription title
+    let y = 60;
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(22);
+    doc.setFont('times', 'italic');
+    doc.text('℞', 20, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PRESCRIPTION', 45, y);
+    
+    // Add line under title
+    doc.setLineWidth(0.5);
+    doc.line(20, y + 5, 190, y + 5);
+    
+    y = 85;
 
-    // Add header info
+    // Patient and Doctor Information box
+    doc.setFillColor(240, 240, 240);
+    doc.rect(20, y - 10, 170, 40, "F");
     doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.line(20, y, 190, y);
-    y += lineHeight;
-
-    doc.text(`Doctor: Dr. ${prescription.doctorId?.name || "Unknown"}`, 20, y);
-    y += lineHeight;
-    doc.text(`Date Issued: ${formatDate(prescription.dateIssued)}`, 20, y);
-    y += lineHeight;
-    doc.text(`Valid Until: ${formatDate(prescription.validUntil)}`, 20, y);
-    y += lineHeight;
-    doc.text(`Patient: ${patientName || "Unknown"}`, 20, y);
-    y += lineHeight * 2;
-
-    // Add medicines section
+    
+    // Left column - Patient Info
     doc.setFont('helvetica', 'bold');
-    doc.text('MEDICINES:', 20, y);
-    y += lineHeight;
+    doc.text('Patient Details:', 25, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Name: ${patientName || "Unknown"}`, 25, y + 7);
+    doc.text(`Date: ${formatDate(prescription.dateIssued)}`, 25, y + 14);
+    
+    // Right column - Doctor Info
+    doc.setFont('helvetica', 'bold');
+    doc.text('Prescribing Doctor:', 115, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Dr. ${prescription.doctorId?.name || "Unknown"}`, 115, y + 7);
+    doc.text(`Valid Until: ${formatDate(prescription.validUntil)}`, 115, y + 14);
+
+    y += 45;
+
+    // Medicines section with table
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Prescribed Medications:', 20, y);
+    y += 10;
+
+    // Table headers
+    const startX = 20;
+    const colWidths = [60, 35, 25, 50];
+    doc.setFillColor(230, 230, 230);
+    doc.rect(startX, y - 5, 170, 8, "F");
+    
+    doc.setFontSize(10);
+    doc.text('Medicine', startX + 2, y);
+    doc.text('Dosage', startX + colWidths[0] + 2, y);
+    doc.text('Qty', startX + colWidths[0] + colWidths[1] + 2, y);
+    doc.text('Instructions', startX + colWidths[0] + colWidths[1] + colWidths[2] + 2, y);
+
+    y += 10;
     doc.setFont('helvetica', 'normal');
 
-    prescription.medicines.forEach(medicine => {
-      doc.text(`• ${medicine.medicineName}`, 20, y);
-      y += lineHeight;
-      doc.text(`  Dosage: ${medicine.dosage}`, 25, y);
-      y += lineHeight;
-      doc.text(`  Quantity: ${medicine.quantity}`, 25, y);
-      y += lineHeight;
-      doc.text(`  Frequency: ${medicine.frequency}`, 25, y);
-      y += lineHeight;
-      doc.text(`  Instructions: ${medicine.instructions}`, 25, y);
-      y += lineHeight * 1.5;
-
+    // Medicine details
+    prescription.medicines.forEach((medicine, index) => {
       if (y > 250) {
         doc.addPage();
         y = 20;
       }
+
+      // Alternate row colors
+      if (index % 2 === 0) {
+        doc.setFillColor(245, 245, 245);
+        doc.rect(startX, y - 5, 170, 8, "F");
+      }
+
+      doc.text(medicine.medicineName, startX + 2, y);
+      doc.text(medicine.dosage, startX + colWidths[0] + 2, y);
+      doc.text(medicine.quantity.toString(), startX + colWidths[0] + colWidths[1] + 2, y);
+      doc.text(medicine.frequency, startX + colWidths[0] + colWidths[1] + colWidths[2] + 2, y);
+
+      // Instructions below
+      y += 7;
+      doc.setFont('helvetica', 'italic');
+      doc.text(`Instructions: ${medicine.instructions}`, startX + 5, y);
+      doc.setFont('helvetica', 'normal');
+
+      y += 10;
     });
 
-    doc.setFont('helvetica', 'bold');
-    doc.text('Additional Notes:', 20, y);
-    y += lineHeight;
-    doc.setFont('helvetica', 'normal');
-    doc.text(prescription.notes || 'None', 20, y);
-    y += lineHeight * 2;
+    y += 7;
 
-    doc.line(20, y, 190, y);
-    y += lineHeight;
-    doc.setFontSize(9);
-    doc.text('HealthFlow Medical Center', 105, y, { align: 'center' });
-    y += lineHeight;
-    doc.text('This is a computer generated prescription.', 105, y, { align: 'center' });
+    // Notes section
+    if (prescription.notes) {
+      doc.setFillColor(245, 245, 245);
+      doc.rect(20, y - 5, 170, 25, "F");
+      doc.setFont('helvetica', 'bold');
+      doc.text('Additional Notes:', 25, y + 5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(prescription.notes, 25, y + 15);
+      y += 35;
+    }
 
-    // Save the PDF
+    // Footer
+    const pageHeight = doc.internal.pageSize.height;
+    
+    // Footer line
+    doc.setDrawColor(0, 48, 135);
+    doc.setLineWidth(0.5);
+    doc.line(20, pageHeight - 35, 190, pageHeight - 35);
+
+    // Doctor's signature
+    doc.setFontSize(10);
+    doc.text('Digital Signature:', 140, pageHeight - 45);
+    doc.setFont('times', 'italic');
+    doc.text('Dr. ' + (prescription.doctorId?.name || 'Unknown'), 160, pageHeight - 38);
+
+    // Authentication text
+    doc.setFont('helvetica', 'italic', 'bold');
+    doc.setFontSize(8);
+    doc.text('This is a digitally generated and authenticated prescription', 105, pageHeight - 8, { align: 'center' });
+
     doc.save(`prescription-${prescription._id}.pdf`);
   };
 
@@ -734,6 +799,7 @@ Please analyze and provide:
                       className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full p-1"
                     >
                       <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+
                         <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
 
                       </svg>
