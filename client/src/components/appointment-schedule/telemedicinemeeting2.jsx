@@ -179,41 +179,20 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
   const [calling, setCalling] = useState(true);
-  // Get tracks for local user with error handling
-  const { localMicrophoneTrack, error: micError } = useLocalMicrophoneTrack(micOn);
-  const { localCameraTrack, error: camError } = useLocalCameraTrack(cameraOn);
 
-  // Handle track errors
-  useEffect(() => {
-    if (micError) {
-      console.error('Microphone error:', micError);
-      setMicOn(false);
-    }
-    if (camError) {
-      console.error('Camera error:', camError);
-      setCameraOn(false);
-    }
-  }, [micError, camError]);
+  // Get tracks for local user
+  const { localMicrophoneTrack } = useLocalMicrophoneTrack(micOn);
+  const { localCameraTrack } = useLocalCameraTrack(cameraOn);
   
   // Get reference to the RTC client
   const client = useRTCClient();
-
-  // Effect to handle track state changes
-  useEffect(() => {
-    if (!cameraOn && localCameraTrack) {
-      localCameraTrack.stop();
-    }
-    if (!micOn && localMicrophoneTrack) {
-      localMicrophoneTrack.stop();
-    }
-  }, [cameraOn, micOn, localCameraTrack, localMicrophoneTrack]);
   
   // Join the channel
   useJoin(
     {
       appid: APP_ID,
       channel: `appointment-${appointmentId}`,
-      token: null // In production, you should get this from your token server
+      token: null
     },
     calling
   );
@@ -223,78 +202,118 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
 
   // Get remote users
   const remoteUsers = useRemoteUsers();
+
   const handleEndMeeting = async () => {
     try {
-      // Stop and close tracks properly
-      if (localMicrophoneTrack) {
-        try {
-          localMicrophoneTrack.stop();
-          await localMicrophoneTrack.close();
-        } catch (e) {
-          console.error('Error closing microphone track:', e);
-        }
-      }
-      
-      if (localCameraTrack) {
-        try {
-          localCameraTrack.stop();
-          await localCameraTrack.close();
-        } catch (e) {
-          console.error('Error closing camera track:', e);
-        }
-      }
-      
-      // Unpublish tracks before leaving
-      try {
-        await client.unpublish([localMicrophoneTrack, localCameraTrack]);
-      } catch (e) {
-        console.error('Error unpublishing tracks:', e);
-      }
-      
-      // Leave the channel
-      try {
-        await client.leave();
-        console.log("Client successfully left the channel");
-      } catch (e) {
-        console.error('Error leaving channel:', e);
-      }
-      
-      // Update states
+      // First update UI state to prevent further interactions
       setCalling(false);
       setMicOn(false);
       setCameraOn(false);
 
+      // Stop and close local tracks
+      if (localMicrophoneTrack) {
+        await localMicrophoneTrack.stop();
+        await localMicrophoneTrack.close();
+      }
+      
+      if (localCameraTrack) {
+        await localCameraTrack.stop();
+        await localCameraTrack.close();
+      }
+
+      // Stop and close remote user tracks first
+      for (const user of remoteUsers) {
+        try {
+          if (user.audioTrack) {
+            user.audioTrack.stop();
+            user.audioTrack.close();
+          }
+          if (user.videoTrack) {
+            user.videoTrack.stop();
+            user.videoTrack.close();
+          }
+        } catch (trackError) {
+          console.warn(`Error cleaning up tracks for remote user ${user.uid}:`, trackError);
+        }
+      }
+
+      // Unpublish local tracks before leaving
+      if (client) {
+        try {
+          if (localMicrophoneTrack || localCameraTrack) {
+            const tracksToUnpublish = [localMicrophoneTrack, localCameraTrack].filter(Boolean);
+            if (tracksToUnpublish.length > 0) {
+              await client.unpublish(tracksToUnpublish);
+              console.log("Successfully unpublished local tracks");
+            }
+          }
+        } catch (unpublishError) {
+          console.warn("Error unpublishing tracks:", unpublishError);
+        }
+
+        // Leave the channel
+        try {
+          await client.leave();
+          console.log("Successfully left the channel");
+        } catch (leaveError) {
+          console.warn("Error leaving channel:", leaveError);
+        }
+      }
+
       // Navigate based on user role name
-      const path = activeRole?.name === 'sys_doctor' ? '/account/schedule' : '/account/patient-appointments';
-      navigate(path);
+      if (activeRole?.name === 'sys_doctor') {
+        navigate('/account/schedule');
+      } else {
+        navigate('/account/patient-appointments');
+      }
     } catch (error) {
       console.error("Error in handleEndMeeting:", error);
-      const path = activeRole?.name === 'sys_doctor' ? '/account/schedule' : '/account/patient-appointments';
-      navigate(path);
+      // Ensure navigation happens even if there's an error
+      if (activeRole?.name === 'sys_doctor') {
+        navigate('/account/schedule');
+      } else {
+        navigate('/account/patient-appointments');
+      }
     }
   };
+
   // Clean up when component unmounts
   useEffect(() => {
     return () => {
-      try {
-        // This ensures resources are cleaned up if user navigates away without clicking End Meeting
-        if (localMicrophoneTrack) {
-          localMicrophoneTrack.stop();
-          localMicrophoneTrack.close();
+      // This ensures resources are cleaned up if user navigates away without clicking End Meeting
+      if (localMicrophoneTrack) {
+        localMicrophoneTrack.stop();
+        localMicrophoneTrack.close();
+      }
+      if (localCameraTrack) {
+        localCameraTrack.stop();
+        localCameraTrack.close();
+      }
+      
+      // Also clean up remote tracks on unmount
+      remoteUsers.forEach(user => {
+        try {
+          if (user.audioTrack) {
+            user.audioTrack.stop();
+            user.audioTrack.close();
+          }
+          if (user.videoTrack) {
+            user.videoTrack.stop();
+            user.videoTrack.close();
+          }
+        } catch (error) {
+          console.warn(`Error cleaning up remote user ${user.uid} tracks on unmount:`, error);
         }
-        if (localCameraTrack) {
-          localCameraTrack.stop();
-          localCameraTrack.close();
-        }
-        if (client) {
-          client.unpublish([localMicrophoneTrack, localCameraTrack]).catch(console.error);
-          client.leave().catch(console.error);
-        }
-      } catch (error) {
-        console.error("Cleanup error:", error);
+      });
+
+      // Leave channel on unmount
+      if (client) {
+        client.leave().catch(error => {
+          console.warn("Error leaving channel on unmount:", error);
+        });
       }
     };
-  }, [localMicrophoneTrack, localCameraTrack, client]);
+  }, [localMicrophoneTrack, localCameraTrack, remoteUsers, client]);
 
   return (
     <div className="w-full mx-auto p-0 h-full">      {/* Header */}
