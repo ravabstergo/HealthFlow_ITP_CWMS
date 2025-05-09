@@ -16,8 +16,14 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
+<<<<<<< Updated upstream
 export default function Sidebar() {
   const { logout, permissions, currentUser, activeRole, switchRole } = useAuthContext();
+=======
+export default function Sidebar({ selectedItem, onSelectItem }) {
+
+  const { logout, activeRole } = useAuthContext();
+>>>>>>> Stashed changes
   const navigate = useNavigate();
   const location = useLocation();
   const [userRoles, setUserRoles] = useState([]);
@@ -78,6 +84,7 @@ export default function Sidebar() {
     {
       category: "CLINICAL",
       items: [
+<<<<<<< Updated upstream
         { name: "Patient Documents", icon: <File className="w-4 h-4" />, path: "patient-documents" },
         { name: "Patient Prescriptions", icon: <FileText className="w-4 h-4" />, path: "patient-prescription" },
         { 
@@ -105,6 +112,12 @@ export default function Sidebar() {
           requiredPerm: "document:view:own"
         },
 
+=======
+        { name: "Patients", icon: <Users className="w-4 h-4" />, path: "patients", roles: ["sys_doctor"] },
+        { name: "Prescriptions", icon: <FileText className="w-4 h-4" />, path: "prescription" },
+        { name: "Documents", icon: <File className="w-4 h-4" />, path: "documents", roles: ["sys_doctor"] },
+        { name: "Patient Documents", icon: <File className="w-4 h-4" />, path: "patient-documents", hideFrom: ["sys_doctor"] },
+>>>>>>> Stashed changes
       ],
     },
     {
@@ -233,6 +246,20 @@ export default function Sidebar() {
   const filteredBottomItems = bottomItems.filter(item => 
     !item.requiredPerm || hasPermission(item.requiredPerm)
   );
+
+  // Filter menu items based on role
+  const filteredMenuItems = menuItems.map(category => ({
+    ...category,
+    items: category.items.filter(item => {
+      if (item.roles) {
+        return item.roles.includes(activeRole?.name);
+      }
+      if (item.hideFrom) {
+        return !item.hideFrom.includes(activeRole?.name);
+      }
+      return true;
+    })
+  })).filter(category => category.items.length > 0);
 
   return (
     <aside className="w-1/6 bg-white border-r border-gray-200 flex-shrink-0 h-screen overflow-y-auto flex flex-col">

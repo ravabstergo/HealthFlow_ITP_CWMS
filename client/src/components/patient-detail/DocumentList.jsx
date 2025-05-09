@@ -123,19 +123,8 @@ export default function PatientDocumentList() {
       // First check if we already have a document URL
       if (doc.documentUrl) {
         console.log('Using existing document URL:', doc.documentUrl);
-        
-        // Modify Cloudinary URL for proper download
-        let downloadUrl = doc.documentUrl;
-        if (downloadUrl.includes('cloudinary.com')) {
-          // Replace /upload/ with /raw/upload/ and add fl_attachment parameter
-          downloadUrl = downloadUrl.replace('/upload/', '/raw/upload/')
-          if (!downloadUrl.includes('fl_attachment')) {
-            downloadUrl += downloadUrl.includes('?') ? '&fl_attachment=false' : '?fl_attachment=false';
-          }
-        }
-
         const link = document.createElement('a');
-        link.href = downloadUrl;
+        link.href = doc.documentUrl;
         link.setAttribute('download', doc.documentName);
         link.setAttribute('target', '_blank');
         link.setAttribute('rel', 'noopener noreferrer');
@@ -163,11 +152,8 @@ export default function PatientDocumentList() {
       // Handle different types of URLs
       let downloadUrl = downloadInfo.url;
       if (downloadUrl.includes('cloudinary.com')) {
-        // Add raw and attachment parameters for Cloudinary URLs
-        downloadUrl = downloadUrl.replace('/upload/', '/raw/upload/')
-        if (!downloadUrl.includes('fl_attachment')) {
-          downloadUrl += downloadUrl.includes('?') ? '&fl_attachment=false' : '?fl_attachment=false';
-        }
+        // Add attachment flag for Cloudinary URLs
+        downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
       }
       
       // Set the link properties
@@ -208,68 +194,27 @@ export default function PatientDocumentList() {
       }
 
       const extension = doc.documentUrl.split('.').pop().toLowerCase();
-
-      if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
+      
+      // Handle different file types
+      if (extension === 'pdf') {
+        // Open PDFs in new window
+        window.open(doc.documentUrl, '_blank', 'noopener,noreferrer');
+      } else if (['jpg', 'jpeg', 'png'].includes(extension)) {
         // For images, show in modal
         setPreviewDocument(doc);
-      } else if (extension === 'pdf') {
-        try {
-          // Get the preview URL from the server
-          const previewUrl = await DocumentService.getDocumentPreviewUrl(doc._id);
-          
-          // Create a fullscreen preview window
-          const newWindow = window.open('', '_blank');
-          if (newWindow) {
-            newWindow.document.write(`
-              <!DOCTYPE html>
-              <html>
-                <head>
-                  <title>${doc.documentName}</title>
-                  <style>
-                    body, html {
-                      margin: 0;
-                      padding: 0;
-                      width: 100%;
-                      height: 100%;
-                      overflow: hidden;
-                      background-color: #525659;
-                    }
-                    iframe {
-                      width: 100%;
-                      height: 100%;
-                      border: none;
-                    }
-                  </style>
-                </head>
-                <body>
-                  <iframe src="${previewUrl}" type="application/pdf" width="100%" height="100%"></iframe>
-                </body>
-              </html>
-            `);
-            newWindow.document.close();
-          }
-        } catch (error) {
-          console.error('Error getting preview URL:', error);
-          // Fallback to direct URL if preview fails
-          window.open(doc.documentUrl, '_blank', 'noopener,noreferrer');
-        }
       } else if (extension === 'doc' || extension === 'docx') {
-        // For Office documents, use Microsoft Office Online viewer
-        const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(doc.documentUrl)}`;
+        // For Word documents, use Office Online Viewer
+        const viewerUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(doc.documentUrl)}`;
         window.open(viewerUrl, '_blank', 'noopener,noreferrer');
       } else {
-        // For other files, open in new tab with attachment flag disabled
-        let previewUrl = doc.documentUrl;
-        if (previewUrl.includes('cloudinary.com')) {
-          previewUrl = previewUrl.replace('/upload/', '/upload/fl_attachment:false/');
-        }
-        window.open(previewUrl, '_blank', 'noopener,noreferrer');
+        // For other file types, trigger download
+        window.location.href = doc.documentUrl;
       }
     } catch (error) {
-      console.error('Error previewing document:', error);
+      console.error("Error viewing document:", error);
       setToast({
         visible: true,
-        message: "Failed to preview document",
+        message: "Failed to view document. Please try again.",
         type: "error"
       });
     }
@@ -297,10 +242,29 @@ export default function PatientDocumentList() {
       });
       return;
     }
-    
+
     setBulkUpdateDocuments(selectedDocs);
     setIsUploadModalOpen(true);
-    setEditingDocument(null);
+  };
+
+  const handleStatusChange = async (docId, newStatus) => {
+    try {
+      const updatedDoc = await DocumentService.updateDocumentStatus(docId, user?._id, newStatus);
+      setDocuments(prev => prev.map(doc => 
+        doc._id === updatedDoc._id ? updatedDoc : doc
+      ));
+      setToast({
+        visible: true,
+        message: "Document status updated successfully",
+        type: "success"
+      });
+    } catch (error) {
+      setToast({
+        visible: true,
+        message: "Failed to update document status",
+        type: "error"
+      });
+    }
   };
 
   const filteredDocuments = documents.filter((doc) => {
@@ -487,13 +451,42 @@ export default function PatientDocumentList() {
                       <div className="text-sm text-gray-500">{doc.documentType}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${doc.status === 'Approved' ? 'bg-green-100 text-green-800' : 
-                          doc.status === 'Rejected' ? 'bg-red-100 text-red-800' :
-                          doc.status === 'Doctor Review' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'}`}>
-                        {doc.status}
-                      </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            className={`w-32 text-left text-xs leading-5 font-semibold rounded-md px-2
+                              ${doc.status === 'Approved' ? 'bg-green-100 text-green-800' : 
+                              doc.status === 'Rejected' ? 'bg-red-100 text-red-800' :
+                              doc.status === 'Doctor Review' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'}`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>{doc.status}</span>
+                              <ChevronDown className="h-4 w-4 opacity-50" />
+                            </div>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent 
+                          align="start" 
+                          className="w-32 p-1 space-y-1"
+                        >
+                          {["Pending", "Doctor Review", "Approved", "Rejected"].map((status) => (
+                            <DropdownMenuItem 
+                              key={status}
+                              onClick={() => handleStatusChange(doc._id, status)}
+                              className={`rounded-md text-sm py-2 px-3 cursor-pointer
+                                ${doc.status === status ? 'bg-gray-100' : 'hover:bg-gray-50'}
+                                ${status === 'Approved' ? 'text-green-800 hover:text-green-900' : 
+                                status === 'Rejected' ? 'text-red-800 hover:text-red-900' :
+                                status === 'Doctor Review' ? 'text-yellow-800 hover:text-yellow-900' :
+                                'text-gray-800 hover:text-gray-900'}`}
+                            >
+                              {status}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(doc.createdAt).toLocaleDateString()}

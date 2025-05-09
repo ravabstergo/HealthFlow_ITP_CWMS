@@ -22,6 +22,7 @@ router.get("/", getAllDocuments);
 router.get("/:id", getDocumentById);
 router.put("/:id", updateDocument);
 router.delete("/:id", deleteDocument);
+router.put("/:id/status", statusUpdate);
 router.put("/:patentid/status", statusUpdate);
 router.get("/:id/download", downloadDocument);
 router.get('/:id/preview', getDocumentPreview);

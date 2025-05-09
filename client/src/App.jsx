@@ -91,12 +91,14 @@ function App() {
 
           {/* Nested Routes */}
           <Route index element={<Navigate to="dashboard" replace />} />
-
           <Route path="search" element={<DoctorSearch />} />  
           <Route path="patient-appointments" element={<PatientAppointmentsPage />} />
+<<<<<<< Updated upstream
           <Route path="patient-prescription" element={<PatientPrescriptionPage />} />
           <Route path="patient-chat" element={<PatientChatPage />} />
           <Route path="doctor-chat" element={<DoctorChatPage />} />
+=======
+>>>>>>> Stashed changes
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="patients" element={<PatientsPage />} />
           <Route path="finance" element={<FinancialReportPage />} />
@@ -106,9 +108,22 @@ function App() {
           <Route path="prescription-report" element={<PrescriptionReport />} />
           <Route path="schedule" element={<DoctorSchedule />} />   
           <Route path="meeting/:appointmentId" element={<TelemedicineMeeting />} />
+<<<<<<< Updated upstream
           <Route path="staff" element={<RoleManagementPage />} />
           <Route path="patient/appointment-history" element={<PastAppointments />}/>
           <Route path="/account/patient/appointment-history" element={<PastAppointments />}/>
+=======
+
+          {/* Patient detail and nested tabs */}
+          <Route path="patients/:id" element={<PatientDetailPage />}>
+            <Route index element={<PatientInformationTab />} />
+            <Route path="appointments" element={<AppointmentHistoryTab />} />
+            <Route path="treatment" element={<NextTreatmentTab />} />
+            <Route path="record" element={<MedicalRecordTab />} />
+            <Route path="documents" element={<PatientDocumentList />} />
+          </Route>
+
+>>>>>>> Stashed changes
           <Route path="appointments" element={<AppointmentsPage />} />
           <Route path="feedback" element={<FeedbackStartPage />} />
           <Route path="feedback/create/:id" element={<FeedbackCreatePage />} />

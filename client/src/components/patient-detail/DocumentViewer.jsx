@@ -72,11 +72,14 @@ export default function DocumentViewer() {
     const extension = document.documentUrl.split('.').pop().toLowerCase();
 
     if (extension === 'pdf') {
+      // For PDFs, ensure we get a preview URL without attachment flag
+      const pdfViewUrl = document.documentUrl.replace('/upload/', '/upload/fl_attachment:false/');
       return (
         <iframe
-          src={document.documentUrl}
+          src={pdfViewUrl}
           className="w-full h-[calc(100vh-200px)]"
           title={document.documentName}
+          type="application/pdf"
         />
       );
     } else if (['jpg', 'jpeg', 'png'].includes(extension)) {
@@ -134,4 +137,4 @@ export default function DocumentViewer() {
       </Card>
     </div>
   );
-} 
+}

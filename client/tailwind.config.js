@@ -5,6 +5,7 @@ module.exports = {
     "./src/pages/**/*.{js,jsx}",
     "./src/components/**/*.{js,jsx}",
     "./src/**/*.{js,jsx}",
+    './src/components/DocumentList.jsx'
   ],
   theme: {
     extend: {

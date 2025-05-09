@@ -39,8 +39,7 @@ const insertDocument = async (req, res) => {
       const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
         folder: "HealthFlow",
         resource_type: isPdf ? "auto" : "auto",
-        format: isPdf ? "pdf" : undefined,
-        transformation: isPdf ? [{ flags: 'attachment' }] : undefined
+        format: isPdf ? "pdf" : undefined
       });
 
       // Remove temporary file
@@ -83,37 +82,36 @@ const insertDocument = async (req, res) => {
 const updateDocument = async (req, res) => {
   upload.single("document")(req, res, async (err) => {
     if (err) {
-      return res.status(500).json({ message: "File upload failed", error: err.message });
+      return res
+        .status(500)
+        .json({ message: "File upload failed", error: err.message });
     }
 
     try {
       const { id } = req.params;
+
       const document = await Document.findById(id);
 
       if (!document) {
-        return res.status(404).json({ message: "Document not found for the given id" });
+        return res
+          .status(404)
+          .json({ message: "Document not found for the given id" });
       }
 
-      // Only update fields that are provided
-      if (req.body.documentName) {
-        document.documentName = req.body.documentName;
-      }
-      if (req.body.documentType) {
-        document.documentType = req.body.documentType;
-      }
-      if (req.body.doctorId) {
-        document.doctorid = req.body.doctorId;
-      }
+      if (req.body.documentName) document.documentName = req.body.documentName;
+      if (req.body.documentType) document.documentType = req.body.documentType;
+      if (req.body.doctorId) document.doctorid = req.body.doctorId;
 
-      // Only update the file if one was uploaded
+      document.status = "Pending";
+
       if (req.file) {
+        // Determine if the file is a PDF
         const isPdf = req.file.mimetype === 'application/pdf';
         
         const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
           folder: "HealthFlow",
           resource_type: isPdf ? "auto" : "auto",
-          format: isPdf ? "pdf" : undefined,
-          transformation: isPdf ? [{ flags: 'attachment' }] : undefined
+          format: isPdf ? "pdf" : undefined
         });
         
         document.documentUrl = cloudinaryResult.secure_url;
@@ -124,12 +122,8 @@ const updateDocument = async (req, res) => {
         });
       }
 
-      // Only reset status if any changes were made
-      if (req.body.documentName || req.body.documentType || req.file) {
-        document.status = "Pending";
-      }
-
       document.modifiedAt = new Date();
+
       await document.save();
 
       res.status(200).json({
@@ -283,15 +277,21 @@ const downloadDocument = async (req, res) => {
     const filename = `${document.documentName}${fileExtension ? '.' + fileExtension : ''}`;
 
     // For Cloudinary URLs, ensure we're getting a download URL
+<<<<<<< Updated upstream
 
     let url = document.documentUrl;
     if (url.includes('cloudinary.com')) {
       url = url.replace('/upload/', '/upload/fl_attachment/');
 
+=======
+    let downloadUrl = document.documentUrl;
+    if (downloadUrl.includes('cloudinary.com')) {
+      downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
+>>>>>>> Stashed changes
     }
 
     res.status(200).json({
-      url,
+      downloadUrl,
       filename,
       contentType
     });
@@ -355,11 +355,17 @@ const getDocumentPreview = async (req, res) => {
       const fileExtension = document.documentName.split('.').pop().toLowerCase();
       
       if (fileExtension === 'pdf') {
-        // For PDFs, use raw format to prevent download
-        previewUrl = documentUrl.replace('/upload/', '/upload/fl_attachment:false,fl_raw:true/');
+        // For PDFs, set content type and remove attachment flag
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'inline');
+        previewUrl = documentUrl.replace('/upload/', '/upload/fl_attachment:false/');
+        console.log('PDF preview URL:', previewUrl);
+      } else if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension)) {
+        // For images, optimize for viewing
+        previewUrl = documentUrl.replace('/upload/', '/upload/q_auto,f_auto/');
       } else {
-        // For images and other files, use the existing preview format
-        previewUrl = documentUrl.replace('/upload/', '/upload/fl_attachment:false,fl_force_strip:true/');
+        // For other files, use default transformations
+        previewUrl = documentUrl.replace('/upload/', '/upload/fl_attachment:false/');
       }
     }
 

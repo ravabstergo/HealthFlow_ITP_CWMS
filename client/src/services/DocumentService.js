@@ -83,20 +83,9 @@ const DocumentService = {
 
   async updateDocument(id, formData) {
     try {
-      // Create a new FormData only if any data is provided
-      let data = formData;
-      if (!(formData instanceof FormData)) {
-        data = new FormData();
-        // Only append fields that are provided
-        if (formData.documentName) data.append("documentName", formData.documentName);
-        if (formData.documentType) data.append("documentType", formData.documentType);
-        if (formData.doctorId) data.append("doctorId", formData.doctorId);
-        if (formData.file) data.append("document", formData.file);
-      }
-
       const response = await fetch(`${process.env.REACT_APP_API_URL}/document/${id}`, {
         method: 'PUT',
-        body: data,
+        body: formData,
       });
 
       if (!response.ok) {
@@ -104,8 +93,8 @@ const DocumentService = {
         throw new Error(errorData.message || 'Failed to update document');
       }
 
-      const result = await response.json();
-      return result.document;
+      const data = await response.json();
+      return data.document;
     } catch (error) {
       console.error('Error updating document:', error);
       throw error;
@@ -167,7 +156,11 @@ const DocumentService = {
       const data = await response.json();
       console.log('Download response data:', data);
       
-      // Return data as is - it will contain url, filename, and contentType
+      if (!data.url) {
+        console.error('No URL in response:', data);
+        throw new Error('Download URL not available');
+      }
+      
       return data;
 
     } catch (error) {

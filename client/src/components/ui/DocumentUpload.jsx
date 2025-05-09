@@ -143,27 +143,26 @@ export default function DocumentUpload({
     try {
       setUploading(true);
 
+      if (!documentName.trim()) {
+        throw new Error("Document name is required");
+      }
+
+      if (!patientId) {
+        throw new Error("Patient ID is required");
+      }
+
+      const actualDoctorId = doctorId || doctorIdFromContext;
+      if (!actualDoctorId) {
+        throw new Error("Doctor ID is required");
+      }
+
       if (mode === "create") {
-        // For create, all fields are required
-        if (!documentName.trim()) {
-          throw new Error("Document name is required");
-        }
-
-        if (!patientId) {
-          throw new Error("Patient ID is required");
-        }
-
-        const actualDoctorId = doctorId || doctorIdFromContext;
-        if (!actualDoctorId) {
-          throw new Error("Doctor ID is required");
-        }
-
-        if (attachments.length === 0) {
+        const formData = new FormData();
+        if (attachments[0]) {
+          formData.append("document", attachments[0].file);
+        } else {
           throw new Error("Please select a file to upload");
         }
-
-        const formData = new FormData();
-        formData.append("document", attachments[0].file);
         formData.append("documentName", documentName.trim());
         formData.append("documentType", documentType);
         formData.append("patientId", patientId);
@@ -175,32 +174,45 @@ export default function DocumentUpload({
           onUploadSuccess(uploadedDoc);
           handleCleanup();
         }
-      } else {
-        // For edit mode, only send changed fields
-        const id = documentData._id;
-        const updates = {};
-        
-        // Only include changed fields
-        if (documentName !== documentData.documentName) {
-          updates.documentName = documentName;
-        }
-        if (documentType !== documentData.documentType) {
-          updates.documentType = documentType;
-        }
-        if (attachments.length > 0) {
-          updates.file = attachments[0].file;
+      } else if (mode === "edit") {
+        if (!documentData?._id) {
+          throw new Error("Document ID is required for update");
         }
 
-        // Only proceed if there are changes
-        if (Object.keys(updates).length > 0) {
-          const updatedDoc = await DocumentService.updateDocument(id, updates);
-          if (updatedDoc) {
-            onUpdateSuccess(updatedDoc);
-            handleCleanup();
-          }
-        } else {
-          onClose();
+        const formData = new FormData();
+        if (attachments[0]) {
+          formData.append("document", attachments[0].file);
         }
+        formData.append("documentName", documentName.trim());
+        formData.append("documentType", documentType);
+        formData.append("doctorId", actualDoctorId);
+        formData.append("status", status);
+
+        const updatedDoc = await DocumentService.updateDocument(documentData._id, formData);
+        if (updatedDoc) {
+          onUpdateSuccess(updatedDoc);
+          handleCleanup();
+        }
+      } else if (mode === "bulk-update") {
+        if (!Array.isArray(documentData)) {
+          throw new Error("Invalid document data for bulk update");
+        }
+
+        const updatePromises = documentData.map(doc => {
+          const formData = new FormData();
+          if (attachments[0]) {
+            formData.append("document", attachments[0].file);
+          }
+          formData.append("documentName", documentName.trim());
+          formData.append("documentType", documentType);
+          formData.append("doctorId", actualDoctorId);
+          formData.append("status", status);
+          return DocumentService.updateDocument(doc._id, formData);
+        });
+
+        const updatedDocs = await Promise.all(updatePromises);
+        onUpdateSuccess(updatedDocs);
+        handleCleanup();
       }
     } catch (error) {
       console.error("Document operation failed:", error);
@@ -371,8 +383,8 @@ export default function DocumentUpload({
                 />
                 {getFileIcon("file", false)}
                 <p className="text-sm text-gray-600 mb-1">
-                  {mode === "edit"
-                    ? "Select a new file to replace the current one"
+                  {mode === "edit" || mode === "bulk-update"
+                    ? "Select a new file to replace the current ones"
                     : "Select a file or drag and drop here"}
                 </p>
                 <p className="text-xs text-gray-400 mb-2">
@@ -386,9 +398,9 @@ export default function DocumentUpload({
                 >
                   Browse Files
                 </Button>
-                {mode === "edit" && attachments.length === 0 && (
+                {(mode === "edit" || mode === "bulk-update") && attachments.length === 0 && (
                   <p className="text-xs text-gray-500 mt-2">
-                    Current file will be kept if no new file is selected
+                    Current files will be kept if no new file is selected
                   </p>
                 )}
               </div>

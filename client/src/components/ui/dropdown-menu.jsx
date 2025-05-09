@@ -7,7 +7,7 @@ export function DropdownMenuTrigger({ children, asChild }) {
 export function DropdownMenuItem({ children, onClick }) {
   return (
     <button
-      className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-100 rounded"
+      className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-100 rounded flex items-center"
       onClick={onClick}
     >
       {children}
@@ -15,9 +15,9 @@ export function DropdownMenuItem({ children, onClick }) {
   );
 }
 
-export function DropdownMenuContent({ children, align = "start" }) {
+export function DropdownMenuContent({ children, align = "start", className = "" }) {
   return (
-    <div className={`bg-white border border-gray-200 rounded-md shadow-lg py-1 ${align === "end" ? "right-0" : "left-0"}`}>
+    <div className={`absolute z-50 bg-white border border-gray-200 rounded-md shadow-lg py-1 mt-1 min-w-[8rem] flex flex-col ${align === "end" ? "right-0" : "left-0"} ${className}`}>
       {children}
     </div>
   );
@@ -50,7 +50,7 @@ export default function DropdownMenu({ children }) {
         }
         if (child.type === DropdownMenuContent && isOpen) {
           return (
-            <div key="content" className="absolute mt-1 min-w-[8rem] z-50">
+            <div key="content" className="absolute top-full w-full">
               {child}
             </div>
           );

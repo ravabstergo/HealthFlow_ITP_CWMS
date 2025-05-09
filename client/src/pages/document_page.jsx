@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Search, ChevronDown, File, ImageIcon, Download, Filter } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import Input from "../components/ui/input";
 import Button from "../components/ui/button";
 import DocumentService from "../services/DocumentService";
@@ -8,6 +9,7 @@ import { useAuthContext } from "../context/AuthContext";
 import DropdownMenu, { DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../components/ui/dropdown-menu";
 
 export default function DocumentList() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const { currentUser} = useAuthContext();
   const [documents, setDocuments] = useState([]);
@@ -109,19 +111,54 @@ export default function DocumentList() {
 
   const handleDownload = async (id) => {
     try {
+      // First check if we already have the document from the documents array
+      const doc = documents.find(d => d._id === id);
+      
+      // If we have a direct URL, use it
+      if (doc && doc.documentUrl) {
+        const link = document.createElement('a');
+        link.href = doc.documentUrl;
+        link.setAttribute('download', doc.documentName);
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener noreferrer');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        setToast({
+          visible: true,
+          message: "Download started successfully",
+          type: "success"
+        });
+        return;
+      }
+
+      // If no direct URL, try to get it from the server
+      console.log('Fetching download URL for document:', id);
       const downloadInfo = await DocumentService.downloadDocument(id);
-      if (!downloadInfo || !downloadInfo.url) {
+      
+      if (!downloadInfo) {
+        throw new Error('No download information received');
+      }
+
+      if (!downloadInfo.url) {
         throw new Error('Download URL not available');
       }
       
+      // Create a temporary link element
       const link = document.createElement('a');
-      // For Cloudinary URLs, ensure download attachment flag is set
-      const downloadUrl = downloadInfo.url.includes('cloudinary.com') 
-        ? downloadInfo.url.replace('/upload/', '/upload/fl_attachment/') 
-        : downloadInfo.url;
-        
+      
+      // Handle different types of URLs
+      let downloadUrl = downloadInfo.url;
+      if (downloadUrl.includes('cloudinary.com')) {
+        // Add attachment flag for Cloudinary URLs
+        downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
+      }
+      
       link.href = downloadUrl;
-      link.setAttribute('download', downloadInfo.filename);
+      link.setAttribute('download', downloadInfo.filename || 'document');
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener noreferrer');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -135,7 +172,7 @@ export default function DocumentList() {
       console.error('Download failed:', error);
       setToast({
         visible: true,
-        message: "Failed to download document. Please try again.",
+        message: error.message || "Failed to download document. Please try again.",
         type: "error"
       });
     }
@@ -143,9 +180,11 @@ export default function DocumentList() {
 
   const filteredDocuments = documents.filter((doc) => {
     const matchesSearch = 
-      doc._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.documentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.documentType?.toLowerCase().includes(searchTerm.toLowerCase());
+      (doc.documentName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (doc.documentType?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (doc.patientid?.name?.firstName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (doc.patientid?.name?.lastName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      ((doc.patientid?.name?.middleNames || []).join(' ').toLowerCase() || '').includes(searchTerm.toLowerCase());
 
     const matchesStatus = !selectedStatus || selectedStatus === "All" || doc.status === selectedStatus;
 
@@ -299,7 +338,7 @@ export default function DocumentList() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  DOCUMENT ID
+                  PATIENT
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   CREATED
@@ -322,7 +361,14 @@ export default function DocumentList() {
               {filteredDocuments.map((doc) => (
                 <tr key={doc._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-900">{doc._id}</span>
+                    <div 
+                      className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
+                      onClick={() => navigate(`/account/patients/${doc.patientid?._id}/documents`)}
+                    >
+                      {doc.patientid?.name ? 
+                        `${doc.patientid.name.firstName} ${doc.patientid.name.middleNames?.join(' ') || ''} ${doc.patientid.name.lastName}`.trim() 
+                        : "N/A"}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-500">
