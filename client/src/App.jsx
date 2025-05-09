@@ -45,6 +45,7 @@ import ResetPassword from "./pages/reset-password-page"; // Import the ResetPass
 import AdminDashboard from "./pages/admin-dashboard"; // Import the new AdminDashboard
 import UserManagementPage from "./pages/user-management-page"; // Import the new User Management page
 import UserDetailPage from "./pages/user-detail-page"; // Import the User Detail page
+import TelemedicineMeet from "./components/appointment-schedule/telemedicinemeeting2";
 
 
 function App() {
@@ -116,6 +117,7 @@ function App() {
           <Route path="prescription-report" element={<PrescriptionReport />} />
           <Route path="schedule" element={<DoctorSchedule />} />   
           <Route path="meeting/:appointmentId" element={<TelemedicineMeeting />} />
+          <Route path="meeting2/:appointmentId" element={<TelemedicineMeet />} />
           <Route path="staff-and-roles" element={<RoleManagementPage />} />
           <Route path="patient/appointment-history" element={<PastEncounters />}/>
           <Route path="appointments" element={<AppointmentsPage />} />

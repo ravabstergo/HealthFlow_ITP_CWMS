@@ -297,6 +297,12 @@ export default function Calendar() {
                               >
                                 Mark Complete
                               </button>
+                              <button 
+                                className="px-3 py-1 text-xs text-blue-600 border border-blue-600 rounded-full"
+                                onClick={() => navigate(`/account/meeting2/${appointment._id}`)}
+                              >
+                                Join Meeting test
+                              </button>
                             </>
                           )}
                           {appointment.status === 'completed' && (
