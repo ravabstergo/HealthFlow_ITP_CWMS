@@ -7,6 +7,9 @@ import Modal from "../components/ui/modal";
 import { Calendar, User, Clock, Eye } from "lucide-react";
 import jsPDF from 'jspdf';
 
+// API URL constant
+const API_URL = `${process.env.REACT_APP_API_URL}`;
+
 export default function PatientPrescriptionPage() {
   const { currentUser } = useAuthContext();
   const [prescriptions, setPrescriptions] = useState([]);
@@ -41,6 +44,7 @@ export default function PatientPrescriptionPage() {
 
         // Get current user details
         const userResponse = await fetch(`/api/auth/me`, {
+
           headers: {
             "Authorization": `Bearer ${token}`,
           },
@@ -53,6 +57,7 @@ export default function PatientPrescriptionPage() {
         const userData = await userResponse.json();
         const user = userData.user;
         
+
         // Store patient name for display
         setPatientName(user.name);
         
@@ -66,6 +71,7 @@ export default function PatientPrescriptionPage() {
           }
         );
 
+
         if (!patientResponse.ok) {
           throw new Error("Failed to find patient record");
         }
@@ -74,6 +80,7 @@ export default function PatientPrescriptionPage() {
         
         // Fetch prescriptions using patient ID
         const prescriptionsResponse = await fetch(`/api/prescriptions/patient/${patientId}`, {
+
           headers: {
             "Authorization": `Bearer ${token}`,
           },

@@ -1,11 +1,11 @@
-import axios from 'axios';
-import TokenService from './TokenService';
+import axios from "axios";
+import TokenService from "./TokenService";
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000',
+  baseURL: "http://localhost:5000",
   headers: {
-    'Content-Type': 'application/json'
-  }
+    "Content-Type": "application/json",
+  },
 });
 
 // Add a request interceptor
