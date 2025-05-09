@@ -22,26 +22,46 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointmentDa
   });
 
   useEffect(() => {
+    // Pre-fill email if user is logged in
+    if (currentUser?.email) {
+      setFormData(prev => ({
+        ...prev,
+        email: currentUser.email
+      }));
+    }
+
     // Fetch consultation fee when component mounts
     const fetchConsultationFee = async () => {
       try {
+        console.log('Fetching consultation fee for doctor:', appointmentData.doctorId);
         const schedules = await api.get(`/api/appointments/doctors/${appointmentData.doctorId}/getSchedule`);
+        console.log('Received schedules:', schedules.data);
+        
         if (Array.isArray(schedules.data)) {
           // Find the schedule containing the selected slot's time
           const selectedDate = new Date(appointmentData.selectedSlot.slotTime);
+          console.log('Looking for slot time:', selectedDate);
+          
           const schedule = schedules.data.find(s => 
             s.slots.some(slot => new Date(slot.slotTime).getTime() === selectedDate.getTime())
           );
+          
           if (schedule) {
+            console.log('Found matching schedule with fee:', schedule.consultationFee);
             setConsultationFee(schedule.consultationFee);
+          } else {
+            console.error('No matching schedule found for the selected time slot');
+            toast.error('Could not fetch consultation fee. Please try again.');
           }
         }
       } catch (err) {
         console.error('Error fetching consultation fee:', err);
+        console.error('Error details:', err.response?.data);
+        toast.error('Failed to fetch consultation fee');
       }
     };
     fetchConsultationFee();
-  }, [appointmentData.doctorId, appointmentData.selectedSlot.slotTime]);
+  }, [appointmentData.doctorId, appointmentData.selectedSlot.slotTime, currentUser?.email]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -69,32 +89,91 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointmentDa
     setError(null);
   };
 
+  const initiatePayment = async (appointmentDetails) => {
+    try {
+      console.log('Initiating payment with details:', appointmentDetails);
+      console.log('Current consultation fee:', consultationFee);
+
+      if (!consultationFee) {
+        console.error('No consultation fee available');
+        throw new Error('Consultation fee not available');
+      }
+
+      const paymentPayload = {
+        appointment: {
+          ...appointmentDetails,
+          consultationFee,
+          doctorName: appointmentData.doctorName
+        },
+        returnUrl: `${window.location.origin}/account/appointment-success`,
+        cancelUrl: `${window.location.origin}/account/appointment-cancel`
+      };
+
+      console.log('Sending payment request with payload:', paymentPayload);
+      const response = await api.post('/api/payments/initiate', paymentPayload);
+
+      console.log('Payment initiation response:', response.data);
+      const { paymentData, checkoutUrl } = response.data;
+
+      // Create and submit form to PayHere
+      console.log('Creating payment form with URL:', checkoutUrl);
+      console.log('Payment data to be submitted:', paymentData);
+
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = checkoutUrl;
+
+      // Add all payment data as hidden fields
+      Object.entries(paymentData).forEach(([key, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = typeof value === 'string' ? value : JSON.stringify(value);
+        form.appendChild(input);
+        console.log(`Added form field: ${key} = ${value}`);
+      });
+
+      document.body.appendChild(form);
+      console.log('Submitting payment form to PayHere...');
+      form.submit();
+      document.body.removeChild(form);
+
+    } catch (err) {
+      console.error('Payment initiation failed:', err);
+      console.error('Error details:', err.response?.data);
+      throw new Error('Failed to initiate payment: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
   const handleBookAppointment = async () => {
     try {
+      console.log('Starting appointment booking process...');
       setLoading(true);
       setError(null);
 
-      await api.post(
-        `/api/appointments/doctors/${appointmentData.doctorId}/slots/${appointmentData.selectedSlot._id}/appointments`,
-        {
-          doctorId: appointmentData.doctorId,
-          patientId: currentUser?.id,
-          slotId: appointmentData.selectedSlot._id,
-          reason: formData.reason,
-          title: formData.title,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          phone: formData.phone,
-          nic: formData.nic,
-          email: formData.email,
-          status: 'active'
-        }
-      );
+      const appointmentDetails = {
+        doctorId: appointmentData.doctorId,
+        patientId: currentUser?.id,
+        slotId: appointmentData.selectedSlot._id,
+        reason: formData.reason,
+        title: formData.title,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+        nic: formData.nic,
+        email: formData.email,
+        time: appointmentData.selectedSlot.slotTime
+      };
+
+      console.log('Appointment details prepared:', appointmentDetails);
+
+      // Initiate payment first
+      await initiatePayment(appointmentDetails);
       
-      toast.success('Appointment booked successfully!');
-      onClose();
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to book appointment';
+      console.error('Appointment booking failed:', errorMessage);
+      console.error('Full error:', err);
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
