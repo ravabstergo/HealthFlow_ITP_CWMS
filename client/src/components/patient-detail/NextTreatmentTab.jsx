@@ -319,10 +319,18 @@ export default function NextTreatmentTab() {
   const handleUpdatePrescription = async () => {
     setIsSubmitting(true);
     try {
-      const token = TokenService.getAccessToken();
-      if (!editedPrescription?._id) {
-        throw new Error("Invalid prescription data");
+      // Get today's date for validation
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const validDate = new Date(editedPrescription.validUntil);
+      
+      if (validDate < today) {
+        setError("Valid Until date cannot be in the past");
+        setIsSubmitting(false);
+        return;
       }
+
+      const token = TokenService.getAccessToken();
       const response = await fetch(`${API_URL}/prescriptions/${editedPrescription._id}`, {
         method: 'PUT',
         headers: {
@@ -330,11 +338,11 @@ export default function NextTreatmentTab() {
           "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
-          patientId: editedPrescription.patientId?._id || patientId,
-          doctorId: editedPrescription.doctorId?._id || doctorId,
-          medicines: editedPrescription.medicines || [],
+          patientId: editedPrescription.patientId._id,
+          doctorId: editedPrescription.doctorId._id,
+          medicines: editedPrescription.medicines,
           validUntil: new Date(editedPrescription.validUntil).toISOString(),
-          notes: editedPrescription.notes || "",
+          notes: editedPrescription.notes,
         }),
       });
 
@@ -631,6 +639,9 @@ Please analyze and provide:
     doc.save(filename);
   };
 
+  // Get today's date in YYYY-MM-DD format for the min attribute
+  const today = new Date().toISOString().split('T')[0];
+
   const prescriptionForm = (
     <div className="w-full space-y-6">
       <div className="flex justify-end mb-4">
@@ -760,6 +771,7 @@ Please analyze and provide:
             type="date"
             value={validUntil}
             onChange={(e) => setValidUntil(e.target.value)}
+            min={today}
             required
           />
           <Input
@@ -805,7 +817,7 @@ Please analyze and provide:
                       className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full p-1"
                     >
                       <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
 
                       </svg>
                     </button>
@@ -947,6 +959,7 @@ Please analyze and provide:
                   <Input
                     type="date"
                     value={editedPrescription.validUntil}
+                    min={new Date().toISOString().split('T')[0]}
                     onChange={(e) => setEditedPrescription({
                       ...editedPrescription,
                       validUntil: e.target.value

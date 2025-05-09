@@ -193,6 +193,17 @@ export default function PrescriptionPage() {
   const handleUpdatePrescription = async () => {
     setIsSubmitting(true);
     try {
+      // Get today's date for validation
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const validDate = new Date(editedPrescription.validUntil);
+      
+      if (validDate < today) {
+        setError("Valid Until date cannot be in the past");
+        setIsSubmitting(false);
+        return;
+      }
+
       const token = TokenService.getAccessToken();
       const response = await fetch(`${API_URL}/prescriptions/${editedPrescription._id}`, {
         method: 'PUT',

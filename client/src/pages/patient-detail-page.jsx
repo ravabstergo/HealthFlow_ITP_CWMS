@@ -222,7 +222,7 @@ export default function PatientDetailPage() {
                     {`${patient.name?.firstName || ''} ${patient.name?.middleNames?.join(' ') || ''} ${patient.name?.lastName || ''}`}
                   </span>
                 </h2>
-                <div className="text-sm text-gray-500 mt-1">Patient ID: {patient.id}</div>
+                {/* <div className="text-sm text-gray-500 mt-1">Patient ID: {patient.id}</div> */}
               </div>
             </div>
 
