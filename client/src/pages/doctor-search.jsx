@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import { getAllDoctors } from '../services/doctorService';
-import AppointmentModal from '../components/AppointmentModal';
+import AppointmentModal from '../components/appointment-schedule/AppointmentModal';
 
 const DoctorSearch = () => {
     const [doctors, setDoctors] = useState([]);

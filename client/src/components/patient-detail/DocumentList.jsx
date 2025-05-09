@@ -43,8 +43,10 @@ export default function PatientDocumentList() {
       console.log("Fetching documents for patient:", patientId);
       console.log("User ID:", user?.id);
       setLoading(true);
-      const data = await DocumentService.getAllDocuments(patientId, user?.id);
-      setDocuments(data || []);
+      const response = await DocumentService.getAllDocuments(patientId, user?.id);
+      // Ensure documents is always an array, checking for the documents property in the response
+      const documentArray = response?.documents || [];
+      setDocuments(documentArray);
     } catch (error) {
       setToast({
         visible: true,

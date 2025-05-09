@@ -23,6 +23,8 @@ ChartJS.register(
   Legend
 );
 
+const API_URL = `${process.env.REACT_APP_API_URL}`;
+
 export default function PrescriptionReport() {
   const { currentUser } = useAuthContext();
   const doctorId = currentUser?.id;
@@ -36,7 +38,7 @@ export default function PrescriptionReport() {
     const fetchPrescriptions = async () => {
       try {
         const token = TokenService.getAccessToken();
-        const response = await fetch(`/api/prescriptions/doctor/${doctorId}`, {
+        const response = await fetch(`${API_URL}/prescriptions/doctor/${doctorId}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
           },

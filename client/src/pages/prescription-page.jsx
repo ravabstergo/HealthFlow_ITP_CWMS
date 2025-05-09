@@ -8,6 +8,9 @@ import { Plus, Calendar, User, Clock, Eye } from "lucide-react";
 import jsPDF from 'jspdf';
 import { useNavigate } from "react-router-dom";
 
+// API URL constant
+const API_URL = `${process.env.REACT_APP_API_URL}`;
+
 export default function PrescriptionPage() {
   const { currentUser } = useAuthContext();
   const doctorId = currentUser?.id;
@@ -18,7 +21,6 @@ export default function PrescriptionPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPrescription, setSelectedPrescription] = useState(null);
   const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [doctorDetails, setDoctorDetails] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedPrescription, setEditedPrescription] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,18 +62,10 @@ export default function PrescriptionPage() {
       try {
         const token = TokenService.getAccessToken();
 
-        const doctorResponse = await fetch(`/api/auth/users/${doctorId}`, {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-          },
-        });
+        // Removed the unnecessary API call to fetch doctor details
+        // Using currentUser from AuthContext instead
 
-        if (doctorResponse.ok) {
-          const doctorData = await doctorResponse.json();
-          setDoctorDetails(doctorData);
-        }
-
-        const response = await fetch(`/api/prescriptions/doctor/${doctorId}`, {
+        const response = await fetch(`${API_URL}/prescriptions/doctor/${doctorId}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
           },
@@ -135,7 +129,7 @@ export default function PrescriptionPage() {
 
     try {
       const token = TokenService.getAccessToken();
-      const response = await fetch(`/api/prescriptions/${prescriptionToDelete._id}`, {
+      const response = await fetch(`${API_URL}/prescriptions/${prescriptionToDelete._id}`, {
         method: 'DELETE',
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -167,7 +161,7 @@ export default function PrescriptionPage() {
     setIsSubmitting(true);
     try {
       const token = TokenService.getAccessToken();
-      const response = await fetch(`/api/prescriptions/${editedPrescription._id}`, {
+      const response = await fetch(`${API_URL}/prescriptions/${editedPrescription._id}`, {
         method: 'PUT',
         headers: {
           "Content-Type": "application/json",
@@ -187,7 +181,7 @@ export default function PrescriptionPage() {
       }
 
       // Refresh prescriptions list
-      const updatedResponse = await fetch(`/api/prescriptions/doctor/${doctorId}`, {
+      const updatedResponse = await fetch(`${API_URL}/prescriptions/doctor/${doctorId}`, {
         headers: {
           "Authorization": `Bearer ${token}`,
         },
@@ -476,7 +470,7 @@ export default function PrescriptionPage() {
               <div className="flex justify-between items-center mb-6">
                 <div className="text-center">
                   <h2 className="text-2xl font-bold text-gray-800">
-                    Dr. {doctorDetails?.name || "Unknown"}
+                    Dr. {currentUser?.name || "Unknown"}
                   </h2>
                   <p className="text-sm text-gray-500">
                     Total Prescriptions: {prescriptions.length}

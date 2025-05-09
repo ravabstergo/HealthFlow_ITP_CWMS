@@ -6,9 +6,15 @@ const {
   registerDoctor,
   registerOtherRoles,
   login,
+  verifyOtp,
   getMe,
   switchRole,
-  getAllDoctors
+  toggle2FA,
+  get2FAStatus,
+  forgotPassword,
+  resetPassword,
+  verifyResetToken,
+  logout, // Add the logout function
 } = require("../controllers/authController");
 
 // Log route accesses
@@ -39,9 +45,6 @@ router.post(
   registerOtherRoles
 );
 
-
-
-
 router.post(
   "/login",
   (req, res, next) => {
@@ -52,6 +55,16 @@ router.post(
     next();
   },
   login
+);
+
+// New route for OTP verification
+router.post(
+  "/verify-otp",
+  (req, res, next) => {
+    console.log("[AuthRoutes] Verify OTP route accessed");
+    next();
+  },
+  verifyOtp
 );
 
 router.get(
@@ -67,7 +80,6 @@ router.get(
   getMe
 );
 
-
 router.post(
   "/switch-role",
   protect,
@@ -78,15 +90,64 @@ router.post(
   switchRole
 );
 
-// Route to get all doctors
-router.get(
-  "/doctors",
+// Two-factor authentication routes
+router.post(
+  "/toggle-2fa",
   protect,
   (req, res, next) => {
-    console.log("[AuthRoutes] Accessing get all doctors route");
+    console.log("[AuthRoutes] Toggle 2FA route accessed");
     next();
   },
-  getAllDoctors
+  toggle2FA
+);
+
+router.get(
+  "/2fa-status",
+  protect,
+  (req, res, next) => {
+    console.log("[AuthRoutes] Get 2FA status route accessed");
+    next();
+  },
+  get2FAStatus
+);
+
+// Password reset routes
+router.post(
+  "/forgot-password",
+  (req, res, next) => {
+    console.log("[AuthRoutes] Forgot password route accessed");
+    next();
+  },
+  forgotPassword
+);
+
+router.post(
+  "/reset-password",
+  (req, res, next) => {
+    console.log("[AuthRoutes] Reset password route accessed");
+    next();
+  },
+  resetPassword
+);
+
+// Logout endpoint
+router.post(
+  "/logout",
+  protect,
+  (req, res, next) => {
+    console.log("[AuthRoutes] Logout route accessed for user:", req.user.id);
+    next();
+  },
+  logout
+);
+
+router.get(
+  "/verify-reset-token",
+  (req, res, next) => {
+    console.log("[AuthRoutes] Verify reset token route accessed");
+    next();
+  },
+  verifyResetToken
 );
 
 module.exports = router;
