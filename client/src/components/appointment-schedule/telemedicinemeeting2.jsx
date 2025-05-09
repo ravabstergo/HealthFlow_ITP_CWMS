@@ -192,7 +192,7 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
     {
       appid: APP_ID,
       channel: `appointment-${appointmentId}`,
-      token: null
+      token: null // In production, you should get this from your token server
     },
     calling
   );
@@ -205,12 +205,7 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
 
   const handleEndMeeting = async () => {
     try {
-      // First update UI state to prevent further interactions
-      setCalling(false);
-      setMicOn(false);
-      setCameraOn(false);
-
-      // Stop and close local tracks
+      // Stop tracks first
       if (localMicrophoneTrack) {
         await localMicrophoneTrack.stop();
         await localMicrophoneTrack.close();
@@ -220,45 +215,15 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
         await localCameraTrack.stop();
         await localCameraTrack.close();
       }
-
-      // Stop and close remote user tracks first
-      for (const user of remoteUsers) {
-        try {
-          if (user.audioTrack) {
-            user.audioTrack.stop();
-            user.audioTrack.close();
-          }
-          if (user.videoTrack) {
-            user.videoTrack.stop();
-            user.videoTrack.close();
-          }
-        } catch (trackError) {
-          console.warn(`Error cleaning up tracks for remote user ${user.uid}:`, trackError);
-        }
-      }
-
-      // Unpublish local tracks before leaving
+      
+      // Leave the channel
       if (client) {
-        try {
-          if (localMicrophoneTrack || localCameraTrack) {
-            const tracksToUnpublish = [localMicrophoneTrack, localCameraTrack].filter(Boolean);
-            if (tracksToUnpublish.length > 0) {
-              await client.unpublish(tracksToUnpublish);
-              console.log("Successfully unpublished local tracks");
-            }
-          }
-        } catch (unpublishError) {
-          console.warn("Error unpublishing tracks:", unpublishError);
-        }
-
-        // Leave the channel
-        try {
-          await client.leave();
-          console.log("Successfully left the channel");
-        } catch (leaveError) {
-          console.warn("Error leaving channel:", leaveError);
-        }
+        await client.leave();
+        console.log("Client successfully left the channel");
       }
+      
+      // Update state
+      setCalling(false);
 
       // Navigate based on user role name
       if (activeRole?.name === 'sys_doctor') {
@@ -267,8 +232,8 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
         navigate('/account/patient-appointments');
       }
     } catch (error) {
-      console.error("Error in handleEndMeeting:", error);
-      // Ensure navigation happens even if there's an error
+      console.error("Error leaving channel:", error);
+      // Navigate based on user role name even in case of error
       if (activeRole?.name === 'sys_doctor') {
         navigate('/account/schedule');
       } else {
@@ -289,46 +254,25 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
         localCameraTrack.stop();
         localCameraTrack.close();
       }
-      
-      // Also clean up remote tracks on unmount
-      remoteUsers.forEach(user => {
-        try {
-          if (user.audioTrack) {
-            user.audioTrack.stop();
-            user.audioTrack.close();
-          }
-          if (user.videoTrack) {
-            user.videoTrack.stop();
-            user.videoTrack.close();
-          }
-        } catch (error) {
-          console.warn(`Error cleaning up remote user ${user.uid} tracks on unmount:`, error);
-        }
-      });
-
-      // Leave channel on unmount
-      if (client) {
-        client.leave().catch(error => {
-          console.warn("Error leaving channel on unmount:", error);
-        });
-      }
     };
-  }, [localMicrophoneTrack, localCameraTrack, remoteUsers, client]);
+  }, [localMicrophoneTrack, localCameraTrack]);
 
   return (
-    <div className="w-full mx-auto p-0 h-full">      {/* Header */}
-      <div className="border-b border-gray-200 mb-4 bg-white shadow-sm">
-        <div className="max-w-5xl mx-auto px-6 pb-0">
-          <div className="p-4 pb-0">
-            <h1 className="text-blue-600 font-medium text-lg">Telemedicine Meeting</h1>
-          </div>
-          <div className="h-0.5 w-44 bg-blue-600 mt-2"></div>
+    <div className="w-full mx-auto p-0 h-full">
+      {/* Header */}
+      <div className="border-b border-gray-200 mb-4 bg-white">
+        <div className="p-4 pb-0">
+          <h1 className="text-blue-600 font-medium text-sm">Telemedicine Meeting</h1>
         </div>
-      </div>      {/* Main content */}
-      <div className="flex items-center justify-center min-h-[calc(100vh-120px)]">
-        {/* Meeting area */}
-        <div className="w-full max-w-[1000px] mx-auto px-4 my-8">
-          <div className="bg-white rounded-[2rem] p-8 shadow-xl border border-gray-100 backdrop-blur-sm bg-white/80">
+        <div className="h-0.5 w-44 bg-blue-600 mt-2"></div>
+      </div>
+
+      {/* Main content */}
+      <div className="flex flex-col md:flex-row h-[calc(100vh-120px)] min-w-[1200px] max-w-[1550px] mx-auto p-0 h-full p-2">
+        {/* Left section - Meeting area and Documents */}
+        <div className="flex-1 flex flex-col min-w-[300px]">
+          {/* Meeting area */}
+          <div className="bg-white rounded-3xl p-4 shadow-sm mb-2 flex-1 flex-grow-[3]">
             {/* Patient info */}
             <div className="flex items-center mb-4">
               <button className="mr-4" onClick={() => navigate('/account/schedule')}>
@@ -338,10 +282,12 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
                 <h2 className="font-medium text-gray-800">{patientName}</h2>
                 <p className="text-sm text-gray-500">{appointmentDate}</p>
               </div>
-            </div>            {/* Video screens */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 max-w-4xl mx-auto">
+            </div>
+
+            {/* Video screens */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4 justify-center">
               {/* Local user video */}
-              <div className="w-full h-[380px] rounded-3xl overflow-hidden bg-gray-50 relative shadow-lg border border-gray-100/50">
+              <div className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-100 relative">
                 {cameraOn ? (
                   <LocalUser
                     audioTrack={localMicrophoneTrack}
@@ -375,9 +321,11 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
                     Muted
                   </div>
                 )}
-              </div>              {/* Remote user video */}
+              </div>
+
+              {/* Remote user video */}
               {remoteUsers.map((user) => (
-                <div key={user.uid} className="w-full h-[380px] rounded-3xl overflow-hidden bg-gray-50 relative shadow-lg border border-gray-100/50">
+                <div key={user.uid} className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-100 relative">
                   <RemoteUser user={user} className="w-full h-full object-cover rounded-2xl">
                     <span className="hidden">{user.uid}</span>
                   </RemoteUser>
@@ -388,38 +336,153 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
                   )}
                 </div>
               ))}
-            </div>            {/* Meeting controls */}
-            <div className="flex justify-center items-center gap-8 mt-6">
+            </div>
+
+            {/* Meeting controls */}
+            <div className="flex justify-center items-center gap-4">
               <button
                 onClick={() => setMicOn(!micOn)}
-                className={`p-4 rounded-full transition-all duration-200 hover:bg-gray-100 shadow-md ${
-                  micOn 
-                    ? "text-gray-700 bg-white border border-gray-200" 
-                    : "bg-gray-100 text-gray-500 border border-gray-200"
-                }`}
+                className={`p-2 rounded-full ${micOn ? "text-gray-700" : "bg-gray-200 text-gray-500"}`}
               >
-                <Mic className="h-6 w-6" />
-              </button>              <button 
+                <Mic className="h-5 w-5" />
+              </button>
+
+              <button 
                 onClick={handleEndMeeting}
-                className="bg-red-500 hover:bg-red-600 text-white px-10 py-4 rounded-full font-medium transition-colors duration-200 shadow-lg"
+                className="bg-red-400 text-white px-6 py-2 rounded-full font-medium"
               >
                 End Meeting
               </button>
 
               <button
                 onClick={() => setCameraOn(!cameraOn)}
-                className={`p-3 rounded-full transition-all duration-200 hover:bg-gray-100 ${
-                  cameraOn 
-                    ? "text-gray-700 bg-white border border-gray-200" 
-                    : "bg-gray-100 text-gray-500 border border-gray-200"
-                }`}
+                className={`p-2 rounded-full ${cameraOn ? "text-gray-700" : "bg-gray-200 text-gray-500"}`}
               >
-                <Video className="h-6 w-6" />
+                <Video className="h-5 w-5" />
               </button>
-            </div>            {/* Meeting info box */}
-            <div className="mt-8 bg-gray-50/80 rounded-2xl p-4 border border-gray-100/50 max-w-xs mx-auto backdrop-blur-sm">
-              <p className="text-sm text-gray-600 text-center font-medium">Meeting ID: appointment-{appointmentId}</p>
-            </div></div>
+            </div>
+
+            {/* White rounded box below buttons */}
+            <div class="mt-3 bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+              <p class="text-sm text-gray-500 text-center">Meeting ID: appointment-{appointmentId}</p>
+            </div>
+          </div>
+
+          {/* Documents section - reduced height */}
+          <div className="bg-white border border-gray-200 rounded-3xl p-4 flex-1 flex-grow-[1] min-h-[120px] overflow-y-auto">
+            <div className="mb-3">
+              <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">Documents</span>
+            </div>
+            {documents.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-gray-400">
+                <FileText className="h-12 w-12 opacity-20" />
+                <p className="text-gray-400 ml-2">No documents available</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {documents.map((doc) => (
+                  <div key={doc._id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
+                    <div className="flex items-center">
+                      <FileText className="h-5 w-5 text-gray-400 mr-2" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">{doc.documentName}</p>
+                        <p className="text-xs text-gray-500">{new Date(doc.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={async () => {
+                          try {
+                            const downloadInfo = await DocumentService.downloadDocument(doc._id);
+                            const link = document.createElement('a');
+                            link.href = downloadInfo.url;
+                            link.setAttribute('download', downloadInfo.filename);
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          } catch (error) {
+                            console.error('Download failed:', error);
+                          }
+                        }}
+                        className="p-1 hover:bg-gray-100 rounded-full"
+                        title="Download"
+                      >
+                        <Download className="h-4 w-4 text-gray-600" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const extension = doc.documentUrl?.split('.').pop().toLowerCase();
+                          if (extension === 'pdf') {
+                            window.open(doc.documentUrl, '_blank');
+                          } else if (['doc', 'docx'].includes(extension)) {
+                            const viewerUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(doc.documentUrl)}`;
+                            window.open(viewerUrl, '_blank');
+                          } else if (['jpg', 'jpeg', 'png'].includes(extension)) {
+                            window.open(doc.documentUrl, '_blank');
+                          }
+                        }}
+                        className="p-1 hover:bg-gray-100 rounded-full"
+                        title="View"
+                      >
+                        <Eye className="h-4 w-4 text-gray-600" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right section - Patient info - increased width */}
+        <div className="md:ml-2 mt-2 md:mt-0 w-full md:w-[420px] min-w-[340px] bg-white border border-gray-200 rounded-3xl p-4 overflow-y-auto">
+          <div className="flex items-center mb-4">
+            <div className="h-12 w-12 bg-gray-200 rounded-full mr-3 flex items-center justify-center overflow-hidden">
+              {patientProfile?.name?.firstName && (
+                <span className="text-gray-700 font-medium">
+                  {patientProfile?.name?.firstName[0]}{patientProfile?.name?.lastName[0]}
+                </span>
+              )}
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Patient Name</p>
+              <p className="font-medium">
+                {patientProfile?.name 
+                  ? `${patientProfile.name.firstName} ${patientProfile.name.lastName}` 
+                  : patientName}
+              </p>
+            </div>
+          </div>
+
+          {/* Patient demographics */}
+          {patientProfile && (
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="text-gray-500">Gender</p>
+                  <p className="font-medium">{patientProfile.gender}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Date of Birth</p>
+                  <p className="font-medium">{patientProfile.dateOfBirth}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">NIC</p>
+                  <p className="font-medium">{patientProfile.nic}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Contact</p>
+                  <p className="font-medium">{patientProfile.phone}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Medical history section */}
+          <div className="border-t border-gray-200 pt-4 mt-4">
+            <h3 className="font-medium text-gray-800 mb-3">Medical Profile</h3>
+            <PatientProfileSection patientData={patientProfile} />
+          </div>
         </div>
       </div>
     </div>

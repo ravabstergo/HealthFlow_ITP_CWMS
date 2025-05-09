@@ -55,17 +55,26 @@ export default function Calendar() {
           return acc.concat(schedule.availability || []);
         }, []);
 
-        const todayAvailability = availability.find(slot => 
+        // Find all availabilities for the selected date
+        const todayAvailabilities = availability.filter(slot => 
           isSameDay(new Date(slot.day), selectedDate)
         );
 
-        if (todayAvailability) {
-          const slots = generateTimeSlots(
-            new Date(todayAvailability.startTime),
-            new Date(todayAvailability.endTime),
-            todayAvailability.appointmentDuration
-          );
-          setTimeSlots(slots);
+        if (todayAvailabilities.length > 0) {
+          // Generate slots for each availability and combine them
+          const allSlots = todayAvailabilities.reduce((acc, avail) => {
+            const slots = generateTimeSlots(
+              new Date(avail.startTime),
+              new Date(avail.endTime),
+              avail.appointmentDuration
+            );
+            return [...acc, ...slots];
+          }, []);
+
+          // Sort slots by time
+          const sortedSlots = allSlots.sort((a, b) => a.time - b.time);
+          
+          setTimeSlots(sortedSlots);
         } else {
           setTimeSlots([]);
         }

@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Patient = require("../models/Patient");
+const Encounter = require("../models/Encounter");
 const User = require("../models/User");
 
 exports.createPatientRecord = async (req, res) => {
@@ -564,8 +565,25 @@ exports.getLinkRecord = async (req, res) => {
       });
     }
 
+    // Get all record IDs
+    const recordIds = patientRecords.map((record) => record._id);
+
+    // Get encounters for these records from the last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const encounters = await Encounter.find({
+      recordId: { $in: recordIds },
+      dateTime: { $gte: sevenDaysAgo },
+    }).populate("provider", "name");
+
+    const recentDoctorIds = [
+      ...new Set(encounters.map((e) => e.provider._id.toString())),
+    ];
+
     res.status(200).json({
-      recordIds: patientRecords.map((record) => record._id),
+      recordIds,
+      recentDoctorIds,
     });
   } catch (error) {
     console.error("Error getting linked patient records:", error);

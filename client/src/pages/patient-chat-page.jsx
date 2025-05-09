@@ -7,8 +7,9 @@ import {
   markMessagesAsRead,
   getOrCreateConversation
 } from '../services/chatService';
-import { getAllDoctors } from '../services/doctorService'; // Import named export instead of default export
+import { getAllDoctors } from '../services/doctorService';
 import { formatDistanceToNow } from 'date-fns';
+import api from '../services/api';  // Add this import
 
 export default function PatientChatPage() {
   const { currentUser:user } = useAuthContext();
@@ -254,14 +255,24 @@ export default function PatientChatPage() {
       console.log('[PatientChatPage] Loading doctors...');
       
       try {
+        // First get the linked records and recent doctor IDs
+        const response = await api.get('/api/records/link');
+        const { recentDoctorIds } = response.data;
+        
+        console.log('[PatientChatPage] Recent doctor IDs:', recentDoctorIds);
+
+        // Get all available doctors
         console.log('[PatientChatPage] Calling AuthService.getAllDoctors()');
         const doctors = await getAllDoctors();
         console.log('[PatientChatPage] Doctors received:', doctors);
         
-        // Check if doctors is defined and is an array
+        // Filter doctors to only show those with recent encounters
         if (Array.isArray(doctors)) {
-          setAllDoctors(doctors);
-          console.log('[PatientChatPage] Doctors state updated with', doctors.length, 'doctors');
+          const filteredDoctors = doctors.filter(doctor => 
+            recentDoctorIds.includes(doctor._id)
+          );
+          setAllDoctors(filteredDoctors);
+          console.log('[PatientChatPage] Doctors state updated with', filteredDoctors.length, 'doctors');
         } else {
           console.error('[PatientChatPage] Response is not an array:', doctors);
           setAllDoctors([]);
