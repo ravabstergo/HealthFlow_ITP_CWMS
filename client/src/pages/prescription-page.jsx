@@ -11,6 +11,23 @@ import { useNavigate } from "react-router-dom";
 // API URL constant
 const API_URL = `${process.env.REACT_APP_API_URL}`;
 
+// Utility function to format patient name
+const formatPatientName = (patientData) => {
+  if (!patientData) return "Unknown";
+  
+  if (typeof patientData === 'string') return patientData;
+  
+  if (patientData.firstName || patientData.lastName) {
+    return [
+      patientData.firstName,
+      ...(patientData.middleNames || []),
+      patientData.lastName
+    ].filter(Boolean).join(' ');
+  }
+  
+  return "Unknown";
+};
+
 export default function PrescriptionPage() {
   const { currentUser } = useAuthContext();
   const doctorId = currentUser?.id;
@@ -238,7 +255,7 @@ export default function PrescriptionPage() {
     y += lineHeight;
     doc.text(`Valid Until: ${formatDate(prescription.validUntil)}`, 20, y);
     y += lineHeight;
-    doc.text(`Patient: ${prescription.patientId?.name || "Unknown"}`, 20, y);
+    doc.text(`Patient: ${formatPatientName(prescription.patientId?.name) || "Unknown"}`, 20, y);
     y += lineHeight * 2;
 
     // Add medicines section
@@ -290,9 +307,14 @@ export default function PrescriptionPage() {
     navigate('/account/prescription-report');
   };
 
-  const filteredPrescriptions = prescriptions.filter((prescription) =>
-    prescription.patientId?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPrescriptions = prescriptions.filter((prescription) => {
+    // If there's no search query, include all prescriptions
+    if (!searchQuery.trim()) return true;
+    
+    // Use the formatPatientName function to get a consistently formatted name
+    const patientName = formatPatientName(prescription.patientId?.name).toLowerCase();
+    return patientName.includes(searchQuery.toLowerCase());
+  });
 
   return (
     <>
@@ -383,7 +405,7 @@ export default function PrescriptionPage() {
               </div>
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-gray-400" />
-                <span className="text-sm">Patient: {selectedPrescription.patientId?.name || "Unknown"}</span>
+                <span className="text-sm">Patient: {formatPatientName(selectedPrescription.patientId?.name) || "Unknown"}</span>
               </div>
             </div>
 
@@ -535,7 +557,7 @@ export default function PrescriptionPage() {
                         </div>
                         <div className="flex items-center text-sm text-gray-900">
                           <User className="w-4 h-4 text-blue-600 mr-2" />
-                          {prescription.patientId?.name || "Unknown Patient"}
+                          {formatPatientName(prescription.patientId?.name) || "Unknown Patient"}
                         </div>
                         <div>
                           {new Date(prescription.validUntil) > new Date() ? (
