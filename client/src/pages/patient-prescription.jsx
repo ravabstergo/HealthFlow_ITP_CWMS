@@ -42,6 +42,8 @@ export default function PatientPrescriptionPage() {
       try {
         const token = TokenService.getAccessToken();
 
+        console.log("usr email", currentUser.email);
+
         // Get current user details
         const userResponse = await fetch(`/api/auth/me`, {
 
@@ -60,10 +62,12 @@ export default function PatientPrescriptionPage() {
 
         // Store patient name for display
         setPatientName(user.name);
+
+        console.log("User data:", userData);
         
         // Find patient record using email or NIC
         const patientResponse = await fetch(
-          `/api/records/findByUser?${user.email ? `email=${user.email}` : `nic=${user.nic}`}`,
+          `${API_URL}/records/findByUser?${user.email ? `email=${user.email}` : `nic=${user.nic}`}`,
           {
             headers: {
               "Authorization": `Bearer ${token}`,
@@ -247,21 +251,11 @@ export default function PatientPrescriptionPage() {
     const footerY = doc.internal.pageSize.height - 25;
     doc.line(20, footerY, pageWidth - 20, footerY);
     
-    // Left side
-    doc.setFontSize(8);
-    doc.text('HealthFlow Medical Center', 20, footerY + 5);
-    doc.text('24/7 Emergency: +94 117 675 432', 20, footerY + 10);
-    
     // Center
     doc.setFont('helvetica', 'italic');
     doc.text('This is a computer generated prescription.', pageWidth/2, footerY + 5, { align: 'center' });
     doc.text('Valid only with authorized signature and stamp.', pageWidth/2, footerY + 10, { align: 'center' });
-    
-    // Right side - Verification code
-    const verificationCode = `${prescription._id}-${new Date(prescription.dateIssued).getTime()}`;
-    doc.setFontSize(7);
-    doc.text('Verification Code:', pageWidth - 70, footerY + 5);
-    doc.text(verificationCode, pageWidth - 70, footerY + 10);
+
     
     // Add doctor's signature placeholder
     doc.line(pageWidth - 80, footerY - 15, pageWidth - 20, footerY - 15);

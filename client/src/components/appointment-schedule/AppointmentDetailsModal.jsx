@@ -88,6 +88,7 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointmentDa
           nic: formData.nic,
           email: formData.email,
           status: 'active'
+          
         }
       );
       

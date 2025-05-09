@@ -29,7 +29,7 @@ const {
         role: "user",
         parts:[
           {
-            text: "Your are chat assistant for a clinical management system. only answer questions realted to medicine.and if user ask about health and medical realted question give them simple and short answers.if user ask any unrelated question, then say 'The texts you entered cannot be recognized as a medicine!'",
+            text: "Your are chat assistant for a clinical management system. only answer questions realted to medicine.and if user ask about health and medical realted question give them simple and short answers.don't bold any word for output.if user ask any unrelated question, then say 'The texts you entered cannot be recognized as a medicine!'",
           },
         ],
       },

@@ -748,11 +748,11 @@ Please analyze and provide:
 
       <Card className="shadow-sm">
         <h3 className="text-lg font-semibold text-gray-700 mb-4">Prescription Details</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">          <Input
             label="Valid Until"
             type="date"
             value={validUntil}
+            min={new Date().toISOString().split('T')[0]}
             onChange={(e) => setValidUntil(e.target.value)}
             required
           />
@@ -938,10 +938,10 @@ Please analyze and provide:
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-orange-600" />
-                {isEditing ? (
-                  <Input
+                {isEditing ? (                <Input
                     type="date"
                     value={editedPrescription.validUntil}
+                    min={new Date().toISOString().split('T')[0]}
                     onChange={(e) => setEditedPrescription({
                       ...editedPrescription,
                       validUntil: e.target.value

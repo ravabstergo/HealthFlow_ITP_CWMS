@@ -8,9 +8,6 @@ import { Plus, Calendar, User, Clock, Eye } from "lucide-react";
 import jsPDF from 'jspdf';
 import { useNavigate } from "react-router-dom";
 
-// API URL constant
-const API_URL = `${process.env.REACT_APP_API_URL}`;
-
 export default function PrescriptionPage() {
   const { currentUser } = useAuthContext();
   const doctorId = currentUser?.id;
@@ -21,10 +18,12 @@ export default function PrescriptionPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPrescription, setSelectedPrescription] = useState(null);
   const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [doctorDetails, setDoctorDetails] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedPrescription, setEditedPrescription] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editButtonsVisible, setEditButtonsVisible] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: 'dateIssued', direction: 'desc' });
   const navigate = useNavigate();
 
   const formatDate = (dateString) => {
@@ -34,6 +33,34 @@ export default function PrescriptionPage() {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const handleSort = (key) => {
+    setSortConfig((prevConfig) => ({
+      key,
+      direction: prevConfig.key === key && prevConfig.direction === 'asc' ? 'desc' : 'asc',
+    }));
+  };
+
+  const getSortedPrescriptions = () => {
+    if (!sortConfig.key) return prescriptions;
+
+    const sortedData = [...prescriptions].sort((a, b) => {
+      if (a[sortConfig.key] < b[sortConfig.key]) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (a[sortConfig.key] > b[sortConfig.key]) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+
+    return sortedData;
+  };
+
+  const SortIcon = ({ field }) => {
+    if (sortConfig.key !== field) return <span className="ms-1">↕</span>;
+    return <span className="ms-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
   };
 
   const sortPrescriptions = (prescriptions) => {
@@ -70,7 +97,6 @@ export default function PrescriptionPage() {
     const fetchData = async () => {
       try {
         const token = TokenService.getAccessToken();
-
 
         // First get the doctor details from appointments API which properly populates doctor info
         const doctorResponse = await fetch(`/api/appointments/doctors/${doctorId}`, {
@@ -153,7 +179,7 @@ export default function PrescriptionPage() {
 
     try {
       const token = TokenService.getAccessToken();
-      const response = await fetch(`${API_URL}/prescriptions/${prescriptionToDelete._id}`, {
+      const response = await fetch(`/api/prescriptions/${prescriptionToDelete._id}`, {
         method: 'DELETE',
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -185,7 +211,7 @@ export default function PrescriptionPage() {
     setIsSubmitting(true);
     try {
       const token = TokenService.getAccessToken();
-      const response = await fetch(`${API_URL}/prescriptions/${editedPrescription._id}`, {
+      const response = await fetch(`/api/prescriptions/${editedPrescription._id}`, {
         method: 'PUT',
         headers: {
           "Content-Type": "application/json",
@@ -205,7 +231,7 @@ export default function PrescriptionPage() {
       }
 
       // Refresh prescriptions list
-      const updatedResponse = await fetch(`${API_URL}/prescriptions/doctor/${doctorId}`, {
+      const updatedResponse = await fetch(`/api/prescriptions/doctor/${doctorId}`, {
         headers: {
           "Authorization": `Bearer ${token}`,
         },
@@ -252,7 +278,7 @@ export default function PrescriptionPage() {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('HEALTHFLOW MEDICAL CENTER', pageWidth/2, 10, { align: 'center' });
+    doc.text('HEALTHFLOW', pageWidth/2, 10, { align: 'center' });
     doc.setTextColor(0, 0, 0);
     
     // Add prescription title
@@ -382,7 +408,7 @@ export default function PrescriptionPage() {
     navigate('/account/prescription-report');
   };
 
-  const filteredPrescriptions = prescriptions.filter((prescription) =>
+  const filteredPrescriptions = getSortedPrescriptions().filter((prescription) =>
     !searchQuery || // Show all if no search query
     (prescription.patientId?.name || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -472,7 +498,20 @@ export default function PrescriptionPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-orange-600" />
-                <span className="text-sm">Valid until: {formatDate(selectedPrescription.validUntil)}</span>
+                {isEditing ? (
+                  <Input
+                    label="Valid Until"
+                    type="date"
+                    value={editedPrescription.validUntil}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setEditedPrescription({
+                      ...editedPrescription,
+                      validUntil: e.target.value
+                    })}
+                  />
+                ) : (
+                  <span className="text-sm">Valid until: {formatDate(selectedPrescription.validUntil)}</span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-gray-400" />
@@ -563,7 +602,7 @@ export default function PrescriptionPage() {
               <div className="flex justify-between items-center mb-6">
                 <div className="text-center">
                   <h2 className="text-2xl font-bold text-gray-800">
-                    Dr. {currentUser?.name || "Unknown"}
+                    Dr. {doctorDetails?.name || "Unknown"}
                   </h2>
                   <p className="text-sm text-gray-500">
                     Total Prescriptions: {prescriptions.length}
@@ -603,9 +642,15 @@ export default function PrescriptionPage() {
                 <div className="w-full">
                   <div className="bg-gray-50">
                     <div className="grid grid-cols-6 gap-4 px-6 py-3 text-sm font-medium text-gray-500">
-                      <div>Date Issued</div>
-                      <div>Valid Until</div>
-                      <div>Patient Name</div>
+                      <div onClick={() => handleSort('dateIssued')} style={{ cursor: 'pointer' }}>
+                        Date Issued <SortIcon field="dateIssued" />
+                      </div>
+                      <div onClick={() => handleSort('validUntil')} style={{ cursor: 'pointer' }}>
+                        Valid Until <SortIcon field="validUntil" />
+                      </div>
+                      <div onClick={() => handleSort('patientName')} style={{ cursor: 'pointer' }}>
+                        Patient Name <SortIcon field="patientName" />
+                      </div>
                       <div>Status</div>
                       <div>Notes</div>
                       <div className="text-right"></div>

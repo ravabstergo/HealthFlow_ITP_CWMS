@@ -253,7 +253,7 @@ exports.getMe = async (req, res) => {
     console.log("[AuthController] getMe successful for user:", user._id);
 
     res.status(200).json({
-      user: { id: user._id, name: user.name },
+      user: { id: user._id, name: user.name, email:user.email, nic:user.nic },
       activeRole: {
         id: activeRole.role._id,
         name: activeRole.role.name,
