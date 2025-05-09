@@ -173,28 +173,28 @@ const PatientProfileSection = ({ patientData }) => {
   );
 };
 
-const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, documents }) => {
+const Basics = ({ appointmentId, appointmentData, patientName, appointmentDate, patientProfile, documents }) => {
   const navigate = useNavigate();
   const { currentUser, activeRole } = useAuthContext();
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
   const [calling, setCalling] = useState(true);
-
+  const [connectionError, setConnectionError] = useState(null);
   // Get tracks for local user
   const { localMicrophoneTrack } = useLocalMicrophoneTrack(micOn);
   const { localCameraTrack } = useLocalCameraTrack(cameraOn);
   
   // Get reference to the RTC client
   const client = useRTCClient();
-  
-  // Join the channel
+
+  // Join the channel with Agora credentials
   useJoin(
     {
       appid: APP_ID,
-      channel: `appointment-${appointmentId}`,
-      token: null // In production, you should get this from your token server
+      channel: appointmentData?.channelName || `appointment-${appointmentId}`,
+      token: appointmentData?.agoraToken || null
     },
-    calling
+    calling && !!appointmentData?.channelName
   );
 
   // Publish tracks
@@ -202,6 +202,22 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
 
   // Get remote users
   const remoteUsers = useRemoteUsers();
+
+  // Handle Agora client events
+  useClientEvent(client, "connection-state-change", (curState, prevState) => {
+    if (curState === "DISCONNECTED") {
+      console.log("Disconnected from Agora channel, attempting to reconnect...");
+      // Attempt to reconnect after a brief delay
+      setTimeout(() => {
+        if (appointmentData?.channelName && appointmentData?.agoraToken) {          client.join(APP_ID, appointmentData.channelName, appointmentData.agoraToken, null)
+            .catch(err => {
+              console.error("Failed to reconnect:", err);
+              setConnectionError("Lost connection to the meeting. Please try rejoining.");
+            });
+        }
+      }, 2000);
+    }
+  });
 
   const handleEndMeeting = async () => {
     try {
@@ -245,7 +261,7 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
   // Clean up when component unmounts
   useEffect(() => {
     return () => {
-      // This ensures resources are cleaned up if user navigates away without clicking End Meeting
+      // Properly cleanup media tracks
       if (localMicrophoneTrack) {
         localMicrophoneTrack.stop();
         localMicrophoneTrack.close();
@@ -254,8 +270,15 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
         localCameraTrack.stop();
         localCameraTrack.close();
       }
+
+      // Leave Agora channel
+      client.leave().then(() => {
+        console.log("Successfully left the channel");
+      }).catch(err => {
+        console.error("Error leaving channel:", err);
+      });
     };
-  }, [localMicrophoneTrack, localCameraTrack]);
+  }, [localMicrophoneTrack, localCameraTrack, client]);
 
   return (
     <div className="w-full mx-auto p-0 h-full">
@@ -282,12 +305,10 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
                 <h2 className="font-medium text-gray-800">{patientName}</h2>
                 <p className="text-sm text-gray-500">{appointmentDate}</p>
               </div>
-            </div>
-
-            {/* Video screens */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4 justify-center">
+            </div>            {/* Video screens */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               {/* Local user video */}
-              <div className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-100 relative">
+              <div className="w-full h-[400px] rounded-2xl overflow-hidden bg-gray-100 relative">
                 {cameraOn ? (
                   <LocalUser
                     audioTrack={localMicrophoneTrack}
@@ -324,18 +345,27 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
               </div>
 
               {/* Remote user video */}
-              {remoteUsers.map((user) => (
-                <div key={user.uid} className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-100 relative">
-                  <RemoteUser user={user} className="w-full h-full object-cover rounded-2xl">
-                    <span className="hidden">{user.uid}</span>
-                  </RemoteUser>
-                  {!user.hasAudio && (
-                    <div className="absolute bottom-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">
-                      Muted
-                    </div>
-                  )}
+              {remoteUsers.length === 0 ? (
+                <div className="w-full h-[400px] rounded-2xl overflow-hidden bg-gray-100 relative flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-500">Waiting for other participants to join...</p>
+                  </div>
                 </div>
-              ))}
+              ) : (
+                remoteUsers.map((user) => (
+                  <div key={user.uid} className="w-full h-[400px] rounded-2xl overflow-hidden bg-gray-100 relative">
+                    <RemoteUser user={user} className="w-full h-full object-cover rounded-2xl">
+                      <span className="hidden">{user.uid}</span>
+                    </RemoteUser>
+                    {!user.hasAudio && (
+                      <div className="absolute bottom-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">
+                        Muted
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Meeting controls */}
@@ -557,10 +587,10 @@ export default function TelemedicineMeeting() {
     );
   }
 
-  return (
-    <AgoraRTCProvider client={client}>
+  return (    <AgoraRTCProvider client={client}>
       <Basics 
         appointmentId={appointmentId}
+        appointmentData={appointmentData}
         patientName={appointmentData?.firstName ? `${appointmentData.firstName} ${appointmentData.lastName}` : 'Patient'}
         appointmentDate={appointmentData?.time ? new Date(appointmentData.time).toLocaleDateString() : ''}
         patientProfile={patientProfile}
