@@ -250,7 +250,7 @@ export default function NextTreatmentTab() {
     
     const creationTime = new Date(prescription.dateIssued).getTime();
     const currentTime = new Date().getTime();
-    const oneHourInMilliseconds = 60 * 60 * 1000;
+    const oneHourInMilliseconds = 10 * 60 * 1000;
     const timeLeft = oneHourInMilliseconds - (currentTime - creationTime);
     
     return timeLeft > 0;
