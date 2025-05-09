@@ -158,7 +158,7 @@ export default function FeedbackDeletePage() {
           ) : error ? (
             <div className="space-y-4">
               <p className="text-red-500">{error}</p>
-              <Button className="mt-4" onClick={() => navigate("/account/feedback")}>
+              <Button className="mt-4" onClick={() => navigate("/account/feedback/summary")}>
                 Back to Feedback
               </Button>
             </div>

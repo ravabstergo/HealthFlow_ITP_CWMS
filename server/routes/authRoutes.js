@@ -39,9 +39,6 @@ router.post(
   registerOtherRoles
 );
 
-
-
-
 router.post(
   "/login",
   (req, res, next) => {
@@ -67,9 +64,8 @@ router.get(
   getMe
 );
 
-
 router.post(
-  "/switch-role",
+  "/ discomfort-role",
   protect,
   (req, res, next) => {
     console.log("[AuthRoutes] Switch role route accessed");

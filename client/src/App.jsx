@@ -36,7 +36,6 @@ import RoleManagementPage from "./pages/RoleManagementPage";
 import RegisterPage from "./pages/RegisterPage";
 import PastAppointments from "./pages/past-appointments"; // adjust the path as needed
 
-
 function App() {
   const { currentUser, loading } = useAuthContext();
 
@@ -47,16 +46,15 @@ function App() {
   return (
     <div>
       <Routes>
-
         {/* Redirect from root to login */}
         <Route path="/" element={<Navigate to="/login" />} />
         
         <Route
-            path="/register"
-            element={
-              currentUser ? <Navigate to="/account" /> : <RegisterPage />
-            }
-          />
+          path="/register"
+          element={
+            currentUser ? <Navigate to="/account" /> : <RegisterPage />
+          }
+        />
 
         {/* Login Route */}
         <Route
@@ -81,7 +79,6 @@ function App() {
             </ProtectedRoute>
           }
         >
-
           {/* Nested Routes */}
           <Route index element={<Navigate to="dashboard" replace />} />
 
@@ -110,7 +107,6 @@ function App() {
           <Route path="/account/feedback/create" element={<FeedbackCreatePage />} />
           <Route path="/account/past-appointments" element={<PastAppointments />} />
           {/* Patient detail and nested tabs */}
-
           <Route path="patients/:id" element={<PatientDetailPage />}>
             <Route index element={<PatientInformationTab />} />
             <Route path="treatments" element={<AppointmentHistoryTab />} />
@@ -118,7 +114,6 @@ function App() {
             <Route path="reports" element={<MedicalRecordTab />} />
             <Route path="documents" element={<PatientDocumentList />} />
           </Route>
- 
         </Route>
       </Routes>
     </div>
