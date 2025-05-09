@@ -64,6 +64,12 @@ const appointmentSchema = new Schema({
         type: String,
         default: ''
     },
+    orderId: {
+        type: String,
+        sparse: true,  // Allow null/undefined but ensure uniqueness for non-null values
+        unique: true,
+        index: true
+    },
 });
 
 const Appointment = mongoose.model('Appointment', appointmentSchema);
