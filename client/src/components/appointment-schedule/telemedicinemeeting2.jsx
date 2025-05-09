@@ -179,13 +179,34 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
   const [calling, setCalling] = useState(true);
+  // Get tracks for local user with error handling
+  const { localMicrophoneTrack, error: micError } = useLocalMicrophoneTrack(micOn);
+  const { localCameraTrack, error: camError } = useLocalCameraTrack(cameraOn);
 
-  // Get tracks for local user
-  const { localMicrophoneTrack } = useLocalMicrophoneTrack(micOn);
-  const { localCameraTrack } = useLocalCameraTrack(cameraOn);
+  // Handle track errors
+  useEffect(() => {
+    if (micError) {
+      console.error('Microphone error:', micError);
+      setMicOn(false);
+    }
+    if (camError) {
+      console.error('Camera error:', camError);
+      setCameraOn(false);
+    }
+  }, [micError, camError]);
   
   // Get reference to the RTC client
   const client = useRTCClient();
+
+  // Effect to handle track state changes
+  useEffect(() => {
+    if (!cameraOn && localCameraTrack) {
+      localCameraTrack.stop();
+    }
+    if (!micOn && localMicrophoneTrack) {
+      localMicrophoneTrack.stop();
+    }
+  }, [cameraOn, micOn, localCameraTrack, localMicrophoneTrack]);
   
   // Join the channel
   useJoin(
@@ -202,60 +223,78 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
 
   // Get remote users
   const remoteUsers = useRemoteUsers();
-
   const handleEndMeeting = async () => {
     try {
-      // Stop tracks first
+      // Stop and close tracks properly
       if (localMicrophoneTrack) {
-        await localMicrophoneTrack.stop();
-        await localMicrophoneTrack.close();
+        try {
+          localMicrophoneTrack.stop();
+          await localMicrophoneTrack.close();
+        } catch (e) {
+          console.error('Error closing microphone track:', e);
+        }
       }
       
       if (localCameraTrack) {
-        await localCameraTrack.stop();
-        await localCameraTrack.close();
+        try {
+          localCameraTrack.stop();
+          await localCameraTrack.close();
+        } catch (e) {
+          console.error('Error closing camera track:', e);
+        }
+      }
+      
+      // Unpublish tracks before leaving
+      try {
+        await client.unpublish([localMicrophoneTrack, localCameraTrack]);
+      } catch (e) {
+        console.error('Error unpublishing tracks:', e);
       }
       
       // Leave the channel
-      if (client) {
+      try {
         await client.leave();
         console.log("Client successfully left the channel");
+      } catch (e) {
+        console.error('Error leaving channel:', e);
       }
       
-      // Update state
+      // Update states
       setCalling(false);
+      setMicOn(false);
+      setCameraOn(false);
 
       // Navigate based on user role name
-      if (activeRole?.name === 'sys_doctor') {
-        navigate('/account/schedule');
-      } else {
-        navigate('/account/patient-appointments');
-      }
+      const path = activeRole?.name === 'sys_doctor' ? '/account/schedule' : '/account/patient-appointments';
+      navigate(path);
     } catch (error) {
-      console.error("Error leaving channel:", error);
-      // Navigate based on user role name even in case of error
-      if (activeRole?.name === 'sys_doctor') {
-        navigate('/account/schedule');
-      } else {
-        navigate('/account/patient-appointments');
-      }
+      console.error("Error in handleEndMeeting:", error);
+      const path = activeRole?.name === 'sys_doctor' ? '/account/schedule' : '/account/patient-appointments';
+      navigate(path);
     }
   };
-
   // Clean up when component unmounts
   useEffect(() => {
     return () => {
-      // This ensures resources are cleaned up if user navigates away without clicking End Meeting
-      if (localMicrophoneTrack) {
-        localMicrophoneTrack.stop();
-        localMicrophoneTrack.close();
-      }
-      if (localCameraTrack) {
-        localCameraTrack.stop();
-        localCameraTrack.close();
+      try {
+        // This ensures resources are cleaned up if user navigates away without clicking End Meeting
+        if (localMicrophoneTrack) {
+          localMicrophoneTrack.stop();
+          localMicrophoneTrack.close();
+        }
+        if (localCameraTrack) {
+          localCameraTrack.stop();
+          localCameraTrack.close();
+        }
+        if (client) {
+          client.unpublish([localMicrophoneTrack, localCameraTrack]).catch(console.error);
+          client.leave().catch(console.error);
+        }
+      } catch (error) {
+        console.error("Cleanup error:", error);
       }
     };
-  }, [localMicrophoneTrack, localCameraTrack]);
+  }, [localMicrophoneTrack, localCameraTrack, client]);
 
   return (
     <div className="w-full mx-auto p-0 h-full">      {/* Header */}
@@ -266,11 +305,11 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
           </div>
           <div className="h-0.5 w-44 bg-blue-600 mt-2"></div>
         </div>
-      </div>{/* Main content */}
-      <div className="flex items-center justify-center h-[calc(100vh-120px)]">
+      </div>      {/* Main content */}
+      <div className="flex items-center justify-center min-h-[calc(100vh-120px)]">
         {/* Meeting area */}
-        <div className="w-full max-w-[1200px] mx-auto px-4">
-          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100">
+        <div className="w-full max-w-[1000px] mx-auto px-4 my-8">
+          <div className="bg-white rounded-[2rem] p-8 shadow-xl border border-gray-100 backdrop-blur-sm bg-white/80">
             {/* Patient info */}
             <div className="flex items-center mb-4">
               <button className="mr-4" onClick={() => navigate('/account/schedule')}>
@@ -281,9 +320,9 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
                 <p className="text-sm text-gray-500">{appointmentDate}</p>
               </div>
             </div>            {/* Video screens */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 max-w-4xl mx-auto">
               {/* Local user video */}
-              <div className="w-full h-[400px] rounded-2xl overflow-hidden bg-gray-50 relative shadow-inner border border-gray-100">
+              <div className="w-full h-[380px] rounded-3xl overflow-hidden bg-gray-50 relative shadow-lg border border-gray-100/50">
                 {cameraOn ? (
                   <LocalUser
                     audioTrack={localMicrophoneTrack}
@@ -319,7 +358,7 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
                 )}
               </div>              {/* Remote user video */}
               {remoteUsers.map((user) => (
-                <div key={user.uid} className="w-full h-[400px] rounded-2xl overflow-hidden bg-gray-50 relative shadow-inner border border-gray-100">
+                <div key={user.uid} className="w-full h-[380px] rounded-3xl overflow-hidden bg-gray-50 relative shadow-lg border border-gray-100/50">
                   <RemoteUser user={user} className="w-full h-full object-cover rounded-2xl">
                     <span className="hidden">{user.uid}</span>
                   </RemoteUser>
@@ -331,21 +370,19 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
                 </div>
               ))}
             </div>            {/* Meeting controls */}
-            <div className="flex justify-center items-center gap-6 mt-2">
+            <div className="flex justify-center items-center gap-8 mt-6">
               <button
                 onClick={() => setMicOn(!micOn)}
-                className={`p-3 rounded-full transition-all duration-200 hover:bg-gray-100 ${
+                className={`p-4 rounded-full transition-all duration-200 hover:bg-gray-100 shadow-md ${
                   micOn 
                     ? "text-gray-700 bg-white border border-gray-200" 
                     : "bg-gray-100 text-gray-500 border border-gray-200"
                 }`}
               >
                 <Mic className="h-6 w-6" />
-              </button>
-
-              <button 
+              </button>              <button 
                 onClick={handleEndMeeting}
-                className="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-full font-medium transition-colors duration-200 shadow-sm"
+                className="bg-red-500 hover:bg-red-600 text-white px-10 py-4 rounded-full font-medium transition-colors duration-200 shadow-lg"
               >
                 End Meeting
               </button>
@@ -361,9 +398,9 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
                 <Video className="h-6 w-6" />
               </button>
             </div>            {/* Meeting info box */}
-            <div className="mt-6 bg-gray-50 rounded-xl p-3 border border-gray-100 max-w-xs mx-auto">
-              <p className="text-sm text-gray-500 text-center font-medium">Meeting ID: appointment-{appointmentId}</p>
-            </div>          </div>
+            <div className="mt-8 bg-gray-50/80 rounded-2xl p-4 border border-gray-100/50 max-w-xs mx-auto backdrop-blur-sm">
+              <p className="text-sm text-gray-600 text-center font-medium">Meeting ID: appointment-{appointmentId}</p>
+            </div></div>
         </div>
       </div>
     </div>
