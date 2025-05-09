@@ -186,13 +186,15 @@ const Basics = ({ appointmentId, appointmentData, patientName, appointmentDate, 
   
   // Get reference to the RTC client
   const client = useRTCClient();
-
   // Join the channel with Agora credentials
   useJoin(
     {
       appid: APP_ID,
       channel: appointmentData?.channelName || `appointment-${appointmentId}`,
-      token: appointmentData?.agoraToken || null
+      token: appointmentData?.agoraToken || null,
+      config: {
+        logLevel: process.env.NODE_ENV === 'production' ? 'NONE' : 'ERROR' // Reduce logging
+      }
     },
     calling && !!appointmentData?.channelName
   );
@@ -282,10 +284,23 @@ const Basics = ({ appointmentId, appointmentData, patientName, appointmentDate, 
 
   return (
     <div className="w-full mx-auto p-0 h-full">
-      {/* Header */}
-      <div className="border-b border-gray-200 mb-4 bg-white">
+      {/* Header */}      <div className="border-b border-gray-200 mb-4 bg-white">
         <div className="p-4 pb-0">
           <h1 className="text-blue-600 font-medium text-sm">Telemedicine Meeting</h1>
+          {appointmentData?.channelName && (
+            <div className="mt-2 p-3 bg-gray-50 rounded-lg text-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-600">Channel Name:</span>
+                <code className="bg-gray-100 px-2 py-1 rounded">{appointmentData.channelName}</code>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Token:</span>
+                <code className="bg-gray-100 px-2 py-1 rounded text-xs max-w-[300px] truncate" title={appointmentData.agoraToken}>
+                  {appointmentData.agoraToken}
+                </code>
+              </div>
+            </div>
+          )}
         </div>
         <div className="h-0.5 w-44 bg-blue-600 mt-2"></div>
       </div>
@@ -527,9 +542,13 @@ export default function TelemedicineMeeting() {
   const [error, setError] = useState(null);
   const [documents, setDocuments] = useState([]);
   const { currentUser } = useAuthContext();
-
-  // Create Agora client
-  const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+  // Create Agora client with reduced logging
+  const client = AgoraRTC.createClient({ 
+    mode: "rtc", 
+    codec: "vp8",
+    enableLogUpload: false, // Disable log upload
+    logLevel: process.env.NODE_ENV === 'production' ? 'NONE' : 'ERROR' // Reduce logging
+  });
 
   // Fetch appointment and patient data
   useEffect(() => {
