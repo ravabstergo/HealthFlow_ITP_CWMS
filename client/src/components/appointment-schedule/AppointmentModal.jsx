@@ -71,8 +71,17 @@ export default function AppointmentModal({
       setLoading(true);
       const slots = await getDoctorSlotsByDate(doctorId, selectedDate);
       if (Array.isArray(slots)) {
+        const now = new Date();
         const sortedSlots = slots
-          .filter(slot => !slot.isBooked)
+          .filter(slot => {
+            const slotTime = new Date(slot.slotTime);
+            // For today's date, filter out passed slots
+            if (isSameDay(selectedDate, now)) {
+              return !slot.isBooked && slotTime > now;
+            }
+            // For future dates, just check if slot is not booked
+            return !slot.isBooked;
+          })
           .sort((a, b) => new Date(a.slotTime).getTime() - new Date(b.slotTime).getTime());
         setAvailableSlots(sortedSlots);
       } else {

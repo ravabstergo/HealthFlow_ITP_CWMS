@@ -41,14 +41,20 @@ import RegisterPage from "./pages/register-page";
 import PastEncounters from "./pages/past-encounters";
 import AppointmentSuccessPage from "./pages/appointment-success";
 import AppointmentCancelPage from "./pages/appointment-cancel";
-import ResetPassword from "./pages/reset-password-page"; // Import the ResetPassword component
-import AdminDashboard from "./pages/admin-dashboard"; // Import the new AdminDashboard
-import UserManagementPage from "./pages/user-management-page"; // Import the new User Management page
-import UserDetailPage from "./pages/user-detail-page"; // Import the User Detail page
+import ResetPassword from "./pages/reset-password-page";
+import AdminDashboard from "./pages/admin-dashboard";
+import UserManagementPage from "./pages/user-management-page";
+import UserDetailPage from "./pages/user-detail-page";
+import DoctorDashboard from "./pages/dashboard-page";
+import PatientDashboard from "./pages/patient-dashboard";
+import TelemedicineMeet from "./components/appointment-schedule/telemedicinemeeting2";
+
 
 
 function App() {
-  const { currentUser, loading } = useAuthContext();
+
+  const { currentUser, activeRole, loading } = useAuthContext();
+
 
   if (loading) {
     return <div className="loading-spinner">Loading...</div>;
@@ -99,8 +105,19 @@ function App() {
           }
         >
 
-          {/* Nested Routes */}
-          <Route index element={<Navigate to="dashboard" replace />} />
+          {/* Role-based dashboard routing */}
+          <Route index element={
+            activeRole?.name === 'sys_patient' ? (
+              <Navigate to="patient-dashboard" replace />
+            ) : activeRole?.name === 'sys_admin' ? (
+              <Navigate to="admin/activity-report" replace />
+            ) : (
+              <Navigate to="dashboard" replace />
+            )} />
+
+          {/* Role-specific dashboards */}
+          <Route path="patient-dashboard" element={<PatientDashboard />} />
+          <Route path="dashboard" element={<DoctorDashboard />} />
 
           <Route path="search" element={<DoctorSearch />} />  
           <Route path="patient-appointments" element={<PatientAppointmentsPage />} />
@@ -116,6 +133,7 @@ function App() {
           <Route path="prescription-report" element={<PrescriptionReport />} />
           <Route path="schedule" element={<DoctorSchedule />} />   
           <Route path="meeting/:appointmentId" element={<TelemedicineMeeting />} />
+          <Route path="meeting2/:appointmentId" element={<TelemedicineMeet />} />
           <Route path="staff-and-roles" element={<RoleManagementPage />} />
           <Route path="patient/appointment-history" element={<PastEncounters />}/>
           <Route path="appointments" element={<AppointmentsPage />} />

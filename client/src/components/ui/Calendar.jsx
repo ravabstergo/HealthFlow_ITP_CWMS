@@ -5,6 +5,9 @@ import { useAuthContext } from "../../context/AuthContext"
 import DatePicker from "react-datepicker"
 import "react-datepicker/dist/react-datepicker.css"
 import { useNavigate } from "react-router-dom";
+import TokenService from "../../services/TokenService"
+const API_URL = `${process.env.REACT_APP_API_URL}/appointments`;
+
 
 export default function Calendar() {
   const [activeTab, setActiveTab] = useState("Calendar")
@@ -138,10 +141,11 @@ export default function Calendar() {
 
   const markAppointmentAsComplete = async (appointmentId) => {
     try {
-      const response = await fetch(`/api/appointments/appointments/${appointmentId}`, {
+      const response = await fetch(`${API_URL}/appointments/${appointmentId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${TokenService.getAccessToken()}`,
         },
         body: JSON.stringify({ status: 'completed' })
       });
@@ -159,10 +163,11 @@ export default function Calendar() {
 
   const unmarkAppointmentAsComplete = async (appointmentId) => {
     try {
-      const response = await fetch(`/api/appointments/appointments/${appointmentId}`, {
+      const response = await fetch(`${API_URL}/appointments/${appointmentId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${TokenService.getAccessToken()}`,
         },
         body: JSON.stringify({ status: 'active' })
       });
@@ -291,6 +296,12 @@ export default function Calendar() {
                                 onClick={() => markAppointmentAsComplete(appointment._id)}
                               >
                                 Mark Complete
+                              </button>
+                              <button 
+                                className="px-3 py-1 text-xs text-blue-600 border border-blue-600 rounded-full"
+                                onClick={() => navigate(`/account/meeting2/${appointment._id}`)}
+                              >
+                                Join Meeting test
                               </button>
                             </>
                           )}
