@@ -48,7 +48,7 @@ import UserDetailPage from "./pages/user-detail-page"; // Import the User Detail
 
 
 function App() {
-  const { currentUser, loading } = useAuthContext();
+  const { currentUser, loading, activeRole } = useAuthContext();
 
   if (loading) {
     return <div className="loading-spinner">Loading...</div>;

@@ -224,7 +224,7 @@ export default function FeedbackCreatePage() {
     }
 
     if (checkForBadWords(comments)) {
-      toast.error("Comments contain inappropriate language. Please remove bad words.");
+      toast.error("Plese do not use inappropriate language in your comments.");
       return;
     }
 
