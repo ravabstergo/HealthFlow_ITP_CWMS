@@ -42,7 +42,23 @@ export default function PrescriptionPage() {
   const [editedPrescription, setEditedPrescription] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editButtonsVisible, setEditButtonsVisible] = useState(false);
+  const [sortBy, setSortBy] = useState('dateIssued');
+  const [sortOrder, setSortOrder] = useState('desc');
   const navigate = useNavigate();
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const getSortIcon = (field) => {
+    if (sortBy !== field) return '↕️';
+    return sortOrder === 'asc' ? '↑' : '↓';
+  };
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -292,10 +308,9 @@ export default function PrescriptionPage() {
     doc.line(20, y, pageWidth - 20, y);
     y += lineHeight;
     doc.setFont('helvetica', 'bold');
-    doc.text('Patient Information:', 20, y);
-    doc.setFont('helvetica', 'normal');
+    doc.text('Patient Information:', 20, y);    doc.setFont('helvetica', 'normal');
     y += lineHeight;
-    doc.text(`Name: ${prescription.patientId?.name || "Unknown"}`, 25, y);
+    doc.text(`Name: ${formatPatientName(prescription.patientId?.name) || "Unknown"}`, 25, y);
     y += lineHeight;
     doc.text(`ID: ${prescription.patientId?._id?.slice(-6) || "N/A"}`, 25, y);
     
@@ -386,6 +401,32 @@ export default function PrescriptionPage() {
     // Use the formatPatientName function to get a consistently formatted name
     const patientName = formatPatientName(prescription.patientId?.name).toLowerCase();
     return patientName.includes(searchQuery.toLowerCase());
+  });
+
+  // Sort the filtered prescriptions
+  const sortedPrescriptions = [...filteredPrescriptions].sort((a, b) => {
+    let compareValue;
+    
+    switch (sortBy) {
+      case 'dateIssued':
+      case 'validUntil':
+        compareValue = new Date(a[sortBy]) - new Date(b[sortBy]);
+        break;
+      case 'patientName':
+        const aName = formatPatientName(a.patientId?.name) || '';
+        const bName = formatPatientName(b.patientId?.name) || '';
+        compareValue = aName.localeCompare(bName);
+        break;
+      case 'status':
+        const aActive = new Date(a.validUntil) > new Date();
+        const bActive = new Date(b.validUntil) > new Date();
+        compareValue = aActive === bActive ? 0 : aActive ? -1 : 1;
+        break;
+      default:
+        compareValue = 0;
+    }
+    
+    return sortOrder === 'asc' ? compareValue : -compareValue;
   });
 
   return (
@@ -596,7 +637,7 @@ export default function PrescriptionPage() {
                 </div>
               </div>
 
-              {filteredPrescriptions.length === 0 ? (
+              {sortedPrescriptions.length === 0 ? (
                 <div className="text-gray-500 text-center py-8">
                   {prescriptions.length === 0 ? "No prescriptions found" : "No prescriptions match your search"}
                 </div>
@@ -604,17 +645,37 @@ export default function PrescriptionPage() {
                 <div className="w-full">
                   <div className="bg-gray-50">
                     <div className="grid grid-cols-6 gap-4 px-6 py-3 text-sm font-medium text-gray-500">
-                      <div>Date Issued</div>
-                      <div>Valid Until</div>
-                      <div>Patient Name</div>
-                      <div>Status</div>
+                      <div 
+                        className="cursor-pointer flex items-center gap-1"
+                        onClick={() => handleSort('dateIssued')}
+                      >
+                        Date Issued {getSortIcon('dateIssued')}
+                      </div>
+                      <div 
+                        className="cursor-pointer flex items-center gap-1"
+                        onClick={() => handleSort('validUntil')}
+                      >
+                        Valid Until {getSortIcon('validUntil')}
+                      </div>
+                      <div 
+                        className="cursor-pointer flex items-center gap-1"
+                        onClick={() => handleSort('patientName')}
+                      >
+                        Patient Name {getSortIcon('patientName')}
+                      </div>
+                      <div 
+                        className="cursor-pointer flex items-center gap-1"
+                        onClick={() => handleSort('status')}
+                      >
+                        Status {getSortIcon('status')}
+                      </div>
                       <div>Notes</div>
-                      <div className="text-right"></div>
+                      <div className="text-right">Actions</div>
                     </div>
                   </div>
 
                   <div className="divide-y divide-gray-100">
-                    {filteredPrescriptions.map((prescription) => (
+                    {sortedPrescriptions.map((prescription) => (
                       <div
                         key={prescription._id}
                         className="grid grid-cols-6 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors"

@@ -21,6 +21,22 @@ export default function PatientPrescriptionPage() {
   const [selectedPrescription, setSelectedPrescription] = useState(null);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [patientName, setPatientName] = useState("");
+  const [sortBy, setSortBy] = useState("dateIssued");
+  const [sortOrder, setSortOrder] = useState("desc");
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("desc");
+    }
+  };
+
+  const getSortIcon = (field) => {
+    if (sortBy !== field) return "↕️";
+    return sortOrder === "asc" ? "↑" : "↓";
+  };
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -158,10 +174,9 @@ export default function PatientPrescriptionPage() {
     doc.line(20, y, pageWidth - 20, y);
     y += lineHeight;
     doc.setFont('helvetica', 'bold');
-    doc.text('Patient Information:', 20, y);
-    doc.setFont('helvetica', 'normal');
+    doc.text('Patient Information:', 20, y);    doc.setFont('helvetica', 'normal');
     y += lineHeight;
-    doc.text(`Name: ${prescription.patientId?.name || "Unknown"}`, 25, y);
+    doc.text(`Name: ${patientName || "Unknown"}`, 25, y);
     y += lineHeight;
     doc.text(`ID: ${prescription.patientId?._id?.slice(-6) || "N/A"}`, 25, y);
     
@@ -247,6 +262,14 @@ export default function PatientPrescriptionPage() {
       med.medicineName?.toLowerCase().includes(searchQuery.toLowerCase())
     );
     return doctorNameMatch || medicineMatch || searchQuery === "";
+  }).sort((a, b) => {
+    const fieldA = a[sortBy];
+    const fieldB = b[sortBy];
+    if (sortOrder === "asc") {
+      return fieldA > fieldB ? 1 : -1;
+    } else {
+      return fieldA < fieldB ? 1 : -1;
+    }
   });
 
   return (
@@ -368,9 +391,24 @@ export default function PatientPrescriptionPage() {
                 <div className="w-full">
                   <div className="bg-gray-50">
                     <div className="grid grid-cols-5 gap-4 px-6 py-3 text-sm font-medium text-gray-500">
-                      <div>Date Issued</div>
-                      <div>Valid Until</div>
-                      <div>Doctor</div>
+                      <div 
+                        onClick={() => handleSort("dateIssued")} 
+                        className="cursor-pointer"
+                      >
+                        Date Issued {getSortIcon("dateIssued")}
+                      </div>
+                      <div 
+                        onClick={() => handleSort("validUntil")} 
+                        className="cursor-pointer"
+                      >
+                        Valid Until {getSortIcon("validUntil")}
+                      </div>
+                      <div 
+                        onClick={() => handleSort("doctorName")} 
+                        className="cursor-pointer"
+                      >
+                        Doctor {getSortIcon("doctorName")}
+                      </div>
                       <div>Status</div>
                       <div className="text-right">Actions</div>
                     </div>

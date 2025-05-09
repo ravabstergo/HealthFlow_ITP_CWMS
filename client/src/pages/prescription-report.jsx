@@ -127,60 +127,158 @@ export default function PrescriptionReport() {
   const handleDownloadReport = () => {
     const doc = new jsPDF();
     let y = 20;
-    const lineHeight = 10;
+    const lineHeight = 7;
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
 
-    // Add title
+    // Add background color gradient
+    doc.setFillColor(245, 247, 250);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+    // Add blue header banner
+    doc.setFillColor(41, 128, 185);
+    doc.rect(0, 0, pageWidth, 25, 'F');
+
+    // Add header text in white
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
-    doc.text('Prescription Analysis Report', 105, y, { align: 'center' });
-    y += lineHeight * 2;
+    doc.text('Prescription Analysis Report', pageWidth/2, 17, { align: 'center' });
+    
+    // Reset text color for content
+    doc.setTextColor(0, 0, 0);
+    y += 20;
+
+    // Add report info section with blue accent
+    doc.setDrawColor(41, 128, 185);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(15, y, pageWidth - 30, 35, 3, 3);
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(15, y, pageWidth - 30, 35, 3, 3, 'F');
+    y += 10;
 
     // Add doctor info
     doc.setFontSize(12);
+    doc.text(`Generated for: Dr. ${currentUser?.name || 'Unknown'}`, 25, y);
+    y += lineHeight;
+    doc.text(`Period: ${reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)}`, 25, y);
+    y += lineHeight;
+    doc.text(`Generation Date: ${new Date().toLocaleDateString()}`, 25, y);
+    y += lineHeight * 3;
+
+    // Add summary section
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Summary', 20, y);
+    y += lineHeight * 1.5;
+
+    // Add statistics overview in a table
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Doctor: Dr. ${currentUser?.name || 'Unknown'}`, 20, y);
+    doc.setFillColor(241, 246, 251);
+    doc.rect(20, y, pageWidth - 40, 20, 'F');
+    y += 5;
+    doc.text(`Total Medicines: ${Object.keys(medicineStats).length}`, 25, y);
     y += lineHeight;
-    doc.text(`Report Period: ${reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)}`, 20, y);
-    y += lineHeight;
-    doc.text(`Total Prescriptions Analyzed: ${Object.keys(medicineStats).length}`, 20, y);
+    const totalPrescriptions = Object.values(medicineStats)
+      .reduce((sum, stat) => sum + stat.totalPrescribed, 0);
+    doc.text(`Total Prescriptions Written: ${totalPrescriptions}`, 25, y);    y += lineHeight * 2.5;
+
+    // Add detailed statistics section
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Detailed Medicine Statistics', 20, y);
     y += lineHeight * 2;
 
-    // Add medicine statistics
-    doc.setFont('helvetica', 'bold');
-    doc.text('Medicine Statistics:', 20, y);
-    y += lineHeight;
-    doc.setFont('helvetica', 'normal');
+    // Create table headers with blue background
+    doc.setFillColor(41, 128, 185);
+    doc.rect(20, y - 6, pageWidth - 40, 10, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.text('Medicine Name', 25, y);
+    doc.text('Total Prescribed', pageWidth - 120, y);
+    doc.text('Most Common Dosage', pageWidth - 60, y);
+    y += lineHeight * 1.5;
+    doc.setTextColor(0, 0, 0);
 
-    Object.entries(medicineStats).forEach(([medicine, stats]) => {
-      if (y > 250) {
+    // Add table content with alternating backgrounds
+    Object.entries(medicineStats).forEach(([medicine, stats], index) => {
+      if (y > pageHeight - 40) {
         doc.addPage();
+        // Add background color to new page
+        doc.setFillColor(245, 247, 250);
+        doc.rect(0, 0, pageWidth, pageHeight, 'F');
         y = 20;
       }
 
-      doc.text(`${medicine}:`, 20, y);
-      y += lineHeight;
-      doc.text(`Total Prescriptions: ${stats.totalPrescribed}`, 30, y);
-      y += lineHeight;
+      // Add alternating row background
+      if (index % 2 === 0) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(20, y - 5, pageWidth - 40, lineHeight * 1.2, 'F');
+      }
+
+      doc.setFont('helvetica', 'normal');
+      doc.text(medicine, 25, y);
+      doc.text(stats.totalPrescribed.toString(), pageWidth - 115, y);
       
-      doc.text('Dosage Breakdown:', 30, y);
-      y += lineHeight;
+      // Find most common dosage
+      const mostCommonDosage = Object.entries(stats.dosageStats)
+        .reduce((a, b) => (a[1] > b[1] ? a : b))[0];
+      doc.text(mostCommonDosage, pageWidth - 60, y);
       
-      Object.entries(stats.dosageStats).forEach(([dosage, count]) => {
-        doc.text(`- ${dosage}: ${count} time${count !== 1 ? 's' : ''}`, 40, y);
+      y += lineHeight * 1.2;
+    });    y += lineHeight * 2;
+
+    // Add dosage breakdown section if space allows
+    if (y < pageHeight - 60) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text('Dosage Breakdown', 20, y);
+      y += lineHeight * 2;
+
+      Object.entries(medicineStats).forEach(([medicine, stats]) => {
+        if (y > pageHeight - 40) {
+          doc.addPage();
+          // Add background color to new page
+          doc.setFillColor(245, 247, 250);
+          doc.rect(0, 0, pageWidth, pageHeight, 'F');
+          y = 20;
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text(medicine, 25, y);
+        y += lineHeight;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        Object.entries(stats.dosageStats).forEach(([dosage, count]) => {
+          doc.text(`• ${dosage}: ${count} prescription${count !== 1 ? 's' : ''}`, 30, y);
+          y += lineHeight;
+        });
         y += lineHeight;
       });
-      
-      y += lineHeight;
-    });
+    }
 
-    // Add footer
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'italic');
-    const today = new Date().toLocaleDateString();
-    doc.text(`Report generated on ${today}`, 105, 280, { align: 'center' });
+    // Add footer to each page
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      
+      // Add footer line
+      doc.setDrawColor(41, 128, 185);
+      doc.line(20, pageHeight - 20, pageWidth - 20, pageHeight - 20);
+      
+      // Add footer text
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.text('HealthFlow Medical Center - Prescription Analysis Report', 20, pageHeight - 15);
+      doc.text(`Page ${i} of ${pageCount}`, pageWidth - 40, pageHeight - 15);
+    }
 
     // Save the PDF
-    doc.save('prescription-analysis-report.pdf');
+    const filename = `prescription-analysis-${reportPeriod}-${new Date().toISOString().slice(0,10)}.pdf`;
+    doc.save(filename);
   };
 
   const chartData = {
