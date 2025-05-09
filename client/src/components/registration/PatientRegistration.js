@@ -3,11 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useAuthContext } from "../../context/AuthContext";
 import { validatePatientForm } from "../../validations/validate";
 import AuthService from "../../services/AuthService";
-import Button from "../ui/button";
-import Input from "../ui/input";
-import "./Registration.css";
 
 const PatientRegistration = () => {
+  console.log("[PatientRegistration] Component rendered");
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -21,12 +20,13 @@ const PatientRegistration = () => {
   const [touched, setTouched] = useState({});
   const [errorMsg, setErrorMsg] = useState(null);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuthContext();
+  const { dispatch } = useAuthContext(); // Getting dispatch function instead of login
   const navigate = useNavigate();
 
   // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
+    console.log(`[PatientRegistration] Field changed: ${name}`);
     setFormData((prevData) => ({
       ...prevData,
       [name]: value,
@@ -36,6 +36,7 @@ const PatientRegistration = () => {
   // Handle input blur for validation
   const handleBlur = (e) => {
     const { name } = e.target;
+    console.log(`[PatientRegistration] Field blurred: ${name}`);
 
     setTouched((prevTouched) => ({
       ...prevTouched,
@@ -43,6 +44,10 @@ const PatientRegistration = () => {
     }));
 
     const fieldError = validatePatientForm(formData, name);
+    console.log(
+      `[PatientRegistration] Validation result for ${name}:`,
+      fieldError
+    );
     setErrors((prevErrors) => ({
       ...prevErrors,
       [name]: fieldError,
@@ -52,6 +57,7 @@ const PatientRegistration = () => {
   // Handle form submission
   const handleRegister = async (e) => {
     e.preventDefault();
+    console.log("[PatientRegistration] Form submission started");
     setLoading(true);
     setErrorMsg(null);
 
@@ -60,181 +66,240 @@ const PatientRegistration = () => {
     );
 
     if (firstErrorField) {
+      console.log(
+        `[PatientRegistration] Validation error in field: ${firstErrorField}`,
+        errors[firstErrorField]
+      );
       alert(errors[firstErrorField]);
       setLoading(false);
       return;
     }
 
+    console.log("[PatientRegistration] Form validation passed, preparing data");
+    // Only send required fields to match server expectations
     const dataToSend = {
       name: formData.name,
-      email: formData.email,
-      nic: formData.nic,
+      email: formData.email || undefined, // Only send if provided
+      nic: formData.nic || undefined, // Only send if provided
       password: formData.password,
       mobile: formData.mobile,
     };
 
-    try {
-      // Register the patient using AuthService
-      await AuthService.registerPatient(dataToSend);
+    console.log("[PatientRegistration] Sending registration data:", {
+      name: dataToSend.name,
+      hasEmail: !!dataToSend.email,
+      hasNIC: !!dataToSend.nic,
+      hasMobile: !!dataToSend.mobile,
+    });
 
-      // Registration successful, now login with credentials
-      try {
-        await login(formData.email, formData.password);
-        navigate("/account");
-      } catch (loginError) {
-        console.error("Login after registration failed:", loginError);
-        // If login fails after registration, redirect to login page
-        setErrorMsg(
-          "Registration successful. Please log in with your credentials."
+    try {
+      console.log("[PatientRegistration] Calling AuthService.registerPatient");
+      const response = await AuthService.registerPatient(dataToSend);
+
+      // Store the token from registration response
+      if (response.accessToken) {
+        console.log(
+          "[PatientRegistration] Storing authentication data from registration response"
         );
-        setTimeout(() => navigate("/login"), 2000);
+        AuthService.storeAuthData(response);
+
+        // Dispatch LOGIN_SUCCESS directly without calling login again
+        if (response.user && response.activeRole) {
+          dispatch({
+            type: "LOGIN_SUCCESS",
+            payload: {
+              user: response.user,
+              role: response.activeRole,
+              authType: "traditional",
+            },
+          });
+
+          console.log(
+            "[PatientRegistration] Auth state updated, navigating to account page"
+          );
+          navigate("/account");
+        } else {
+          throw new Error(
+            "Registration successful but login data is incomplete"
+          );
+        }
       }
     } catch (error) {
-      setErrorMsg(error.message);
+      console.error("[PatientRegistration] Registration failed:", error);
+      setErrorMsg(error.message || "Registration failed");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="registration">
-      <h2 className="registration__title">Register as Patient</h2>
+    <div>
+      {errorMsg && (
+        <div className="mb-4 p-4 rounded-md bg-red-50 text-red-700 border border-red-200">
+          {errorMsg}
+        </div>
+      )}
 
-      {errorMsg && <div className="registration__error">{errorMsg}</div>}
-
-      <form onSubmit={handleRegister} className="registration__form">
-        <div className="registration__field">
-          <label className="registration__label">Name</label>
-          <Input
-            type="text"
+      <form onSubmit={handleRegister} className="space-y-4">
+        <div>
+          <label htmlFor="name" className="sr-only">
+            Full Name
+          </label>
+          <input
+            id="name"
             name="name"
+            type="text"
             value={formData.name}
             onChange={handleChange}
             onBlur={handleBlur}
-            className={
-              touched.name && errors.name ? "registration__input--error" : ""
-            }
+            className={`w-full px-3 py-2 border ${
+              touched.name && errors.name ? "border-red-500" : "border-gray-300"
+            } rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+            placeholder="Full Name"
             required
           />
           {touched.name && errors.name && (
-            <div className="registration__error-text">{errors.name}</div>
+            <p className="mt-1 text-sm text-red-600">{errors.name}</p>
           )}
         </div>
 
-        <div className="registration__field">
-          <label className="registration__label">Email</label>
-          <Input
-            type="email"
+        <div>
+          <label htmlFor="email" className="sr-only">
+            Email
+          </label>
+          <input
+            id="email"
             name="email"
+            type="email"
             value={formData.email}
             onChange={handleChange}
             onBlur={handleBlur}
-            className={
-              touched.email && errors.email ? "registration__input--error" : ""
-            }
+            className={`w-full px-3 py-2 border ${
+              touched.email && errors.email
+                ? "border-red-500"
+                : "border-gray-300"
+            } rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+            placeholder="Email"
           />
           {touched.email && errors.email && (
-            <div className="registration__error-text">{errors.email}</div>
+            <p className="mt-1 text-sm text-red-600">{errors.email}</p>
           )}
         </div>
 
-        <div className="registration__field">
-          <label className="registration__label">NIC</label>
-          <Input
-            type="text"
+        <div>
+          <label htmlFor="nic" className="sr-only">
+            NIC
+          </label>
+          <input
+            id="nic"
             name="nic"
+            type="text"
             value={formData.nic}
             onChange={handleChange}
             onBlur={handleBlur}
-            className={
-              touched.nic && errors.nic ? "registration__input--error" : ""
-            }
+            className={`w-full px-3 py-2 border ${
+              touched.nic && errors.nic ? "border-red-500" : "border-gray-300"
+            } rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+            placeholder="NIC"
           />
           {touched.nic && errors.nic && (
-            <div className="registration__error-text">{errors.nic}</div>
+            <p className="mt-1 text-sm text-red-600">{errors.nic}</p>
           )}
         </div>
 
-        <div className="registration__field">
-          <label className="registration__label">Mobile</label>
-          <Input
-            type="tel"
+        <div>
+          <label htmlFor="mobile" className="sr-only">
+            Mobile
+          </label>
+          <input
+            id="mobile"
             name="mobile"
+            type="tel"
             value={formData.mobile}
             onChange={handleChange}
             onBlur={handleBlur}
-            className={
+            className={`w-full px-3 py-2 border ${
               touched.mobile && errors.mobile
-                ? "registration__input--error"
-                : ""
-            }
+                ? "border-red-500"
+                : "border-gray-300"
+            } rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+            placeholder="Mobile Number"
             required
           />
           {touched.mobile && errors.mobile && (
-            <div className="registration__error-text">{errors.mobile}</div>
+            <p className="mt-1 text-sm text-red-600">{errors.mobile}</p>
           )}
         </div>
 
-        <div className="registration__field">
-          <label className="registration__label">Password</label>
-          <Input
-            type="password"
+        <div>
+          <label htmlFor="password" className="sr-only">
+            Password
+          </label>
+          <input
+            id="password"
             name="password"
+            type="password"
             value={formData.password}
             onChange={handleChange}
             onBlur={handleBlur}
-            className={
+            className={`w-full px-3 py-2 border ${
               touched.password && errors.password
-                ? "registration__input--error"
-                : ""
-            }
+                ? "border-red-500"
+                : "border-gray-300"
+            } rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+            placeholder="Password"
             required
           />
           {touched.password && errors.password && (
-            <div className="registration__error-text">{errors.password}</div>
+            <p className="mt-1 text-sm text-red-600">{errors.password}</p>
           )}
         </div>
 
-        <div className="registration__field">
-          <label className="registration__label">Confirm Password</label>
-          <Input
-            type="password"
+        <div>
+          <label htmlFor="confirmPassword" className="sr-only">
+            Confirm Password
+          </label>
+          <input
+            id="confirmPassword"
             name="confirmPassword"
+            type="password"
             value={formData.confirmPassword}
             onChange={handleChange}
             onBlur={handleBlur}
-            className={
+            className={`w-full px-3 py-2 border ${
               touched.confirmPassword && errors.confirmPassword
-                ? "registration__input--error"
-                : ""
-            }
+                ? "border-red-500"
+                : "border-gray-300"
+            } rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+            placeholder="Confirm Password"
             required
           />
           {touched.confirmPassword && errors.confirmPassword && (
-            <div className="registration__error-text">
+            <p className="mt-1 text-sm text-red-600">
               {errors.confirmPassword}
-            </div>
+            </p>
           )}
         </div>
 
-        <div className="registration__actions">
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={loading}
-            className="registration__submit-btn"
-          >
-            {loading ? "Registering..." : "Register"}
-          </Button>
+        <button
+          type="submit"
+          className="w-full bg-indigo-500 text-white py-2 px-4 rounded-md hover:bg-indigo-600 transition duration-200"
+          disabled={loading}
+        >
+          {loading ? "Registering..." : "Register"}
+        </button>
 
-          <Button
-            type="button"
-            variant="text"
-            onClick={() => navigate("/login")}
-            className="registration__link-btn"
-          >
-            Have an account? Login here
-          </Button>
+        <div className="text-center mt-6">
+          <p className="text-gray-500 text-sm">
+            Already have an account?
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+              className="text-indigo-500 hover:text-indigo-600 ml-1 font-medium"
+            >
+              Log in
+            </button>
+          </p>
         </div>
       </form>
     </div>

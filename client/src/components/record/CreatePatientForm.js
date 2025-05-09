@@ -4,9 +4,11 @@ import Input from "../ui/input";
 import Card from "../ui/card";
 import { PlusCircle, MinusCircle } from "lucide-react";
 import { useRecordContext } from "../../context/RecordContext";
+import { useHoverPanel } from "../../context/HoverPanelContext";
 
-const PatientForm = ({ patient, onSuccess, onCancel, shouldReset }) => {
+const PatientForm = ({ patient, shouldReset }) => {
   const { createRecord, updateRecord } = useRecordContext();
+  const { closePanel } = useHoverPanel();
   const [step, setStep] = useState(1);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -121,17 +123,20 @@ const PatientForm = ({ patient, onSuccess, onCancel, shouldReset }) => {
 
     setIsSubmitting(true);
     setError(null);
+
     try {
+      // Step 1: Submit the form
       if (patient) {
         await updateRecord(patient._id, formData);
       } else {
         await createRecord(formData);
-      } // <- calling record service
-      alert("Patient record created successfully");
+      }
+
+      // Close panel and trigger any success callback if provided
+      closePanel(true);
     } catch (error) {
       console.error("Error creating patient record:", error);
       setError("Failed to create patient record. Please try again.");
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -196,84 +201,81 @@ const PatientForm = ({ patient, onSuccess, onCancel, shouldReset }) => {
     <div className="max-w-5xl mx-auto p-6">
       <Card title="Create Patient Record">
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Personal Info */}
+          {/* Personal Info and Contact Info */}
           {step === 1 && (
-            <section>
-              <h3 className="text-lg font-semibold mb-4">
-                Personal Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Input
-                  label="First Name"
-                  name="firstName"
-                  value={formData.name.firstName}
-                  onChange={(e) => handleChange(e, "name")}
-                  required
-                />
-                <Input
-                  label="Last Name"
-                  name="lastName"
-                  value={formData.name.lastName}
-                  onChange={(e) => handleChange(e, "name")}
-                  required
-                />
-                <Input
-                  label="Middle Names"
-                  name="middleNames"
-                  value={formData.name.middleNames.join(", ")}
-                  onChange={(e) =>
-                    handleChange(
-                      {
-                        target: {
-                          name: "middleNames",
-                          value: e.target.value
-                            .split(",")
-                            .map((name) => name.trim()),
-                        },
-                      },
-                      "name"
-                    )
-                  }
-                  placeholder="Comma-separated"
-                />
-                <Input
-                  label="Date of Birth"
-                  name="dateOfBirth"
-                  type="date"
-                  value={formData.dateOfBirth}
-                  onChange={handleChange}
-                  required
-                />
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Gender
-                  </label>
-                  <select
-                    name="gender"
-                    value={formData.gender}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-md py-2 px-3 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    required
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <Input
-                  label="National ID"
-                  name="nic"
-                  value={formData.nic}
-                  onChange={handleChange}
-                />
-              </div>
-            </section>
-          )}
-
-          {/* Contact Info & Passport Details */}
-          {step === 2 && (
             <>
+              <section>
+                <h3 className="text-lg font-semibold mb-4">
+                  Personal Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <Input
+                    label="First Name"
+                    name="firstName"
+                    value={formData.name.firstName}
+                    onChange={(e) => handleChange(e, "name")}
+                    required
+                  />
+                  <Input
+                    label="Last Name"
+                    name="lastName"
+                    value={formData.name.lastName}
+                    onChange={(e) => handleChange(e, "name")}
+                    required
+                  />
+                  <Input
+                    label="Middle Names"
+                    name="middleNames"
+                    value={formData.name.middleNames.join(", ")}
+                    onChange={(e) =>
+                      handleChange(
+                        {
+                          target: {
+                            name: "middleNames",
+                            value: e.target.value
+                              .split(",")
+                              .map((name) => name.trim()),
+                          },
+                        },
+                        "name"
+                      )
+                    }
+                    placeholder="Comma-separated"
+                  />
+                  <Input
+                    label="Date of Birth"
+                    name="dateOfBirth"
+                    type="date"
+                    value={formData.dateOfBirth}
+                    onChange={handleChange}
+                    required
+                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Gender
+                    </label>
+                    <select
+                      name="gender"
+                      value={formData.gender}
+                      onChange={handleChange}
+                      className="w-full border border-gray-300 rounded-md py-2 px-3 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      required
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <Input
+                    label="National ID"
+                    name="nic"
+                    value={formData.nic}
+                    onChange={handleChange}
+                  />
+                </div>
+              </section>
+
               <section>
                 <h3 className="text-lg font-semibold mb-4">
                   Contact Information
@@ -317,8 +319,8 @@ const PatientForm = ({ patient, onSuccess, onCancel, shouldReset }) => {
             </>
           )}
 
-          {/* Allergies & Other Health Info */}
-          {step === 3 && (
+          {/* Allergies & Medical History */}
+          {step === 2 && (
             <>
               <section>
                 <h3 className="text-lg font-semibold mb-4">Allergies</h3>
@@ -364,7 +366,92 @@ const PatientForm = ({ patient, onSuccess, onCancel, shouldReset }) => {
                 { name: "pastMedicalHistory", title: "Past Medical History" },
                 { name: "regularMedications", title: "Regular Medications" },
                 { name: "pastSurgicalHistory", title: "Past Surgical History" },
-                { name: "immunizations", title: "Immunizations" },
+              ].map(({ name, title }) => (
+                <section key={name}>
+                  <h3 className="text-lg font-semibold mb-4">{title}</h3>
+                  {formData[name].map((item, index) => (
+                    <div key={index} className="space-y-2 mb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {Object.entries(item).map(([field, value]) => (
+                          <Input
+                            key={field}
+                            label={formatFieldLabel(field)}
+                            name={field}
+                            value={value}
+                            onChange={(e) => handleChange(e, name, index)}
+                            type={field.includes("date") ? "date" : "text"}
+                          />
+                        ))}
+                      </div>
+                      {index > 0 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          icon={<MinusCircle size={16} />}
+                          onClick={() => removeArrayField(name, index)}
+                        >
+                          Remove {title.replace(/s$/, "")}
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="link"
+                    icon={<PlusCircle size={16} />}
+                    onClick={() => addArrayField(name)}
+                  >
+                    Add {title.replace(/s$/, "")}
+                  </Button>
+                </section>
+              ))}
+            </>
+          )}
+
+          {/* Immunizations & Risk Factors */}
+          {step === 3 && (
+            <>
+              <section>
+                <h3 className="text-lg font-semibold mb-4">Immunizations</h3>
+                {formData.immunizations.map((item, index) => (
+                  <div key={index} className="space-y-2 mb-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {Object.entries(item).map(([field, value]) => (
+                        <Input
+                          key={field}
+                          label={formatFieldLabel(field)}
+                          name={field}
+                          value={value}
+                          onChange={(e) =>
+                            handleChange(e, "immunizations", index)
+                          }
+                          type={field.includes("date") ? "date" : "text"}
+                        />
+                      ))}
+                    </div>
+                    {index > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        icon={<MinusCircle size={16} />}
+                        onClick={() => removeArrayField("immunizations", index)}
+                      >
+                        Remove Immunization
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="link"
+                  icon={<PlusCircle size={16} />}
+                  onClick={() => addArrayField("immunizations")}
+                >
+                  Add Immunization
+                </Button>
+              </section>
+
+              {[
                 {
                   name: "behavioralRiskFactors",
                   title: "Behavioral Risk Factors",

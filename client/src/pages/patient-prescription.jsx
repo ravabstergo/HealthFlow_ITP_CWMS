@@ -7,6 +7,9 @@ import Modal from "../components/ui/modal";
 import { Calendar, User, Clock, Eye } from "lucide-react";
 import jsPDF from 'jspdf';
 
+// API URL constant
+const API_URL = `${process.env.REACT_APP_API_URL}`;
+
 export default function PatientPrescriptionPage() {
   const { currentUser } = useAuthContext();
   const [prescriptions, setPrescriptions] = useState([]);
@@ -31,7 +34,7 @@ export default function PatientPrescriptionPage() {
         const token = TokenService.getAccessToken();
         
         // First get user details (email/NIC)
-        const userResponse = await fetch(`/api/auth/users/${currentUser.id}`, {
+        const userResponse = await fetch(`${API_URL}/auth/users/${currentUser.id}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
           },
@@ -44,7 +47,7 @@ export default function PatientPrescriptionPage() {
         const userData = await userResponse.json();
         
         // Then get the patient ID using email/NIC
-        const patientResponse = await fetch(`/api/records/findByUser?${userData.email ? `email=${userData.email}` : `nic=${userData.nic}`}`, {
+        const patientResponse = await fetch(`${API_URL}/records/findByUser?${userData.email ? `email=${userData.email}` : `nic=${userData.nic}`}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
           },
@@ -60,7 +63,7 @@ export default function PatientPrescriptionPage() {
         setPatientName(userData.name || "");
 
         // Finally fetch prescriptions using the patient ID
-        const response = await fetch(`/api/prescriptions/patient/${patientId}`, {
+        const response = await fetch(`${API_URL}/prescriptions/patient/${patientId}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
           },

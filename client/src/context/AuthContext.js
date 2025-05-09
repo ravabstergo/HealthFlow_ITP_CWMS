@@ -18,6 +18,7 @@ const initialState = {
   permissions: [],
   loading: true,
   error: null,
+  authType: "traditional", // Default to traditional auth type
 };
 
 // Reducer
@@ -30,6 +31,7 @@ function authReducer(state, action) {
         currentUser: action.payload.user,
         activeRole: action.payload.role,
         permissions: action.payload.role?.permissions || [],
+        authType: action.payload.user?.authType || "traditional", // Use user's authType or default
         loading: false,
         error: null,
       };
@@ -44,10 +46,12 @@ function authReducer(state, action) {
       console.error("[AuthContext] SET_ERROR:", action.payload);
       return { ...state, error: action.payload, loading: false };
     case "SWITCH_ROLE":
+      console.log("[AuthContext] SWITCH_ROLE:", action.payload);
+      // Maintain current user data including authType when switching roles
       return {
         ...state,
-        activeRole: action.payload.role,
-        permissions: action.payload.role?.permissions || [],
+        activeRole: action.payload.activeRole,
+        permissions: action.payload.activeRole?.permissions || [],
         loading: false,
         error: null,
       };
@@ -88,10 +92,16 @@ export const AuthProvider = ({ children }) => {
       }
 
       try {
-        const { user, activeRole } = await AuthService.getMe();
+        const userData = await AuthService.getMe();
         dispatch({
           type: "LOGIN_SUCCESS",
-          payload: { user, role: activeRole },
+          payload: {
+            user: {
+              ...userData.user,
+              authType: userData.user.authType || "traditional", // Ensure authType is set
+            },
+            role: userData.activeRole,
+          },
         });
       } catch (err) {
         console.error("[AuthContext] Failed to fetch user:", err);
@@ -104,21 +114,88 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
-  const login = async (identifier, password) => {
+  // Updated login function that supports both direct login and the first step of OTP flow
+  const login = async (identifier, password, otp = null) => {
     dispatch({ type: "SET_LOADING" });
-    console.log("[AuthContext] Logging in:", identifier);
+    console.log("[AuthContext] Login process starting:", {
+      identifier,
+      hasPassword: !!password,
+      hasOTP: !!otp,
+    });
 
     try {
-      const data = await AuthService.login(identifier, password);
-      dispatch({
-        type: "LOGIN_SUCCESS",
-        payload: {
-          user: data.user,
-          role: data.activeRole,
-        },
-      });
-      return data;
+      // If OTP is provided, we're in step 2 of the login flow
+      if (otp) {
+        console.log("[AuthContext] OTP provided, verifying with server");
+        // Get the stored userId from localStorage or session or pass it directly
+        const userId = localStorage.getItem("temp_userId");
+
+        if (!userId) {
+          console.error("[AuthContext] No userId found for OTP verification");
+          throw new Error(
+            "Authentication session expired. Please try logging in again."
+          );
+        }
+
+        // Verify OTP
+        const response = await AuthService.verifyOtp(userId, otp);
+
+        // Clear temporary userId
+        localStorage.removeItem("temp_userId");
+
+        if (response?.user && response?.activeRole) {
+          console.log(
+            "[AuthContext] OTP verified successfully, updating auth state"
+          );
+          dispatch({
+            type: "LOGIN_SUCCESS",
+            payload: {
+              user: {
+                ...response.user,
+                authType: response.user.authType || "traditional",
+              },
+              role: response.activeRole,
+            },
+          });
+          return response;
+        } else {
+          throw new Error("Invalid response after OTP verification");
+        }
+      } else {
+        // Step 1: Initial login to check credentials
+        console.log("[AuthContext] Initial login step, checking credentials");
+        const response = await AuthService.login(identifier, password);
+
+        // If OTP is required, store userId temporarily and return response to UI
+        if (response?.requiresOTP && response?.userId) {
+          console.log("[AuthContext] OTP required, storing userId temporarily");
+          localStorage.setItem("temp_userId", response.userId);
+          dispatch({ type: "SET_LOADING_FALSE" });
+          return response;
+        }
+
+        // If no OTP required (direct login, e.g. with NIC)
+        if (response?.user && response?.activeRole) {
+          console.log(
+            "[AuthContext] Direct login successful, updating auth state"
+          );
+          dispatch({
+            type: "LOGIN_SUCCESS",
+            payload: {
+              user: {
+                ...response.user,
+                authType: response.user.authType || "traditional",
+              },
+              role: response.activeRole,
+            },
+          });
+          return response;
+        } else {
+          throw new Error("Invalid response from server");
+        }
+      }
     } catch (err) {
+      console.error("[AuthContext] Login error:", err);
       dispatch({ type: "SET_ERROR", payload: err.message });
       throw err;
     }
@@ -127,18 +204,29 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     console.log("[AuthContext] Logging out");
     AuthService.logout();
+    localStorage.removeItem("temp_userId"); // Clear any temporary auth data
     dispatch({ type: "LOGOUT" });
   };
 
   const switchRole = async (roleId) => {
     dispatch({ type: "SET_LOADING" });
+    console.log("[AuthContext] Switching to role:", roleId);
     try {
       const response = await AuthService.switchRole(roleId);
+
+      if (!response || !response.activeRole) {
+        throw new Error("Invalid response from server when switching role");
+      }
+
+      // Update the state with the new role and permissions without changing currentUser
       dispatch({
         type: "SWITCH_ROLE",
-        payload: { role: response.activeRole },
+        payload: response,
       });
+
+      return response;
     } catch (err) {
+      console.error("[AuthContext] Failed to switch role:", err);
       dispatch({ type: "SET_ERROR", payload: err.message });
       throw err;
     }
@@ -158,11 +246,14 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     ...state,
+    dispatch,
     login,
     logout,
     hasPermission,
     switchRole,
     isAuthenticated: !!state.currentUser,
+    // Explicitly expose authType to components
+    authType: state.authType || "traditional",
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

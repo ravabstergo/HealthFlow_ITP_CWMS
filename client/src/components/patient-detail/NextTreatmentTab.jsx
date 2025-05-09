@@ -13,6 +13,7 @@ export default function NextTreatmentTab() {
   const { id: patientId } = useParams();
   const { currentUser } = useAuthContext();
   const doctorId = currentUser?.id;
+  const API_URL = process.env.REACT_APP_API_URL || '';
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -60,7 +61,7 @@ export default function NextTreatmentTab() {
         const token = TokenService.getAccessToken();
         
         // First fetch patient data using the correct endpoint
-        const patientResponse = await fetch(`/api/records/${patientId}`, {
+        const patientResponse = await fetch(`${API_URL}/records/${patientId}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
           },
@@ -77,7 +78,7 @@ export default function NextTreatmentTab() {
         }
 
         // Then fetch prescriptions
-        const prescriptionResponse = await fetch(`/api/prescriptions/patient/${patientId}`, {
+        const prescriptionResponse = await fetch(`${API_URL}/prescriptions/patient/${patientId}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
           },
@@ -111,7 +112,7 @@ export default function NextTreatmentTab() {
 
     try {
       const token = TokenService.getAccessToken();
-      const response = await fetch(`/api/drugs/search?q=${encodeURIComponent(query)}`, {
+      const response = await fetch(`${API_URL}/drugs/search?q=${encodeURIComponent(query)}`, {
         headers: {
           "Authorization": `Bearer ${token}`,
         },
@@ -196,7 +197,7 @@ export default function NextTreatmentTab() {
     try {
       const token = TokenService.getAccessToken();
       console.log("patiid", patientId, "docid", doctorId)
-      const response = await fetch("/api/prescriptions", {
+      const response = await fetch(`${API_URL}/prescriptions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -219,7 +220,7 @@ export default function NextTreatmentTab() {
         throw new Error(errorData.message || "Failed to create prescription");
       }
 
-      const updatedResponse = await fetch(`/api/prescriptions/patient/${patientId}`, {
+      const updatedResponse = await fetch(`${API_URL}/prescriptions/patient/${patientId}`, {
         headers: {
           "Authorization": `Bearer ${token}`,
         },
@@ -282,7 +283,7 @@ export default function NextTreatmentTab() {
 
     try {
       const token = TokenService.getAccessToken();
-      const response = await fetch(`/api/prescriptions/${prescriptionToDelete._id}`, {
+      const response = await fetch(`${API_URL}/prescriptions/${prescriptionToDelete._id}`, {
         method: 'DELETE',
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -322,7 +323,7 @@ export default function NextTreatmentTab() {
       if (!editedPrescription?._id) {
         throw new Error("Invalid prescription data");
       }
-      const response = await fetch(`/api/prescriptions/${editedPrescription._id}`, {
+      const response = await fetch(`${API_URL}/prescriptions/${editedPrescription._id}`, {
         method: 'PUT',
         headers: {
           "Content-Type": "application/json",
@@ -341,7 +342,7 @@ export default function NextTreatmentTab() {
         throw new Error("Failed to update prescription");
       }
 
-      const updatedResponse = await fetch(`/api/prescriptions/patient/${patientId}`, {
+      const updatedResponse = await fetch(`${API_URL}/prescriptions/patient/${patientId}`, {
         headers: {
           "Authorization": `Bearer ${token}`,
         },
@@ -452,7 +453,7 @@ Please analyze and provide:
 5. Are any dosage adjustments needed based on patient's conditions?`;
 
       const token = TokenService.getAccessToken();
-      const response = await fetch('http://localhost:5000/api/ai/prompt', {
+      const response = await fetch(`${API_URL}/ai/prompt`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -733,7 +734,7 @@ Please analyze and provide:
                       className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full p-1"
                     >
                       <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
 
                       </svg>
                     </button>
