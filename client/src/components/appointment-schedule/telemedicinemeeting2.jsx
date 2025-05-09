@@ -258,21 +258,19 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
   }, [localMicrophoneTrack, localCameraTrack]);
 
   return (
-    <div className="w-full mx-auto p-0 h-full">
-      {/* Header */}
-      <div className="border-b border-gray-200 mb-4 bg-white">
-        <div className="p-4 pb-0">
-          <h1 className="text-blue-600 font-medium text-sm">Telemedicine Meeting</h1>
+    <div className="w-full mx-auto p-0 h-full">      {/* Header */}
+      <div className="border-b border-gray-200 mb-4 bg-white shadow-sm">
+        <div className="max-w-5xl mx-auto px-6 pb-0">
+          <div className="p-4 pb-0">
+            <h1 className="text-blue-600 font-medium text-lg">Telemedicine Meeting</h1>
+          </div>
+          <div className="h-0.5 w-44 bg-blue-600 mt-2"></div>
         </div>
-        <div className="h-0.5 w-44 bg-blue-600 mt-2"></div>
-      </div>
-
-      {/* Main content */}
-      <div className="flex flex-col md:flex-row h-[calc(100vh-120px)] min-w-[1200px] max-w-[1550px] mx-auto p-0 h-full p-2">
-        {/* Left section - Meeting area and Documents */}
-        <div className="flex-1 flex flex-col min-w-[300px]">
-          {/* Meeting area */}
-          <div className="bg-white rounded-3xl p-4 shadow-sm mb-2 flex-1 flex-grow-[3]">
+      </div>{/* Main content */}
+      <div className="flex items-center justify-center h-[calc(100vh-120px)]">
+        {/* Meeting area */}
+        <div className="w-full max-w-[1200px] mx-auto px-4">
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100">
             {/* Patient info */}
             <div className="flex items-center mb-4">
               <button className="mr-4" onClick={() => navigate('/account/schedule')}>
@@ -282,12 +280,10 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
                 <h2 className="font-medium text-gray-800">{patientName}</h2>
                 <p className="text-sm text-gray-500">{appointmentDate}</p>
               </div>
-            </div>
-
-            {/* Video screens */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4 justify-center">
+            </div>            {/* Video screens */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 max-w-5xl mx-auto">
               {/* Local user video */}
-              <div className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-100 relative">
+              <div className="w-full h-[400px] rounded-2xl overflow-hidden bg-gray-50 relative shadow-inner border border-gray-100">
                 {cameraOn ? (
                   <LocalUser
                     audioTrack={localMicrophoneTrack}
@@ -321,11 +317,9 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
                     Muted
                   </div>
                 )}
-              </div>
-
-              {/* Remote user video */}
+              </div>              {/* Remote user video */}
               {remoteUsers.map((user) => (
-                <div key={user.uid} className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-100 relative">
+                <div key={user.uid} className="w-full h-[400px] rounded-2xl overflow-hidden bg-gray-50 relative shadow-inner border border-gray-100">
                   <RemoteUser user={user} className="w-full h-full object-cover rounded-2xl">
                     <span className="hidden">{user.uid}</span>
                   </RemoteUser>
@@ -336,153 +330,40 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
                   )}
                 </div>
               ))}
-            </div>
-
-            {/* Meeting controls */}
-            <div className="flex justify-center items-center gap-4">
+            </div>            {/* Meeting controls */}
+            <div className="flex justify-center items-center gap-6 mt-2">
               <button
                 onClick={() => setMicOn(!micOn)}
-                className={`p-2 rounded-full ${micOn ? "text-gray-700" : "bg-gray-200 text-gray-500"}`}
+                className={`p-3 rounded-full transition-all duration-200 hover:bg-gray-100 ${
+                  micOn 
+                    ? "text-gray-700 bg-white border border-gray-200" 
+                    : "bg-gray-100 text-gray-500 border border-gray-200"
+                }`}
               >
-                <Mic className="h-5 w-5" />
+                <Mic className="h-6 w-6" />
               </button>
 
               <button 
                 onClick={handleEndMeeting}
-                className="bg-red-400 text-white px-6 py-2 rounded-full font-medium"
+                className="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-full font-medium transition-colors duration-200 shadow-sm"
               >
                 End Meeting
               </button>
 
               <button
                 onClick={() => setCameraOn(!cameraOn)}
-                className={`p-2 rounded-full ${cameraOn ? "text-gray-700" : "bg-gray-200 text-gray-500"}`}
+                className={`p-3 rounded-full transition-all duration-200 hover:bg-gray-100 ${
+                  cameraOn 
+                    ? "text-gray-700 bg-white border border-gray-200" 
+                    : "bg-gray-100 text-gray-500 border border-gray-200"
+                }`}
               >
-                <Video className="h-5 w-5" />
+                <Video className="h-6 w-6" />
               </button>
-            </div>
-
-            {/* White rounded box below buttons */}
-            <div class="mt-3 bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-              <p class="text-sm text-gray-500 text-center">Meeting ID: appointment-{appointmentId}</p>
-            </div>
-          </div>
-
-          {/* Documents section - reduced height */}
-          <div className="bg-white border border-gray-200 rounded-3xl p-4 flex-1 flex-grow-[1] min-h-[120px] overflow-y-auto">
-            <div className="mb-3">
-              <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">Documents</span>
-            </div>
-            {documents.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-gray-400">
-                <FileText className="h-12 w-12 opacity-20" />
-                <p className="text-gray-400 ml-2">No documents available</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {documents.map((doc) => (
-                  <div key={doc._id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-gray-400 mr-2" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-700">{doc.documentName}</p>
-                        <p className="text-xs text-gray-500">{new Date(doc.createdAt).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={async () => {
-                          try {
-                            const downloadInfo = await DocumentService.downloadDocument(doc._id);
-                            const link = document.createElement('a');
-                            link.href = downloadInfo.url;
-                            link.setAttribute('download', downloadInfo.filename);
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          } catch (error) {
-                            console.error('Download failed:', error);
-                          }
-                        }}
-                        className="p-1 hover:bg-gray-100 rounded-full"
-                        title="Download"
-                      >
-                        <Download className="h-4 w-4 text-gray-600" />
-                      </button>
-                      <button 
-                        onClick={() => {
-                          const extension = doc.documentUrl?.split('.').pop().toLowerCase();
-                          if (extension === 'pdf') {
-                            window.open(doc.documentUrl, '_blank');
-                          } else if (['doc', 'docx'].includes(extension)) {
-                            const viewerUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(doc.documentUrl)}`;
-                            window.open(viewerUrl, '_blank');
-                          } else if (['jpg', 'jpeg', 'png'].includes(extension)) {
-                            window.open(doc.documentUrl, '_blank');
-                          }
-                        }}
-                        className="p-1 hover:bg-gray-100 rounded-full"
-                        title="View"
-                      >
-                        <Eye className="h-4 w-4 text-gray-600" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right section - Patient info - increased width */}
-        <div className="md:ml-2 mt-2 md:mt-0 w-full md:w-[420px] min-w-[340px] bg-white border border-gray-200 rounded-3xl p-4 overflow-y-auto">
-          <div className="flex items-center mb-4">
-            <div className="h-12 w-12 bg-gray-200 rounded-full mr-3 flex items-center justify-center overflow-hidden">
-              {patientProfile?.name?.firstName && (
-                <span className="text-gray-700 font-medium">
-                  {patientProfile?.name?.firstName[0]}{patientProfile?.name?.lastName[0]}
-                </span>
-              )}
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Patient Name</p>
-              <p className="font-medium">
-                {patientProfile?.name 
-                  ? `${patientProfile.name.firstName} ${patientProfile.name.lastName}` 
-                  : patientName}
-              </p>
-            </div>
-          </div>
-
-          {/* Patient demographics */}
-          {patientProfile && (
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <p className="text-gray-500">Gender</p>
-                  <p className="font-medium">{patientProfile.gender}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Date of Birth</p>
-                  <p className="font-medium">{patientProfile.dateOfBirth}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">NIC</p>
-                  <p className="font-medium">{patientProfile.nic}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Contact</p>
-                  <p className="font-medium">{patientProfile.phone}</p>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Medical history section */}
-          <div className="border-t border-gray-200 pt-4 mt-4">
-            <h3 className="font-medium text-gray-800 mb-3">Medical Profile</h3>
-            <PatientProfileSection patientData={patientProfile} />
-          </div>
+            </div>            {/* Meeting info box */}
+            <div className="mt-6 bg-gray-50 rounded-xl p-3 border border-gray-100 max-w-xs mx-auto">
+              <p className="text-sm text-gray-500 text-center font-medium">Meeting ID: appointment-{appointmentId}</p>
+            </div>          </div>
         </div>
       </div>
     </div>
