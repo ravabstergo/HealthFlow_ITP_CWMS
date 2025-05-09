@@ -37,7 +37,7 @@ app.use(
       "https://sandbox.payhere.lk",
       "https://www.payhere.lk",
     ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     credentials: true,
   })
 );
