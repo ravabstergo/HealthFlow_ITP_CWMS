@@ -4,46 +4,126 @@ import Button from "../components/ui/button";
 import { toast } from "react-toastify";
 import TokenService from "../services/TokenService";
 import { X, User, Calendar, Stethoscope } from "lucide-react";
+import { useLinkedRecordContext } from "../context/LinkedRecordContext";
 
 export default function FeedbackCreatePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const encounterId = location.state?.encounterId; // Retrieve encounterId from state
+  const { linkedRecordIds } = useLinkedRecordContext(); // Get linkedRecordIds
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [comments, setComments] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [encounterData, setEncounterData] = useState({
+    doctorName: "Unknown",
+    diagnosis: "Unknown",
+    encounterDate: new Date().toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+    }),
+  });
   const totalPages = 3;
 
-  const patientData = {
-    name: "John Doe",
-    age: 45,
-    diagnosis: "Hypertension"
-  };
-
-  useEffect(() => {       
-    const fetchQuestions = async () => {
+  useEffect(() => {
+    const fetchData = async () => {
       try {
+        // Fetch questions
         console.log("[FeedbackCreatePage] Fetching questions...");
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/feedback/questions/all`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch questions: ${response.statusText}`);
+        const questionResponse = await fetch(`${process.env.REACT_APP_API_URL}/feedback/questions/all`);
+        if (!questionResponse.ok) {
+          throw new Error(`Failed to fetch questions: ${questionResponse.statusText}`);
         }
-        const data = await response.json();
-        console.log("[FeedbackCreatePage] Questions fetched:", data);
-        setQuestions(data);
+        const questionData = await questionResponse.json();
+        console.log("[FeedbackCreatePage] Questions fetched:", questionData);
+        setQuestions(questionData);
         const initialAnswers = {};
-        data.forEach(q => {
-          initialAnswers[q._id] = q.type === "number" ? "" : (q.type === "yesNoWithDetails" ? { value: "", details: "" } : "");
+        questionData.forEach((q) => {
+          initialAnswers[q._id] = q.type === "number" ? "" : q.type === "yesNoWithDetails" ? { value: "", details: "" } : "";
         });
         setAnswers(initialAnswers);
+
+        // Fetch encounter data for diagnosis and date
+        let diagnosis = "Unknown";
+        let encounterDate = new Date().toLocaleDateString("en-US", {
+          month: "2-digit",
+          day: "2-digit",
+          year: "numeric",
+        });
+        if (encounterId) {
+          const token = TokenService.getAccessToken();
+          if (!token) {
+            throw new Error("No access token found for encounter fetch.");
+          }
+          console.log("[FeedbackCreatePage] Fetching encounter for encounterId:", encounterId);
+          const encounterResponse = await fetch(`${process.env.REACT_APP_API_URL}/encounters/${encounterId}`, {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (encounterResponse.ok) {
+            const encounter = await encounterResponse.json();
+            diagnosis = encounter.diagnosis || "Unknown";
+            encounterDate = encounter.dateTime
+              ? new Date(encounter.dateTime).toLocaleDateString("en-US", {
+                  month: "2-digit",
+                  day: "2-digit",
+                  year: "numeric",
+                })
+              : encounterDate;
+          } else {
+            console.warn(`[FeedbackCreatePage] Failed to fetch encounter: ${encounterResponse.statusText}`);
+          }
+        }
+
+        // Fetch doctor name using linked records
+        let doctorName = "Unknown";
+        if (encounterId && linkedRecordIds?.length > 0) {
+          const token = TokenService.getAccessToken();
+          if (!token) {
+            throw new Error("No access token found for encounters fetch.");
+          }
+          const allEncounters = await Promise.all(
+            linkedRecordIds.map(async (recordId) => {
+              try {
+                console.log("[FeedbackCreatePage] Fetching encounters for recordId:", recordId);
+                const response = await fetch(
+                  `${process.env.REACT_APP_API_URL}/encounters/by-record/${recordId}`,
+                  {
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                  }
+                );
+                if (!response.ok) {
+                  console.warn(`Failed to fetch encounters for record ${recordId}`);
+                  return [];
+                }
+                return await response.json();
+              } catch (err) {
+                console.error(`Error fetching encounters for record ${recordId}:`, err);
+                return [];
+              }
+            })
+          );
+
+          // Find matching encounter
+          const encounters = allEncounters.flat();
+          const matchingEncounter = encounters.find((enc) => enc._id === encounterId);
+          doctorName = matchingEncounter?.provider?.name || "Unknown";
+        }
+
+        setEncounterData({ doctorName, diagnosis, encounterDate });
       } catch (error) {
-        console.error("[FeedbackCreatePage] Error fetching questions:", error);
-        toast.error("Failed to load feedback questions. Please try again.");
+        console.error("[FeedbackCreatePage] Error fetching data:", error);
+        toast.error("Failed to load feedback questions or encounter data. Please try again.");
       }
     };
-    fetchQuestions();
-  }, []);
+    fetchData();
+  }, [encounterId, linkedRecordIds]);
 
   const validateNumberInput = (questionText, value) => {
     if (questionText === "How many days did you take the prescribed medication?") {
@@ -64,32 +144,32 @@ export default function FeedbackCreatePage() {
   const badWords = ["fuck", "shit", "asshole", "damn", "bitch"];
   const checkForBadWords = (text) => {
     const lowerText = text.toLowerCase();
-    return badWords.some(word => lowerText.includes(word));
+    return badWords.some((word) => lowerText.includes(word));
   };
 
   const handleAnswerChange = (questionId, value, details = "", isDetailsUpdate = false) => {
-    const question = questions.find(q => q._id === questionId);
+    const question = questions.find((q) => q._id === questionId);
     if (question.type === "number") {
       const error = validateNumberInput(question.text, value);
       if (error) {
         toast.error(error);
         return;
       }
-      setAnswers(prev => ({
+      setAnswers((prev) => ({
         ...prev,
         [questionId]: value,
       }));
     } else if (question.type === "yesNoWithDetails") {
       const currentAnswer = answers[questionId];
       if (isDetailsUpdate) {
-        setAnswers(prev => ({
+        setAnswers((prev) => ({
           ...prev,
           [questionId]: { value: currentAnswer.value, details: value },
         }));
       } else {
         const isSelected = currentAnswer.value === value;
         const newAnswer = isSelected ? { value: "", details: "" } : { value, details: currentAnswer.details || "" };
-        setAnswers(prev => ({
+        setAnswers((prev) => ({
           ...prev,
           [questionId]: newAnswer,
         }));
@@ -98,7 +178,7 @@ export default function FeedbackCreatePage() {
       const currentAnswer = answers[questionId];
       const isSelected = currentAnswer === value;
       const newAnswer = isSelected ? "" : value;
-      setAnswers(prev => ({
+      setAnswers((prev) => ({
         ...prev,
         [questionId]: newAnswer,
       }));
@@ -113,7 +193,7 @@ export default function FeedbackCreatePage() {
     const endIndex = currentPage === 1 ? Math.ceil(questions.length / 2) : questions.length;
     const pageQuestions = questions.slice(startIndex, endIndex);
 
-    return pageQuestions.every(q => {
+    return pageQuestions.every((q) => {
       const answer = answers[q._id];
       if (!answer && answer !== 0) return false;
       if (q.type === "yesNoWithDetails" && answer.value === "Yes" && !answer.details) return false;
@@ -127,13 +207,13 @@ export default function FeedbackCreatePage() {
       return;
     }
     if (currentPage < totalPages) {
-      setCurrentPage(prev => prev + 1);
+      setCurrentPage((prev) => prev + 1);
     }
   };
 
   const handlePrevious = () => {
     if (currentPage > 1) {
-      setCurrentPage(prev => prev - 1);
+      setCurrentPage((prev) => prev - 1);
     }
   };
 
@@ -148,7 +228,7 @@ export default function FeedbackCreatePage() {
       return;
     }
 
-    const formattedAnswers = Object.keys(answers).map(questionId => ({
+    const formattedAnswers = Object.keys(answers).map((questionId) => ({
       questionId,
       answer: answers[questionId],
     }));
@@ -188,7 +268,7 @@ export default function FeedbackCreatePage() {
     const answer = answers[question._id] || (question.type === "yesNoWithDetails" ? { value: "", details: "" } : "");
     const isCustomNumberInput = [
       "How many days did you take the prescribed medication?",
-      "How would you rate your overall satisfaction (1-5)?"
+      "How would you rate your overall satisfaction (1-5)?",
     ].includes(question.text);
 
     const options = question.type === "multipleChoice" ? question.options : ["Yes", "No"];
@@ -216,30 +296,28 @@ export default function FeedbackCreatePage() {
     };
 
     return (
-      <div key={question._id} className="mb-6 p-4 bg-white rounded-xl shadow-sm border border-gray-200">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          {question.text}
-        </label>
+      <div key={question._id} className="mb-4 p-5 bg-white rounded-xl shadow-sm border border-gray-200">
+        <label className="block text-sm font-medium text-gray-700 mb-1">{question.text}</label>
         {question.type === "number" && isCustomNumberInput ? (
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={handleDecrement}
-              className="h-10 w-10 flex items-center justify-center text-sm rounded-xl border bg-white border-gray-300 text-gray-700 hover:bg-blue-50 transition-colors duration-200"
+              className="h-9 w-9 flex items-center justify-center text-sm rounded-xl border bg-white border-gray-300 text-gray-700 hover:bg-blue-50 transition-colors duration-200"
             >
               −
             </button>
             <input
               type="number"
               value={answer}
-              onChange={e => handleAnswerChange(question._id, e.target.value)}
-              className="h-10 w-16 text-center text-sm border border-gray-300 rounded-xl py-0 px-2 focus:ring-blue-500 focus:border-blue-500"
+              onChange={(e) => handleAnswerChange(question._id, e.target.value)}
+              className="h-9 w-16 text-center text-sm border border-gray-300 rounded-xl py-0 px-2 focus:ring-blue-500 focus:border-blue-500"
               required
             />
             <button
               type="button"
               onClick={handleIncrement}
-              className="h-10 w-10 flex items-center justify-center text-sm rounded-xl border bg-white border-gray-300 text-gray-700 hover:bg-blue-50 transition-colors duration-200"
+              className="h-9 w-9 flex items-center justify-center text-sm rounded-xl border bg-white border-gray-300 text-gray-700 hover:bg-blue-50 transition-colors duration-200"
             >
               +
             </button>
@@ -248,18 +326,18 @@ export default function FeedbackCreatePage() {
           <input
             type="number"
             value={answer}
-            onChange={e => handleAnswerChange(question._id, e.target.value)}
-            className="block w-full border border-gray-300 rounded-xl shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500"
+            onChange={(e) => handleAnswerChange(question._id, e.target.value)}
+            className="block w-full border border-gray-300 rounded-xl shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
             required
           />
         ) : (
-          <div className="flex flex-wrap gap-3">
-            {options.map(option => (
+          <div className="flex flex-wrap gap-2">
+            {options.map((option) => (
               <button
                 key={option}
                 type="button"
                 onClick={() => handleAnswerChange(question._id, option)}
-                className={`text-sm py-2 px-4 rounded-xl border transition-colors duration-200 ${
+                className={`text-sm py-1 px-3 rounded-xl border transition-colors duration-200 ${
                   (question.type === "yesNoWithDetails" ? answer.value === option : answer === option)
                     ? "bg-blue-100 border-blue-300 text-blue-700"
                     : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
@@ -275,8 +353,8 @@ export default function FeedbackCreatePage() {
             type="text"
             placeholder="Please specify"
             value={answer.details}
-            onChange={e => handleAnswerChange(question._id, e.target.value, undefined, true)}
-            className="mt-3 block w-full border border-gray-300 rounded-xl shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500"
+            onChange={(e) => handleAnswerChange(question._id, e.target.value, undefined, true)}
+            className="mt-2 block w-full border border-gray-300 rounded-xl shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
             required
           />
         )}
@@ -303,12 +381,12 @@ export default function FeedbackCreatePage() {
       role="dialog"
       aria-labelledby="panel-title"
     >
-      <div
-        className="relative m-6 h-[calc(100%-3rem)] w-[90vw] max-w-xl bg-white rounded-2xl shadow-xl flex flex-col"
-      >
+      <div className="relative m-6 h-[calc(100%-3rem)] w-[90vw] max-w-xl bg-white rounded-2xl shadow-xl flex flex-col">
         <div className="p-6 border-b sticky top-0 rounded-t-2xl z-10 bg-white">
           <div className="flex justify-between items-center">
-            <h2 id="panel-title" className="text-xl font-medium">Encounter ID #{encounterId || 'Unknown'}</h2>
+          <h2 id="panel-title" className="text-xl font-medium opacity-70">
+            Encounter ID <span className="opacity-60 text-base"> #{encounterId || "Unknown"}</span>
+          </h2>
             <button
               onClick={() => navigate("/account/patient/appointment-history")}
               className="p-2 rounded-xl hover:bg-gray-100"
@@ -320,23 +398,23 @@ export default function FeedbackCreatePage() {
           <hr className="my-4 border-gray-200" />
           <div className="flex items-center gap-6 text-sm">
             <div className="flex items-center gap-2">
-              <User className="w-5 h-5 text-gray-500" />
-              <span className="font-semibold text-blue-600">{patientData.name}</span>
+              <User className="w-7 h-7 text-gray-500" />
+              <span className="font-semibold text-blue-600">{encounterData.doctorName}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-gray-500" />
-              <span>{patientData.age} yrs</span>
+              <Calendar className="w-7 h-7 text-gray-500" />
+              <span>{encounterData.encounterDate}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Stethoscope className="w-5 h-5 text-gray-500" />
-              <span className="font-semibold text-blue-600">{patientData.diagnosis}</span>
+              <Stethoscope className="w-7 h-7 text-gray-500" />
+              <span className="font-semibold text-blue-600">{encounterData.diagnosis}</span>
             </div>
           </div>
         </div>
 
-        <div className="p-6 flex-grow flex flex-col justify-between">
-          <div>
-            <div className="flex justify-center items-center mb-8">
+        <div className="p-7 flex flex-col justify-between flex-grow overflow-hidden">
+          <div className="overflow-y-auto flex-grow">
+            <div className="flex justify-center items-center mb-6">
               {Array.from({ length: totalPages }, (_, i) => (
                 <div key={i} className="flex items-center">
                   <div
@@ -348,45 +426,40 @@ export default function FeedbackCreatePage() {
                   </div>
                   {i < totalPages - 1 && (
                     <div
-                      className={`h-1 w-12 ${
-                        currentPage > i + 1 ? "bg-blue-600" : "bg-gray-200"
-                      }`}
+                      className={`h-1 w-12 ${currentPage > i + 1 ? "bg-blue-600" : "bg-gray-200"}`}
                     />
                   )}
                 </div>
               ))}
             </div>
+
             {questions.length === 0 ? (
               <p className="text-gray-500 text-center">Loading questions...</p>
             ) : currentPage < totalPages ? (
-              <div className="space-y-6">
-                {currentQuestions.map((question, index) => renderQuestion(question, index))}
-              </div>
+              <div className="space-y-4">{currentQuestions.map((question, index) => renderQuestion(question, index))}</div>
             ) : (
-              <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Other Comments
-                </label>
+              <div className="p-3 bg-white rounded-xl shadow-sm border border-gray-200">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Other Comments</label>
                 <textarea
                   value={comments}
-                  onChange={e => setComments(e.target.value)}
-                  className="block w-full border border-gray-300 rounded-xl shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={(e) => setComments(e.target.value)}
+                  className="block w-full border border-gray-300 rounded-xl shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
                   rows="4"
                 />
               </div>
             )}
           </div>
-          <div className="flex justify-between mt-8">
+          <div className="flex justify-between mt-6">
             <Button
               variant="secondary"
               onClick={currentPage === 1 ? () => navigate("/account/patient/appointment-history") : handlePrevious}
-              className="py-3 px-6 rounded-xl"
+              className="py-2 px-5 rounded-xl"
             >
               {currentPage === 1 ? "Cancel" : "Previous"}
             </Button>
             <Button
               onClick={currentPage === totalPages ? handleSubmit : handleNext}
-              className="py-3 px-6 rounded-xl"
+              className="py-2 px-5 rounded-xl"
             >
               {currentPage === totalPages ? "Submit" : "Next"}
             </Button>

@@ -162,6 +162,12 @@ export default function Sidebar() {
           path: "patient/appointment-history",
           requiredPerm: "record:view:linked"
         },
+        { 
+          name: "Feedback", 
+          icon: <MessageSquare className="w-4 h-4" />, 
+          path: "feedback/summary/:id",
+          requiredPerm: "feedback:view:own"
+        },
       ],
     },
     {
@@ -246,12 +252,6 @@ export default function Sidebar() {
     {
       category: "FEEDBACK",
       items: [
-        { 
-          name: "Feedback", 
-          icon: <MessageSquare className="w-4 h-4" />, 
-          path: "feedback/summary/:id",
-          requiredPerm: "feedback:view:own"
-        },
         { 
           name: "View Feedback", 
           icon: <FileText className="w-4 h-4" />, 
