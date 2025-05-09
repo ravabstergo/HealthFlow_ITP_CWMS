@@ -197,20 +197,43 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
     calling
   );
 
+  // Get remote users with debug logging
+  const remoteUsers = useRemoteUsers();
+  useEffect(() => {
+    console.log('Remote users updated:', remoteUsers.map(user => ({
+      uid: user.uid,
+      hasVideo: user.hasVideo,
+      hasAudio: user.hasAudio
+    })));
+  }, [remoteUsers]);
+
   // Auto-subscribe to remote tracks
   useClientEvent(client, "user-published", async (user, mediaType) => {
-    await client.subscribe(user, mediaType);
+    console.log('Remote user published:', user.uid, 'mediaType:', mediaType);
+    try {
+      await client.subscribe(user, mediaType);
+      console.log('Successfully subscribed to', mediaType, 'track for user:', user.uid);
+    } catch (err) {
+      console.error('Failed to subscribe to track:', err);
+    }
   });
 
   useClientEvent(client, "user-unpublished", async (user, mediaType) => {
+    console.log('Remote user unpublished:', user.uid, 'mediaType:', mediaType);
     await client.unsubscribe(user, mediaType);
   });
 
-  // Publish tracks
-  usePublish([localMicrophoneTrack, localCameraTrack]);
+  // Log when users join/leave
+  useClientEvent(client, "user-joined", (user) => {
+    console.log('Remote user joined:', user.uid);
+  });
 
-  // Get remote users
-  const remoteUsers = useRemoteUsers();
+  useClientEvent(client, "user-left", (user) => {
+    console.log('Remote user left:', user.uid);
+  });
+  // Publish local tracks
+  const publishResult = usePublish([localMicrophoneTrack, localCameraTrack]);
+  console.log('Track publish result:', publishResult);
 
   const handleEndMeeting = async () => {
     try {
@@ -330,36 +353,26 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
                     Muted
                   </div>
                 )}
-              </div>
-
-              {/* Remote user video */}
+              </div>              {/* Remote user video */}
               {remoteUsers.map((user) => (
                 <div key={user.uid} className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-100 relative">
-                  {user.hasVideo ? (
-                    <RemoteUser 
-                      user={user} 
-                      playVideo={true}
-                      playAudio={true}
-                      className="w-full h-full object-cover rounded-2xl"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200 rounded-2xl">
-                      <div className="flex flex-col items-center">
-                        <div className="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center">
-                          <UserIcon className="h-10 w-10 text-gray-500" />
+                  <RemoteUser 
+                    user={user}
+                    playVideo={true}
+                    playAudio={true}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  >
+                    {!user.hasVideo && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
+                        <div className="flex flex-col items-center">
+                          <div className="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center">
+                            <UserIcon className="h-10 w-10 text-gray-500" />
+                          </div>
+                          <p className="mt-3 text-gray-600">Camera Off</p>
                         </div>
-                        <p className="mt-3 text-gray-600">Camera Off</p>
                       </div>
-                      {/* Audio still plays when video is off */}
-                      <div className="hidden">
-                        <RemoteUser 
-                          user={user}
-                          playVideo={false}
-                          playAudio={true}
-                        />
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </RemoteUser>
                   {!user.hasAudio && (
                     <div className="absolute bottom-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">
                       Muted
@@ -529,8 +542,36 @@ export default function TelemedicineMeeting() {
   const [documents, setDocuments] = useState([]);
   const { currentUser } = useAuthContext();
 
-  // Create Agora client
-  const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+  // Create Agora client with specific config
+  const client = AgoraRTC.createClient({ 
+    mode: "rtc", 
+    codec: "vp8",
+    role: "host" // Explicitly set role
+  });
+
+  // Set up client event handlers
+  useEffect(() => {
+    client.on("user-published", async (user, mediaType) => {
+      console.log("User published:", user.uid, mediaType);
+      await client.subscribe(user, mediaType);
+    });
+
+    client.on("user-unpublished", async (user, mediaType) => {
+      console.log("User unpublished:", user.uid, mediaType);
+    });
+
+    client.on("user-joined", (user) => {
+      console.log("User joined:", user.uid);
+    });
+
+    client.on("user-left", (user) => {
+      console.log("User left:", user.uid);
+    });
+
+    return () => {
+      client.removeAllListeners();
+    };
+  }, [client]);
 
   // Fetch appointment and patient data
   useEffect(() => {
