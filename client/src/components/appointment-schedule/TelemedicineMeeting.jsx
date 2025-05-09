@@ -197,51 +197,11 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
     calling
   );
 
-  // Auto-subscribe to remote tracks with error handling
-  useClientEvent(client, "user-published", async (user, mediaType) => {
-    console.log('Remote user published:', user.uid, 'mediaType:', mediaType);
-    try {
-      await client.subscribe(user, mediaType);
-      console.log('Successfully subscribed to', mediaType, 'track for user:', user.uid);
-    } catch (err) {
-      console.error('Failed to subscribe to track:', err);
-    }
-  });
+  // Publish tracks
+  usePublish([localMicrophoneTrack, localCameraTrack]);
 
-  // Get remote users and debug log updates
+  // Get remote users
   const remoteUsers = useRemoteUsers();
-  useEffect(() => {
-    console.log('Remote users updated:', remoteUsers.map(user => ({
-      uid: user.uid,
-      hasVideo: user.hasVideo,
-      hasAudio: user.hasAudio
-    })));
-  }, [remoteUsers]);
-
-  // Debug logs for user join/leave events
-  useClientEvent(client, "connection-state-change", (curState, prevState) => {
-    console.log("Connection state changed from", prevState, "to", curState);
-  });
-
-  useClientEvent(client, "user-joined", (user) => {
-    console.log("Remote user joined:", user.uid);
-  });
-
-  useClientEvent(client, "user-left", (user) => {
-    console.log("Remote user left:", user.uid);
-  });
-
-  // Publish local tracks with debug logging
-  const publishResult = usePublish([localMicrophoneTrack, localCameraTrack]);
-  useEffect(() => {
-    if (publishResult.isLoading) {
-      console.log('Publishing tracks...');
-    } else if (publishResult.error) {
-      console.error('Error publishing tracks:', publishResult.error);
-    } else {
-      console.log('Successfully published tracks');
-    }
-  }, [publishResult.isLoading, publishResult.error]);
 
   const handleEndMeeting = async () => {
     try {
@@ -361,25 +321,13 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
                     Muted
                   </div>
                 )}
-              </div>              {/* Remote user video */}
+              </div>
+
+              {/* Remote user video */}
               {remoteUsers.map((user) => (
                 <div key={user.uid} className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-100 relative">
-                  <RemoteUser 
-                    user={user}
-                    playVideo={true}
-                    playAudio={true}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  >
-                    {!user.hasVideo && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
-                        <div className="flex flex-col items-center">
-                          <div className="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center">
-                            <UserIcon className="h-10 w-10 text-gray-500" />
-                          </div>
-                          <p className="mt-3 text-gray-600">Camera Off</p>
-                        </div>
-                      </div>
-                    )}
+                  <RemoteUser user={user} className="w-full h-full object-cover rounded-2xl">
+                    <span className="hidden">{user.uid}</span>
                   </RemoteUser>
                   {!user.hasAudio && (
                     <div className="absolute bottom-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">
@@ -550,11 +498,8 @@ export default function TelemedicineMeeting() {
   const [documents, setDocuments] = useState([]);
   const { currentUser } = useAuthContext();
 
-  // Create Agora client with specific config
-  const client = AgoraRTC.createClient({ 
-    mode: "rtc", 
-    codec: "vp8"
-  });
+  // Create Agora client
+  const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 
   // Fetch appointment and patient data
   useEffect(() => {
