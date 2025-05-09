@@ -108,7 +108,7 @@ export default function FeedbackDeletePage() {
       const data = await response.json();
       if (response.ok) {
         toast.success("Feedback deleted successfully!");
-        navigate("/account/feedback");
+        navigate(`/account/feedback/summary/${id}`);
       } else {
         toast.error(data.message || "Error deleting feedback");
       }
@@ -158,7 +158,7 @@ export default function FeedbackDeletePage() {
           ) : error ? (
             <div className="space-y-4">
               <p className="text-red-500">{error}</p>
-              <Button className="mt-4" onClick={() => navigate("/account/feedback")}>
+              <Button className="mt-4" onClick={() => navigate("/account/feedback/summary")}>
                 Back to Feedback
               </Button>
             </div>
