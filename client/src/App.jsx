@@ -47,6 +47,9 @@ import UserManagementPage from "./pages/user-management-page";
 import UserDetailPage from "./pages/user-detail-page";
 import DoctorDashboard from "./pages/dashboard-page";
 import PatientDashboard from "./pages/patient-dashboard";
+import TelemedicineMeet from "./components/appointment-schedule/telemedicinemeeting2";
+
+
 
 function App() {
 
@@ -130,6 +133,7 @@ function App() {
           <Route path="prescription-report" element={<PrescriptionReport />} />
           <Route path="schedule" element={<DoctorSchedule />} />   
           <Route path="meeting/:appointmentId" element={<TelemedicineMeeting />} />
+          <Route path="meeting2/:appointmentId" element={<TelemedicineMeet />} />
           <Route path="staff-and-roles" element={<RoleManagementPage />} />
           <Route path="patient/appointment-history" element={<PastEncounters />}/>
           <Route path="appointments" element={<AppointmentsPage />} />

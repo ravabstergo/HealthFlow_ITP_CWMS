@@ -5,12 +5,52 @@ import { useAuthContext } from "../../context/AuthContext"
 import api from "../../services/api"
 import { toast } from "react-hot-toast"
 
+// Form validation function
+const validateForm = (data, field = null) => {
+  const errors = {};
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^\d{10}$/;
+  const nicRegex = /^\d{9}[VvXx]$|^\d{12}$/;
+
+  // Title validation
+  if (!data.title?.trim()) errors.title = "Title is required";
+
+  // First name validation
+  if (!data.firstName?.trim()) errors.firstName = "First name is required";
+  if (data.firstName?.length < 2) errors.firstName = "First name must be at least 2 characters";
+
+  // Last name validation
+  if (!data.lastName?.trim()) errors.lastName = "Last name is required";
+  if (data.lastName?.length < 2) errors.lastName = "Last name must be at least 2 characters";
+
+  // Phone validation
+  if (!data.phone?.trim()) errors.phone = "Phone number is required";
+  if (data.phone && !phoneRegex.test(data.phone)) errors.phone = "Phone number must be exactly 10 digits";
+
+  // NIC validation (optional but must be valid if provided)
+  if (data.nic && !nicRegex.test(data.nic)) errors.nic = "Please enter a valid NIC number";
+
+  // Email validation
+  if (!data.email?.trim()) errors.email = "Email is required";
+  if (data.email && !emailRegex.test(data.email)) errors.email = "Please enter a valid email address";
+
+  // Reason validation
+  if (!data.reason?.trim()) errors.reason = "Reason for visit is required";
+  if (data.reason?.length < 3) errors.reason = "Please provide a more detailed reason (at least 10 characters)";
+
+  // Return specific field error if requested
+  if (field) return errors[field] || null;
+  return errors;
+};
+
 export default function AppointmentDetailsModal({ isOpen, onClose, appointmentData }) {
   const { currentUser } = useAuthContext();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentStep, setCurrentStep] = useState(2);
   const [consultationFee, setConsultationFee] = useState(null);
+  const [touched, setTouched] = useState({});
+  const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
     title: "",
     firstName: "",
@@ -69,17 +109,45 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointmentDa
       ...prev,
       [name]: value
     }));
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: null
+      }));
+    }
+  };
+
+  const handleBlur = (e) => {
+    const { name } = e.target;
+    setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+    
+    // Validate the field
+    const fieldError = validateForm(formData, name);
+    setErrors(prev => ({
+      ...prev,
+      [name]: fieldError
+    }));
   };
 
   const handleNext = () => {
-    // Validate required fields before proceeding to summary
-    const requiredFields = ['title', 'firstName', 'lastName', 'phone', 'email', 'reason'];
-    const missingFields = requiredFields.filter(field => !formData[field]);
+    // Validate all fields
+    const formErrors = validateForm(formData);
+    const hasErrors = Object.keys(formErrors).length > 0;
     
-    if (missingFields.length > 0) {
-      setError(`Please fill in all required fields: ${missingFields.join(', ')}`);
+    // Mark all fields as touched to show all errors
+    setTouched(Object.keys(formData).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
+    
+    if (hasErrors) {
+      setErrors(formErrors);
+      setError("Please fix the errors in the form before proceeding.");
       return;
     }
+    
     setCurrentStep(3);
     setError(null);
   };
@@ -258,15 +326,23 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointmentDa
           <div className="p-6 space-y-4 flex-grow">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Title <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   name="title"
                   value={formData.title}
                   onChange={handleChange}
-                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onBlur={handleBlur}
+                  className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    touched.title && errors.title ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="Mr/Mrs/Ms"
                 />
+                {touched.title && errors.title && (
+                  <p className="mt-1 text-sm text-red-500">{errors.title}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">NIC</label>
@@ -275,71 +351,117 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointmentDa
                   name="nic"
                   value={formData.nic}
                   onChange={handleChange}
-                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onBlur={handleBlur}
+                  className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    touched.nic && errors.nic ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="National ID Number"
                 />
+                {touched.nic && errors.nic && (
+                  <p className="mt-1 text-sm text-red-500">{errors.nic}</p>
+                )}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  First Name <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleChange}
-                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onBlur={handleBlur}
+                  className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    touched.firstName && errors.firstName ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="First Name"
                 />
+                {touched.firstName && errors.firstName && (
+                  <p className="mt-1 text-sm text-red-500">{errors.firstName}</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Last Name <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleChange}
-                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onBlur={handleBlur}
+                  className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    touched.lastName && errors.lastName ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="Last Name"
                 />
+                {touched.lastName && errors.lastName && (
+                  <p className="mt-1 text-sm text-red-500">{errors.lastName}</p>
+                )}
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Phone Number <span className="text-red-500">*</span>
+              </label>
               <input
                 type="tel"
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                onBlur={handleBlur}
+                className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  touched.phone && errors.phone ? 'border-red-500' : 'border-gray-300'
+                }`}
                 placeholder="Phone Number"
               />
+              {touched.phone && errors.phone && (
+                <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
+              )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email <span className="text-red-500">*</span>
+              </label>
               <input
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                onBlur={handleBlur}
+                className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  touched.email && errors.email ? 'border-red-500' : 'border-gray-300'
+                }`}
                 placeholder="Email Address"
               />
+              {touched.email && errors.email && (
+                <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+              )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Visit</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Reason for Visit <span className="text-red-500">*</span>
+              </label>
               <textarea
                 name="reason"
                 value={formData.reason}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 rows="3"
-                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  touched.reason && errors.reason ? 'border-red-500' : 'border-gray-300'
+                }`}
                 placeholder="Please describe your reason for visit"
               />
+              {touched.reason && errors.reason && (
+                <p className="mt-1 text-sm text-red-500">{errors.reason}</p>
+              )}
             </div>
           </div>
         ) : (

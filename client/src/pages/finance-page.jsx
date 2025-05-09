@@ -301,49 +301,35 @@ export default function FinancialReportPage() {
       {reportData && (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-50 rounded-full">
+          <div className="flex justify-center bg-white rounded-xl p-4 mb-6 w-full shadow-md">
+            <div className="flex flex-col sm:flex-row gap-6 mb-6 items-center">
+              <div className="p-4 text-center sm:border-r sm:border-gray-300">
+                <div className="p-3 bg-blue-50 rounded-full mx-auto mb-2">
                   <Calendar className="w-6 h-6 text-blue-600" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Total Appointments</p>
-                  <p className="text-2xl font-bold text-gray-900">{reportData.summary.totalAppointments}</p>
-                </div>
+                <p className="text-3xl font-bold">{reportData.summary.totalAppointments}</p>
+                <p className="text-sm text-gray-500">Total Appointments</p>
               </div>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-green-50 rounded-full">
+              <div className="p-4 text-center sm:border-r sm:border-gray-300 border-t border-gray-300 sm:border-t-0 pt-8 sm:pt-4">
+                <div className="p-3 bg-green-50 rounded-full mx-auto mb-2">
                   <DollarSign className="w-6 h-6 text-green-600" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Total Income</p>
-                  <p className="text-2xl font-bold text-gray-900">LKR {reportData.summary.totalIncome.toFixed(2)}</p>
-                </div>
+                <p className="text-3xl font-bold">LKR {reportData.summary.totalIncome.toFixed(2)}</p>
+                <p className="text-sm text-gray-500">Total Income</p>
               </div>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-indigo-50 rounded-full">
+              <div className="p-4 text-center sm:border-r sm:border-gray-300 border-t border-gray-300 sm:border-t-0 pt-8 sm:pt-4">
+                <div className="p-3 bg-indigo-50 rounded-full mx-auto mb-2">
                   <Users className="w-6 h-6 text-indigo-600" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Avg Monthly Income</p>
-                  <p className="text-2xl font-bold text-gray-900">LKR {reportData.summary.averageMonthlyIncome.toFixed(2)}</p>
-                </div>
+                <p className="text-3xl font-bold">LKR {reportData.summary.averageMonthlyIncome.toFixed(2)}</p>
+                <p className="text-sm text-gray-500">Avg Monthly Income</p>
               </div>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-purple-50 rounded-full">
+              <div className="p-4 text-center border-t border-gray-300 sm:border-t-0 pt-8 sm:pt-4">
+                <div className="p-3 bg-purple-50 rounded-full mx-auto mb-2">
                   <TrendingUp className="w-6 h-6 text-purple-600" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Avg Growth Rate</p>
-                  <p className="text-2xl font-bold text-gray-900">{reportData.summary.averageGrowthRate.toFixed(1)}%</p>
-                </div>
+                <p className="text-3xl font-bold">{reportData.summary.averageGrowthRate.toFixed(1)}%</p>
+                <p className="text-sm text-gray-500">Avg Growth Rate</p>
               </div>
             </div>
           </div>

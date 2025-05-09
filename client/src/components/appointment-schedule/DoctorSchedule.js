@@ -60,6 +60,7 @@ export default function HealthFlowDashboard() {
 
   const handleAvailabilityChange = (index, field, value) => {
     const newAvailability = [...availability];
+    const newErrors = { ...errors };
 
     if (field === "day") {
       // When day changes, update the date part of startTime and endTime
@@ -97,11 +98,31 @@ export default function HealthFlowDashboard() {
       combinedDateTime.setHours(newTime.getHours(), newTime.getMinutes(), 0, 0);
 
       newAvailability[index][field] = combinedDateTime;
+
+      // Check if we have both start and end times to validate
+      const startTime =
+        field === "startTime"
+          ? combinedDateTime
+          : newAvailability[index].startTime;
+      const endTime =
+        field === "endTime"
+          ? combinedDateTime
+          : newAvailability[index].endTime;
+
+      if (startTime && endTime) {
+        // Clear any existing error first
+        delete newErrors[`availability_time_${index}`];
+
+        if (startTime >= endTime) {
+          newErrors[`availability_time_${index}`] = "End time must be after start time";
+        }
+      }
     } else {
       newAvailability[index][field] = value;
     }
 
     setAvailability(newAvailability);
+    setErrors(newErrors); // Update errors state
   };
 
   const handleAddAvailability = () => {
