@@ -272,15 +272,33 @@ exports.handlePaymentSuccess = async (req, res) => {
         await session.abortTransaction();
         session.endSession();
         throw new Error("Selected time slot is already booked");
-      }
-
-      // Generate Agora token
+      }      // Generate Agora token
       const channelName = `appointment-${appointmentDetails.slotId}`;
-      const uid = 0;
+      const patientUid = parseInt(appointmentDetails.patientId.substring(0, 8), 16);
+      const doctorUid = parseInt(appointmentDetails.doctorId.substring(0, 8), 16);
       const role = RtcRole.PUBLISHER;
       const expirationTimeInSeconds = 3600 * 24 * 30;
       const currentTimestamp = Math.floor(Date.now() / 1000);
       const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+      
+      // Generate separate tokens for patient and doctor
+      const patientToken = RtcTokenBuilder.buildTokenWithUid(
+        process.env.APP_ID,
+        process.env.APP_CERTIFICATE,
+        channelName,
+        patientUid,
+        role,
+        privilegeExpiredTs
+      );
+
+      const doctorToken = RtcTokenBuilder.buildTokenWithUid(
+        process.env.APP_ID,
+        process.env.APP_CERTIFICATE,
+        channelName,
+        doctorUid,
+        role,
+        privilegeExpiredTs
+      );
 
       const agoraToken = RtcTokenBuilder.buildTokenWithUid(
         process.env.APP_ID,
@@ -289,14 +307,15 @@ exports.handlePaymentSuccess = async (req, res) => {
         uid,
         role,
         privilegeExpiredTs
-      );
-
-      // Create appointment within transaction
+      );      // Create appointment within transaction
       const appointment = new Appointment({
         ...appointmentDetails,
         time: new Date(slot.slotTime),
         channelName,
-        agoraToken,
+        agoraToken: patientToken,
+        doctorAgoraToken: doctorToken,
+        patientUid,
+        doctorUid,
         status: "active",
       });
 

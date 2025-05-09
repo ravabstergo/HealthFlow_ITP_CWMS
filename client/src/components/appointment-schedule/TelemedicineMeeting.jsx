@@ -185,13 +185,18 @@ const Basics = ({ appointmentId, appointmentData, patientName, appointmentDate, 
   const { localCameraTrack } = useLocalCameraTrack(cameraOn);
   
   // Get reference to the RTC client
-  const client = useRTCClient();
+  const client = useRTCClient();  // Determine which token and UID to use based on user role
+  const isDoctor = activeRole?.name === 'sys_doctor';
+  const token = isDoctor ? appointmentData?.doctorAgoraToken : appointmentData?.agoraToken;
+  const uid = isDoctor ? appointmentData?.doctorUid : appointmentData?.patientUid;
+
   // Join the channel with Agora credentials
   useJoin(
     {
       appid: APP_ID,
       channel: appointmentData?.channelName || `appointment-${appointmentId}`,
-      token: appointmentData?.agoraToken || null,
+      token: token || null,
+      uid: uid,
       config: {
         logLevel: process.env.NODE_ENV === 'production' ? 'NONE' : 'ERROR' // Reduce logging
       }
