@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuthContext } from "../context/AuthContext";
+import { useLinkedRecordContext } from "../context/LinkedRecordContext";
 import TokenService from "../services/TokenService";
 import Button from "../components/ui/button";
 import Input from "../components/ui/input";
@@ -12,6 +13,7 @@ const API_URL = `${process.env.REACT_APP_API_URL}`;
 
 export default function PatientPrescriptionPage() {
   const { currentUser } = useAuthContext();
+  const { linkedRecordIds, loading: linkLoading, error: linkError } = useLinkedRecordContext();
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -29,64 +31,62 @@ export default function PatientPrescriptionPage() {
   };
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchPrescriptionsForPatient = async (patientId) => {
       try {
         const token = TokenService.getAccessToken();
-        
-        // First get user details (email/NIC)
-        const userResponse = await fetch(`${API_URL}/auth/users/${currentUser.id}`, {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-          },
-        });
-
-        if (!userResponse.ok) {
-          throw new Error("Failed to fetch user details");
-        }
-
-        const userData = await userResponse.json();
-        
-        // Then get the patient ID using email/NIC
-        const patientResponse = await fetch(`${API_URL}/records/findByUser?${userData.email ? `email=${userData.email}` : `nic=${userData.nic}`}`, {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-          },
-        });
-
-        if (!patientResponse.ok) {
-          throw new Error("Failed to find patient record");
-        }
-
-        const { patientId } = await patientResponse.json();
-        
-        // Set patient name from user data
-        setPatientName(userData.name || "");
-
-        // Finally fetch prescriptions using the patient ID
-        const response = await fetch(`${API_URL}/prescriptions/patient/${patientId}`, {
+        const response = await fetch(`${API_URL}/prescriptions/patient-all/${patientId}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
           },
         });
 
         if (!response.ok) {
-          throw new Error("Failed to fetch prescriptions");
+          throw new Error(`Failed to fetch prescriptions for patient ${patientId}`);
         }
 
-        const data = await response.json();
-        setPrescriptions(data);
+        return await response.json();
       } catch (err) {
-        console.error("Error fetching data:", err);
+        console.error(`Error fetching prescriptions for patient ${patientId}:`, err);
+        return [];
+      }
+    };
+
+    const fetchData = async () => {
+      try {
+        if (currentUser) {
+          setPatientName(currentUser.name || "");
+        }
+
+        if (linkedRecordIds && linkedRecordIds.length > 0) {
+          setLoading(true);
+          
+          // Fetch prescriptions for all linked records in parallel
+          const allPrescriptions = await Promise.all(
+            linkedRecordIds.map(recordId => fetchPrescriptionsForPatient(recordId))
+          );
+
+          // Combine and sort all prescriptions by date, newest first
+          const combinedPrescriptions = allPrescriptions
+            .flat()
+            .sort((a, b) => new Date(b.dateIssued) - new Date(a.dateIssued));
+            
+          setPrescriptions(combinedPrescriptions);
+        } else {
+          // No linked records available
+          setPrescriptions([]);
+        }
+      } catch (err) {
+        console.error("Error fetching prescriptions data:", err);
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    if (currentUser) {
+    if (currentUser && linkedRecordIds) {
       fetchData();
     }
-  }, [currentUser]);
+  }, [currentUser, linkedRecordIds]);
 
   const handleViewPrescription = (prescription) => {
     if (!prescription) {
@@ -166,9 +166,13 @@ export default function PatientPrescriptionPage() {
     doc.save(`prescription-${prescription._id}.pdf`);
   };
 
-  const filteredPrescriptions = prescriptions.filter((prescription) =>
-    prescription.doctorId?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPrescriptions = prescriptions.filter((prescription) => {
+    const doctorNameMatch = prescription.doctorId?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const medicineMatch = prescription.medicines?.some(med => 
+      med.medicineName?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    return doctorNameMatch || medicineMatch || searchQuery === "";
+  });
 
   return (
     <>
@@ -245,16 +249,16 @@ export default function PatientPrescriptionPage() {
 
       <div className="container mx-auto px-4">
         <div className="bg-white rounded-lg shadow p-6">
-          {loading ? (
+          {loading || linkLoading ? (
             <div className="flex items-center justify-center py-8">
               <svg className="animate-spin h-8 w-8 text-blue-600" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
             </div>
-          ) : error ? (
+          ) : error || linkError ? (
             <div className="text-red-600 text-center py-8">
-              {error}
+              {error || linkError}
             </div>
           ) : (
             <div className="w-full space-y-4">
@@ -265,6 +269,7 @@ export default function PatientPrescriptionPage() {
                   </h2>
                   <p className="text-sm text-gray-500">
                     Total Prescriptions: {prescriptions.length}
+                    {linkedRecordIds && linkedRecordIds.length > 1 && ` (From ${linkedRecordIds.length} linked records)`}
                   </p>
                 </div>
               </div>
@@ -273,7 +278,7 @@ export default function PatientPrescriptionPage() {
                 <div className="w-96">
                   <Input
                     type="text"
-                    placeholder="Search by doctor name..."
+                    placeholder="Search by doctor name or medicine..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
