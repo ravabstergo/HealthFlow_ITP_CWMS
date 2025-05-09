@@ -77,12 +77,18 @@ export default function PatientAppointmentsPage() {
     const fetchAppointments = async () => {
       try {
         setLoading(true);
-        // Updated to use the correct endpoint matching the backend route
         const response = await api.get(`/api/appointments/appointments/patient/${currentUser?.id}`);
         
         // Fetch doctor details for each appointment
         const appointmentsWithDoctors = await Promise.all(
-          response.data.map(appointment => fetchDoctorDetails(appointment))
+          response.data.map(async appointment => {
+            const enrichedAppointment = await fetchDoctorDetails(appointment);
+            // Ensure appointment has a status
+            return {
+              ...enrichedAppointment,
+              status: enrichedAppointment.status || 'scheduled'
+            };
+          })
         );
         
         setAppointments(appointmentsWithDoctors);
