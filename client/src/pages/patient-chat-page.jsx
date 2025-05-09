@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuthContext } from '../context/AuthContext';
-import DashboardWrapper from '../components/dashboard-wrapper';
 import { 
   getConversations, 
   getMessages, 
@@ -8,7 +7,7 @@ import {
   markMessagesAsRead,
   getOrCreateConversation
 } from '../services/chatService';
-import AuthService from '../services/AuthService'; // Import default export
+import { getAllDoctors } from '../services/doctorService'; // Import named export instead of default export
 import { formatDistanceToNow } from 'date-fns';
 
 export default function PatientChatPage() {
@@ -256,7 +255,7 @@ export default function PatientChatPage() {
       
       try {
         console.log('[PatientChatPage] Calling AuthService.getAllDoctors()');
-        const doctors = await AuthService.getAllDoctors();
+        const doctors = await getAllDoctors();
         console.log('[PatientChatPage] Doctors received:', doctors);
         
         // Check if doctors is defined and is an array

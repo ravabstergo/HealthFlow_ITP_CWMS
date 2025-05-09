@@ -7,9 +7,10 @@ const {
   deleteDocument,
   statusUpdate,
   downloadDocument,
-  getAllDocumentsByDoctor
+  getAllDocumentsByDoctor,
+  getDocumentPreview
 } = require("../controllers/DocumentController");
-const { protect } = require("../middleware/authMiddleware");
+const { verifyToken, protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -23,5 +24,6 @@ router.put("/:id", updateDocument);
 router.delete("/:id", deleteDocument);
 router.put("/:patentid/status", statusUpdate);
 router.get("/:id/download", downloadDocument);
+router.get('/:id/preview', getDocumentPreview);
 
 module.exports = router;

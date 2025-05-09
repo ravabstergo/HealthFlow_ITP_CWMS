@@ -28,27 +28,14 @@ export function HoverPanelProvider({ children }) {
       shouldReset: reset,
     }));
 
-    // Optional: Clear content after animation completes
+    // Clear content after animation completes if reset is true
     if (reset) {
       setTimeout(() => {
         setState((prev) => ({
           ...prev,
           content: null,
         }));
-      }, 300); // Match transition duration
-    }
-  };
-
-  // Enhanced functionality to notify panel content about operation success
-  const notifySuccess = (callback = null) => {
-    // Close the panel first
-    closePanel(true);
-
-    // Execute the callback if provided (after panel closes)
-    if (typeof callback === "function") {
-      setTimeout(() => {
-        callback();
-      }, 300); // Match the transition duration
+      }, 500); // Match the new transition duration
     }
   };
 
@@ -58,7 +45,6 @@ export function HoverPanelProvider({ children }) {
         ...state,
         openPanel,
         closePanel,
-        notifySuccess,
       }}
     >
       {children}

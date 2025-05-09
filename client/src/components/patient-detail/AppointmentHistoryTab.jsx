@@ -24,16 +24,16 @@ export default function EncountersByRecordPage() {
   }, [getEncountersByRecordId, recordId]);
 
   const handleAddEncounter = () => {
-    openPanel("[EncountersByRecordPage]Add New Encounter", <CreateEncounterForm onSuccess={handleEncounterAdded} />);
+    openPanel("Add New Encounter", <CreateEncounterForm onSuccess={handleEncounterAdded} />);
   }
 
   const handleEncounterClick = (encounter) => {
     // Open the hover panel with the encounter details for editing
-    openPanel("[EncountersByRecordPage]Edit Encounter", <CreateEncounterForm encounter={encounter} onSuccess={handleEncounterAdded} />);
+    openPanel("Edit Encounter", <CreateEncounterForm encounter={encounter} onSuccess={handleEncounterAdded} />);
   };
 
   const handleEncounterAdded = () => {
-    console.log("[EncountersByRecordPage]Encounter added or updated successfully");
+    console.log("Encounter added or updated successfully");
     // No need to refresh - the context state is already updated
   }
 

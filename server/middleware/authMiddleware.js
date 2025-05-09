@@ -1,6 +1,5 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-const Role = require("../models/Role");
 const {
   getPermissionsFromCache,
   setPermissionsInCache,
@@ -48,17 +47,19 @@ exports.protect = async (req, res, next) => {
       return res.status(401).json({ message: "Active role not found" });
     }
 
-    // Get permissions from cache or set them if not found
-    let permissions = getPermissionsFromCache(activeRole.role._id);
+    // Get permissions from cache or set them if not found - updated to use async function
+    let permissions = await getPermissionsFromCache(activeRole.role._id);
     if (!permissions) {
       permissions = activeRole.role.permissions;
-      setPermissionsInCache(activeRole.role._id, permissions);
+      // Store permissions in cache for future use
+      await setPermissionsInCache(activeRole.role._id, permissions);
     }
 
     // Set base user info
     req.user = {
-      id: user._id, // Ensure ID is a string
+      id: user._id,
       name: user.name,
+      roleId: activeRole.role._id, // Add roleId here for logout function
       activeRole: {
         id: activeRole.role._id,
         name: activeRole.role.name,
@@ -97,27 +98,79 @@ exports.protect = async (req, res, next) => {
   }
 };
 
-exports.checkPermission = (entity, action, scope = "all") => {
+exports.checkPermission = (entity, action, scopes = ["all"]) => {
+  // Convert single scope string to array for backward compatibility
+  const scopeArray = Array.isArray(scopes) ? scopes : [scopes];
+
   return (req, res, next) => {
+    console.log(
+      `[Permission Check] Checking permission for ${action} on ${entity} with scopes ${scopeArray.join(
+        ", "
+      )}`
+    );
+
     const permissions = req.user?.activeRole?.permissions;
     if (!permissions) {
+      console.log(
+        `[Permission Check] DENIED - No permissions available for user ${req.user?.id}`
+      );
       return res.status(403).json({
         message: "No permissions available",
       });
     }
 
-    const hasPermission = permissions.some(
-      (p) =>
-        p.entity === entity &&
-        p.action === action &&
-        (p.scope === scope || p.scope === "all")
+    console.log(
+      `[Permission Check] Found ${permissions.length} permissions for role ${req.user.activeRole.name} (${req.user.activeRole.id})`
     );
 
+    const hasPermission = permissions.some((p) => {
+      // Check if permission entity and action match
+      const entityActionMatch = p.entity === entity && p.action === action;
+
+      // If entity and action match, check if any of the scopes match
+      if (entityActionMatch) {
+        // Permission allows all scopes
+        if (p.scope === "all") {
+          console.log(
+            `[Permission Check] MATCHED permission with 'all' scope: ${p.entity}.${p.action}.${p.scope}`
+          );
+          return true;
+        }
+
+        // Check if the permission scope matches any of the required scopes
+        const scopeMatches = scopeArray.includes(p.scope);
+
+        if (scopeMatches) {
+          console.log(
+            `[Permission Check] MATCHED permission with specific scope: ${p.entity}.${p.action}.${p.scope}`
+          );
+          return true;
+        }
+      }
+
+      return false;
+    });
+
     if (!hasPermission) {
+      console.log(
+        `[Permission Check] DENIED - User ${
+          req.user.id
+        } lacks permission to ${action} ${entity} with scopes ${scopeArray.join(
+          ", "
+        )}`
+      );
       return res.status(403).json({
         message: `You do not have permission to ${action} ${entity}`,
       });
     }
+
+    console.log(
+      `[Permission Check] GRANTED - User ${
+        req.user.id
+      } authorized to ${action} ${entity} with scope in [${scopeArray.join(
+        ", "
+      )}]`
+    );
 
     // Check if the action requires doctor context
     const requiresDoctorContext =
@@ -125,6 +178,9 @@ exports.checkPermission = (entity, action, scope = "all") => {
       ["patient", "appointment", "prescription"].includes(entity);
 
     if (requiresDoctorContext && !req.dataAccess?.doctorId) {
+      console.log(
+        `[Permission Check] DENIED - Missing doctor context for ${action} on ${entity}`
+      );
       return res.status(403).json({
         message: "This action requires doctor context",
       });

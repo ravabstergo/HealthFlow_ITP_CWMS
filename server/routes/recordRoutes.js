@@ -16,7 +16,7 @@ router.use(protect);
 // create a patient record
 router.post(
   "/",
-  protect,
+  checkPermission("record", "create", ["own"]),
   (req, res, next) => {
     console.log("POST request to create patient record received");
     next();
@@ -26,6 +26,7 @@ router.post(
 
 router.get(
   "/doctor",
+  checkPermission("record", "view", ["own", "linked"]),
   (req, res, next) => {
     console.log("GET request for records by doctor received");
     next();
@@ -34,10 +35,15 @@ router.get(
 );
 
 // Role-specific routes - must come before general recordId route
-router.get("/link", getLinkRecord);
+router.get(
+  "/link",
+  checkPermission("record", "view", ["linked"]),
+  getLinkRecord
+);
 
 router.get(
   "/:recordId",
+  checkPermission("record", "view", ["own", "linked"]),
   (req, res, next) => {
     console.log(
       "GET request for record details received, recordId:",
@@ -51,6 +57,7 @@ router.get(
 // delete a patient record
 router.delete(
   "/:recordId",
+  checkPermission("record", "delete", ["own"]),
   (req, res, next) => {
     console.log("DELETE request to delete patient record received");
     next();
@@ -61,6 +68,7 @@ router.delete(
 // update a patient record
 router.patch(
   "/:recordId",
+  checkPermission("record", "update", ["own", "linked"]),
   (req, res, next) => {
     console.log("PATCH request to update patient record received");
     next();

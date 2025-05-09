@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuthContext } from '../context/AuthContext';
-import DashboardWrapper from '../components/dashboard-wrapper';
 import { 
   getConversations, 
   getMessages, 
