@@ -55,25 +55,14 @@ const appointmentSchema = new Schema({
     createdAt: {
         type: Date,
         default: Date.now
-    },    channelName: { 
+    },
+    channelName: { 
         type: String, 
         default: ''
     }, 
     agoraToken: { 
         type: String,
         default: ''
-    },
-    doctorAgoraToken: {
-        type: String,
-        default: ''
-    },
-    patientUid: {
-        type: Number,
-        required: true
-    },
-    doctorUid: {
-        type: Number,
-        required: true
     },
     orderId: {
         type: String,

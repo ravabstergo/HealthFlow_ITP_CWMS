@@ -307,15 +307,14 @@ exports.handlePaymentSuccess = async (req, res) => {
         uid,
         role,
         privilegeExpiredTs
-      );      // Create appointment within transaction
+      );
+
+      // Create appointment within transaction
       const appointment = new Appointment({
         ...appointmentDetails,
         time: new Date(slot.slotTime),
         channelName,
-        agoraToken: patientToken,
-        doctorAgoraToken: doctorToken,
-        patientUid,
-        doctorUid,
+        agoraToken,
         status: "active",
       });
 
