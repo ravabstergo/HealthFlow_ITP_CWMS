@@ -96,6 +96,23 @@ export default function HealthFlowDashboard() {
       const combinedDateTime = new Date(selectedDate);
       combinedDateTime.setHours(newTime.getHours(), newTime.getMinutes(), 0, 0);
 
+      // Validate time selection
+      if (field === "startTime") {
+        const endTime = new Date(newAvailability[index].endTime);
+        if (combinedDateTime >= endTime) {
+          // Don't update if start time is after or equal to end time
+          showAlert("Start time must be before end time", "error");
+          return;
+        }
+      } else if (field === "endTime") {
+        const startTime = new Date(newAvailability[index].startTime);
+        if (combinedDateTime <= startTime) {
+          // Don't update if end time is before or equal to start time
+          showAlert("End time must be after start time", "error");
+          return;
+        }
+      }
+
       newAvailability[index][field] = combinedDateTime;
     } else {
       newAvailability[index][field] = value;
@@ -740,7 +757,7 @@ export default function HealthFlowDashboard() {
                     </h3>
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <label className="block text-sm font-medium text-gray-700">
-                        Consultation Fee (USD)
+                        Consultation Fee (LKR)
                       </label>
                       <div className="mt-2">
                         <input

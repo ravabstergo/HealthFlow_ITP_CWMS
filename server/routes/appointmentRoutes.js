@@ -25,6 +25,8 @@ const {
 const { create } = require("../models/Appointment");
 const { protect, checkPermission } = require("../middleware/authMiddleware");
 
+router.patch("/appointments/:id", protect, updateAppointmentStatus);
+
 //get all doctors
 router.get("/doctors", protect, getAllDoctors);
 
@@ -91,7 +93,7 @@ router.delete(
 );
 
 //update appointment status
-router.patch("/appointments/:id", protect, updateAppointmentStatus);
+
 
 //check slot availability
 router.get(
