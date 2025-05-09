@@ -197,17 +197,7 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
     calling
   );
 
-  // Get remote users with debug logging
-  const remoteUsers = useRemoteUsers();
-  useEffect(() => {
-    console.log('Remote users updated:', remoteUsers.map(user => ({
-      uid: user.uid,
-      hasVideo: user.hasVideo,
-      hasAudio: user.hasAudio
-    })));
-  }, [remoteUsers]);
-
-  // Auto-subscribe to remote tracks
+  // Auto-subscribe to remote tracks with error handling
   useClientEvent(client, "user-published", async (user, mediaType) => {
     console.log('Remote user published:', user.uid, 'mediaType:', mediaType);
     try {
@@ -218,22 +208,40 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
     }
   });
 
-  useClientEvent(client, "user-unpublished", async (user, mediaType) => {
-    console.log('Remote user unpublished:', user.uid, 'mediaType:', mediaType);
-    await client.unsubscribe(user, mediaType);
+  // Get remote users and debug log updates
+  const remoteUsers = useRemoteUsers();
+  useEffect(() => {
+    console.log('Remote users updated:', remoteUsers.map(user => ({
+      uid: user.uid,
+      hasVideo: user.hasVideo,
+      hasAudio: user.hasAudio
+    })));
+  }, [remoteUsers]);
+
+  // Debug logs for user join/leave events
+  useClientEvent(client, "connection-state-change", (curState, prevState) => {
+    console.log("Connection state changed from", prevState, "to", curState);
   });
 
-  // Log when users join/leave
   useClientEvent(client, "user-joined", (user) => {
-    console.log('Remote user joined:', user.uid);
+    console.log("Remote user joined:", user.uid);
   });
 
   useClientEvent(client, "user-left", (user) => {
-    console.log('Remote user left:', user.uid);
+    console.log("Remote user left:", user.uid);
   });
-  // Publish local tracks
+
+  // Publish local tracks with debug logging
   const publishResult = usePublish([localMicrophoneTrack, localCameraTrack]);
-  console.log('Track publish result:', publishResult);
+  useEffect(() => {
+    if (publishResult.isLoading) {
+      console.log('Publishing tracks...');
+    } else if (publishResult.error) {
+      console.error('Error publishing tracks:', publishResult.error);
+    } else {
+      console.log('Successfully published tracks');
+    }
+  }, [publishResult.isLoading, publishResult.error]);
 
   const handleEndMeeting = async () => {
     try {
@@ -545,33 +553,8 @@ export default function TelemedicineMeeting() {
   // Create Agora client with specific config
   const client = AgoraRTC.createClient({ 
     mode: "rtc", 
-    codec: "vp8",
-    role: "host" // Explicitly set role
+    codec: "vp8"
   });
-
-  // Set up client event handlers
-  useEffect(() => {
-    client.on("user-published", async (user, mediaType) => {
-      console.log("User published:", user.uid, mediaType);
-      await client.subscribe(user, mediaType);
-    });
-
-    client.on("user-unpublished", async (user, mediaType) => {
-      console.log("User unpublished:", user.uid, mediaType);
-    });
-
-    client.on("user-joined", (user) => {
-      console.log("User joined:", user.uid);
-    });
-
-    client.on("user-left", (user) => {
-      console.log("User left:", user.uid);
-    });
-
-    return () => {
-      client.removeAllListeners();
-    };
-  }, [client]);
 
   // Fetch appointment and patient data
   useEffect(() => {
