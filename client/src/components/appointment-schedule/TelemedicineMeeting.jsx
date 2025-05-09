@@ -197,6 +197,15 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
     calling
   );
 
+  // Auto-subscribe to remote tracks
+  useClientEvent(client, "user-published", async (user, mediaType) => {
+    await client.subscribe(user, mediaType);
+  });
+
+  useClientEvent(client, "user-unpublished", async (user, mediaType) => {
+    await client.unsubscribe(user, mediaType);
+  });
+
   // Publish tracks
   usePublish([localMicrophoneTrack, localCameraTrack]);
 
@@ -326,9 +335,31 @@ const Basics = ({ appointmentId, patientName, appointmentDate, patientProfile, d
               {/* Remote user video */}
               {remoteUsers.map((user) => (
                 <div key={user.uid} className="w-full h-[300px] rounded-2xl overflow-hidden bg-gray-100 relative">
-                  <RemoteUser user={user} className="w-full h-full object-cover rounded-2xl">
-                    <span className="hidden">{user.uid}</span>
-                  </RemoteUser>
+                  {user.hasVideo ? (
+                    <RemoteUser 
+                      user={user} 
+                      playVideo={true}
+                      playAudio={true}
+                      className="w-full h-full object-cover rounded-2xl"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200 rounded-2xl">
+                      <div className="flex flex-col items-center">
+                        <div className="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center">
+                          <UserIcon className="h-10 w-10 text-gray-500" />
+                        </div>
+                        <p className="mt-3 text-gray-600">Camera Off</p>
+                      </div>
+                      {/* Audio still plays when video is off */}
+                      <div className="hidden">
+                        <RemoteUser 
+                          user={user}
+                          playVideo={false}
+                          playAudio={true}
+                        />
+                      </div>
+                    </div>
+                  )}
                   {!user.hasAudio && (
                     <div className="absolute bottom-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">
                       Muted
