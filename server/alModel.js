@@ -41,7 +41,7 @@ async function run(prompt) {
 ## Recommendations
 (Provide recommendations for improving patient care)
 
-Focus on concise answers for each section, with each section containing 1-3 sentences. Ensure the response is clear and professional.`
+Focus on concise answers for each section, with each section containing 1-3 sentences. For emphasis, use HTML bold tags (<strong>text</strong>) instead of asterisks. Ensure the response is clear and professional.`
             },
           ],
         },

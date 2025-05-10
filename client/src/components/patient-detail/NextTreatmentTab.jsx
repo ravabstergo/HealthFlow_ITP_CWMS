@@ -47,6 +47,12 @@ export default function NextTreatmentTab() {
     });
   };
 
+  // Helper function to convert asterisk formatting to proper bold tags
+  const convertAsterisksToBold = (text) => {
+    // Replace asterisk-wrapped text with bold tags
+    return text.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+  };
+
   useEffect(() => {
     if (!patientId || !doctorId) {
       setError("Missing patient or doctor information");
@@ -798,61 +804,97 @@ Please analyze and provide:
     <>
       {/* AI Analysis Notification */}
       {showAiNotification && aiAnalysis && (
-        <>
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-[60]"
-            onClick={() => setShowAiNotification(false)}
-          />
-          <div className="fixed inset-0 z-[70] overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-auto relative transform transition-all">
-                <div className="p-6 space-y-4">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-lg font-semibold text-blue-600 flex items-center gap-2">
-                      <Bot className="w-5 h-5" />
-                      AI Treatment Analysis
-                    </h3>
-                    <button 
-                      onClick={() => setShowAiNotification(false)}
-                      className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full p-1"
-                    >
-                      <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+  <>
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-[60] transition-opacity duration-300"
+      onClick={() => setShowAiNotification(false)}
+    />
+    <div className="fixed inset-0 z-[70] overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-auto relative transform transition-all scale-in-center border border-blue-100">
+          <div className="p-6 space-y-4">
+            {/* Header */}
+            <div className="flex justify-between items-start border-b border-gray-100 pb-4">
+              <h3 className="text-xl font-semibold text-blue-600 flex items-center gap-3">
+                <div className="bg-blue-50 p-2 rounded-lg">
+                  <Bot className="w-6 h-6" />
+                </div>
+                AI Treatment Analysis
+              </h3>
+              <button 
+                onClick={() => setShowAiNotification(false)}
+                className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full p-2 transition-colors duration-200"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
 
-                      </svg>
-                    </button>
-                  </div>
-
-                  <div className="prose prose-blue max-w-none">
-                    <div className="whitespace-pre-wrap text-gray-700">
-                      {aiAnalysis.response}
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 p-4 rounded-lg mt-4">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Current Medications</h4>
-                    <ul className="text-sm text-gray-600 space-y-2">
-                      {aiAnalysis.medications.map((med, index) => (
-                        <li key={index} className="flex flex-col gap-1">
-                          <span className="font-medium">{med.name}</span>
-                          <span className="text-gray-500">
-                            Dosage: {med.dosage}, Frequency: {med.frequency}
-                          </span>
-                          {med.instructions && (
-                            <span className="text-gray-500">
-                              Instructions: {med.instructions}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+            {/* Content */}
+            <div className="prose prose-blue max-w-none">
+              <div className="bg-gradient-to-r from-blue-50 to-transparent p-6 rounded-lg border border-blue-100 shadow-sm">
+                <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                  {aiAnalysis.response.split('\n').map((paragraph, idx) => (
+                    <p key={idx} className="mb-4 last:mb-0" 
+                       dangerouslySetInnerHTML={{ __html: convertAsterisksToBold(paragraph) }}>
+                    </p>
+                  ))}
                 </div>
               </div>
             </div>
+
+            {/* Medications Summary */}
+            <div className="bg-gray-50 rounded-lg mt-6 overflow-hidden border border-gray-100">
+              <div className="bg-gray-100 px-6 py-3">
+                <h4 className="text-sm font-semibold text-gray-700">Current Medications Summary</h4>
+              </div>
+              <div className="p-6">
+                <ul className="divide-y divide-gray-100">
+                  {aiAnalysis.medications.map((med, index) => (
+                    <li key={index} className="py-4 first:pt-0 last:pb-0">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-blue-400" />
+                          <span className="font-medium text-gray-900">{med.name}</span>
+                        </div>
+                        <div className="ml-4 grid grid-cols-2 gap-4 text-sm text-gray-600">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500">Dosage:</span>
+                            <span className="font-medium">{med.dosage}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500">Frequency:</span>
+                            <span className="font-medium">{med.frequency}</span>
+                          </div>
+                        </div>
+                        {med.instructions && (
+                          <div className="ml-4 text-sm text-gray-500 bg-gray-50 p-2 rounded-md">
+                            <span className="font-medium">Instructions: </span>
+                            {med.instructions}
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           </div>
-        </>
-      )}
+
+          {/* Footer */}
+          <div className="border-t border-gray-100 px-6 py-4 bg-gray-50">
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-gray-500">
+                Generated by AI Assistant
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </>
+)}
 
       <Modal
         isOpen={isModalOpen}

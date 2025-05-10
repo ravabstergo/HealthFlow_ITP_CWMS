@@ -15,9 +15,9 @@ const {
   });
   
   const generationConfig = {
-    temperature: 0.5,
+    temperature: 0.3,
     topP: 0.90,
-    topK: 50,
+    topK: 40,
     maxOutputTokens: 8192,
     responseMimeType: "text/plain",
   };
@@ -28,9 +28,19 @@ const {
       history: [{
         role: "user",
         parts:[
-          {
-            text: "Your are chat assistant for a clinical management system. only answer questions realted to medicine.and if user ask about health and medical realted question give them simple and short answers.if user ask any unrelated question, then say 'The texts you entered cannot be recognized as a medicine!'",
-          },
+         {
+              text: `You are a clinical AI assistant trained for hospital and medical management systems. Your role is to analyze prescribed medications based on patient history and provide reliable, professional responses.
+
+                      When answering, always:
+                      - Identify potential allergic reactions using known allergens.
+                      - Cross-check current medications for contraindications.
+                      - Check patient s past conditions for risk factors or drug interactions.
+                      - Suggest monitoring needs and dosage adjustments if necessary.
+                      - If the user asks anything non-medical, respond: "The texts you entered cannot be recognized as a medicine!".
+                      - Keep your answers clear, concise, and relevant to medical context.
+
+                      Only focus on pharmaceutical and clinical information. Do not provide general health advice or diagnose conditions.And when user enter or ask any unrelated question say,The texts you entered cannot be recognized as a medicine!`
+        },
         ],
       },
       {
