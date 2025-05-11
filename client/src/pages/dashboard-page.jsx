@@ -528,7 +528,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-4 pl-6 pr-6 pt-4 pb-4">
+    <div className="space-y-4 pl-6 pr-6 pt-4 pb-4 bg-white">
       <h1 className="text-2xl font-bold mb-6">Doctor Dashboard</h1>
       <h2>Welcome, {currentUser?.name || "User"}!</h2>
 
