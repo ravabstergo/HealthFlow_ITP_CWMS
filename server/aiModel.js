@@ -21,6 +21,7 @@ const {
     maxOutputTokens: 8192,
     responseMimeType: "text/plain",
   };
+
   
   async function run(prompt) {
     const chatSession = model.startChat({

@@ -295,7 +295,7 @@ export default function PatientPrescriptionPage() {
             </Button>
             <Button
               variant="secondary"
-              className="bg-green-700 hover:bg-green-800 text-white inline-flex items-center justify-center"
+              className="bg-green-800 hover:bg-green-800 text-white inline-flex items-center justify-center"
               onClick={() => handleDownloadPrescription(selectedPrescription)}
             >
               Download PDF

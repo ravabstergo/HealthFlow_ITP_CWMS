@@ -256,7 +256,7 @@ export default function NextTreatmentTab() {
     
     const creationTime = new Date(prescription.dateIssued).getTime();
     const currentTime = new Date().getTime();
-    const oneHourInMilliseconds = 10 * 60 * 1000;
+    const oneHourInMilliseconds = 60 * 60 * 1000;
     const timeLeft = oneHourInMilliseconds - (currentTime - creationTime);
     
     return timeLeft > 0;
@@ -935,7 +935,7 @@ Please analyze and provide:
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    className="bg-green-800 hover:bg-green-800 text-white"
                     icon={<FileText className="w-4 h-4" />}
                     onClick={() => handleDownloadPrescription(selectedPrescription)}
                   >
